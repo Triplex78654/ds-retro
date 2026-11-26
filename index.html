@@ -1,442 +1,670 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="perle">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Émulateur DS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1e1f22">
+<title>Rétro · console DS</title>
 <script src="config.js"></script>
 <script src="discord-sdk.js"></script>
 <style>
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    min-height: 100vh;
-    background: #1e1f22;
-    color: #f2f3f5;
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+  @font-face {
+    font-family: "Pixelify";
+    src: url("polices/pixelify-sans-latin-400-normal.woff2") format("woff2");
+    font-weight: 400; font-display: swap;
   }
-  header {
-    width: 100%;
-    max-width: 720px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 16px;
+  @font-face {
+    font-family: "Pixelify";
+    src: url("polices/pixelify-sans-latin-600-normal.woff2") format("woff2");
+    font-weight: 600; font-display: swap;
   }
-  header h1 { font-size: 18px; font-weight: 600; margin: 0; }
-  header .badge {
-    margin-left: auto;
-    font-size: 12px;
-    padding: 3px 10px;
-    border-radius: 999px;
-    background: #2b2d31;
-    color: #b5bac1;
-  }
-  #accueil {
-    width: 100%;
-    max-width: 720px;
-    padding: 0 16px 24px;
-  }
-  .carte {
-    background: #2b2d31;
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 16px;
-  }
-  .carte h2 { font-size: 16px; margin: 0 0 8px; }
-  .carte p { color: #b5bac1; font-size: 14px; line-height: 1.6; margin: 0 0 12px; }
-  .bouton {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: #5865f2;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 12px 18px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .bouton:hover { background: #4752c4; }
-  .zone-depot {
-    border: 2px dashed #4e5058;
-    border-radius: 12px;
-    padding: 28px;
-    text-align: center;
-    color: #b5bac1;
-    font-size: 14px;
-    transition: border-color .15s, background .15s;
-  }
-  .zone-depot.survol { border-color: #5865f2; background: #2f3136; }
-  .erreur { color: #f23f43; font-size: 14px; margin-top: 10px; min-height: 20px; }
-  ul.touches { margin: 0; padding-left: 18px; color: #b5bac1; font-size: 14px; line-height: 1.8; }
-  kbd {
-    background: #1e1f22;
-    border-radius: 4px;
-    padding: 1px 6px;
-    font-family: inherit;
-    font-size: 13px;
-    color: #f2f3f5;
-  }
-  #jeu-conteneur {
-    display: none;
-    width: 100%;
-    max-width: 900px;
-    padding: 0 16px 16px;
-  }
-  #ecran {
-    --h: min(calc(100vh - 150px), 820px, calc((100vw - 64px) * 448 / 512));
-    --w: calc(var(--h) * 256 / 448);
-    --cote: calc(var(--w) * 0.5);
-    --coque: #e9ebf0;
-    --coque-ombre: #c7cad3;
+
+  /* ---------- Thèmes : une coque = une palette ---------- */
+  :root {
+    --fond: #1e1f22;
+    --surface: #2b2d31;
+    --surface-2: #313338;
+    --texte: #f2f3f5;
+    --texte-2: #b5bac1;
+    --texte-3: #80848e;
+    --lcd: #e4ebee;
+    --lcd-2: #d2dde2;
+    --encre: #1f2b33;
+    --encre-2: #5b6b75;
+    --vh: 100vh;
+
+    --accent: #5865f2;
+    --sur-accent: #ffffff;
+    --coque: linear-gradient(170deg, #f4f5f8, #e6e8ee 55%, #dcdfe6);
+    --coque-plat: #e2e5eb;
+    --coque-ombre: #c3c7d0;
     --motif: linear-gradient(transparent, transparent);
-    --lueur: 0 10px 30px rgba(0,0,0,.35);
-    --charniere: #b8bcc6;
-    --pli: #a5a9b4;
-    --cadre: #1b1c20;
+    --lueur: 0 18px 50px rgba(0,0,0,.45);
+    --charniere: linear-gradient(#d3d6de, #b9bdc7);
+    --fente: #a9adb8;
+    --cadre: #17181c;
     --bouton: #2a2c31;
     --bouton-texte: #e9ebf0;
-    --bouton-ombre: #111;
+    --bouton-ombre: #0d0e10;
     --petit: #9da1ab;
-    --texte: #7d818b;
-    --hp: #9da1ab;
-    --epaule: #c4c8d0;
+    --grave: #7d818b;
+    --hp: #a3a7b1;
+    --epaule: #cdd0d8;
     --epaule-texte: #5b5f69;
-    position: relative;
-    width: calc(var(--w) + 2 * var(--cote));
-    margin: 0 auto;
-    padding: calc(var(--w) * 0.06) 0;
-    display: grid;
-    grid-template-columns: var(--cote) var(--w) var(--cote);
-    user-select: none;
-    -webkit-user-select: none;
-    touch-action: manipulation;
   }
-  #ecran::before, #ecran::after {
-    content: "";
-    position: absolute;
-    left: 0; right: 0;
-    background: var(--motif), var(--coque);
-    box-shadow: inset 0 -3px 0 var(--coque-ombre), inset 0 2px 0 rgba(255,255,255,.18), var(--lueur);
-    transition: background .3s, box-shadow .3s;
-    z-index: 0;
-  }
-  #ecran::before { top: 0; height: calc(50% - 2px); border-radius: 22px 22px 10px 10px; }
-  #ecran::after { bottom: 0; height: calc(50% - 2px); border-radius: 10px 10px 28px 28px; }
-  .zone-ecrans {
-    position: relative;
-    grid-column: 2;
-    width: var(--w);
-    height: var(--h);
-    z-index: 1;
-  }
-  .zone-ecrans::before {
-    content: "";
-    position: absolute;
-    inset: calc(var(--w) * -0.035);
-    border-radius: 10px;
-    background: var(--cadre);
-    z-index: -1;
-  }
-  #game { position: absolute; inset: 0; background: #000; }
-  .charniere {
-    position: absolute;
-    left: calc(var(--w) * -0.5 - 1px);
-    right: calc(var(--w) * -0.5 - 1px);
-    top: calc(50% - var(--h) * 64 / 448 / 2);
-    height: calc(var(--h) * 64 / 448);
-    background: var(--charniere);
-    box-shadow: inset 0 3px 4px rgba(255,255,255,.35), inset 0 -3px 5px rgba(0,0,0,.2);
-    z-index: 2;
-    pointer-events: none;
-  }
-  .charniere::before, .charniere::after {
-    content: "";
-    position: absolute;
-    top: 18%; bottom: 18%;
-    width: 14%;
-    border-radius: 99px;
-    background: var(--pli);
-  }
-  .charniere::before { left: 4%; }
-  .charniere::after { right: 4%; }
-  .cote {
-    position: relative;
-    z-index: 1;
-    display: grid;
-    grid-template-rows: 1fr 1fr;
-    align-items: center;
-    justify-items: center;
-    height: var(--h);
-  }
-  .haut-parleur {
-    display: grid;
-    grid-template-columns: repeat(3, 6px);
-    gap: 6px;
-    align-self: center;
-  }
-  .haut-parleur i { width: 6px; height: 6px; border-radius: 50%; background: var(--hp); }
-  .bas-cote { display: flex; flex-direction: column; align-items: center; gap: calc(var(--w) * 0.08); padding-top: calc(var(--h) * 0.04); }
-  .croix {
-    position: relative;
-    width: calc(var(--cote) * 0.62);
-    height: calc(var(--cote) * 0.62);
-  }
-  .croix button, .abxy button, .petits button, .epaule {
-    position: absolute;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    font: 600 12px/1 system-ui, sans-serif;
-    color: var(--bouton-texte);
-    -webkit-tap-highlight-color: transparent;
-  }
-  .croix button { background: var(--bouton); width: 34%; height: 34%; }
-  .croix .h { left: 33%; top: 0; border-radius: 5px 5px 0 0; }
-  .croix .b { left: 33%; bottom: 0; border-radius: 0 0 5px 5px; }
-  .croix .g { left: 0; top: 33%; border-radius: 5px 0 0 5px; }
-  .croix .d { right: 0; top: 33%; border-radius: 0 5px 5px 0; }
-  .croix .centre { position: absolute; left: 33%; top: 33%; width: 34%; height: 34%; background: var(--bouton); }
-  .abxy { position: relative; width: calc(var(--cote) * 0.66); height: calc(var(--cote) * 0.66); }
-  .abxy button {
-    width: 34%; height: 34%;
-    border-radius: 50%;
-    background: var(--bouton-a, var(--bouton));
-    box-shadow: 0 2px 0 var(--bouton-ombre);
-  }
-  .abxy .x { left: 33%; top: 0; }
-  .abxy .b { left: 33%; bottom: 0; }
-  .abxy .y { left: 0; top: 33%; }
-  .abxy .a { right: 0; top: 33%; }
-  .petits { position: relative; width: calc(var(--cote) * 0.5); height: 26px; }
-  .petits button {
-    width: 46%; height: 14px; top: 0;
-    border-radius: 99px;
-    background: var(--petit);
-    font-size: 0;
-  }
-  .petits .select { left: 0; }
-  .petits .start { right: 0; }
-  .petits span { position: absolute; top: 16px; font-size: 10px; color: var(--texte); width: 46%; text-align: center; }
-  .petits .ls { left: 0; } .petits .lst { right: 0; }
-  .epaule {
-    top: calc(50% + var(--h) * 32 / 448 - 2px);
-    width: 24%;
-    height: calc(var(--h) * 0.035 + 8px);
-    background: var(--epaule);
-    color: var(--epaule-texte);
-    z-index: 3;
-    font-size: 11px;
-    box-shadow: inset 0 -2px 0 rgba(0,0,0,.15);
-  }
-  .epaule.l { left: -6px; border-radius: 18px 6px 6px 2px; padding-left: 10px; text-align: left; }
-  .epaule.r { right: -6px; border-radius: 6px 18px 2px 6px; padding-right: 10px; text-align: right; }
+  @supports (height: 100dvh) { :root { --vh: 100dvh; } }
 
-  /* ---------- Thèmes de coque ---------- */
-  #ecran[data-theme="onyx"] {
+  [data-theme="onyx"] {
+    --accent: #d9b56a; --sur-accent: #1a1408;
     --coque: linear-gradient(160deg, #2c2d33, #141519 60%, #1d1e23);
-    --coque-ombre: #000; --charniere: linear-gradient(#25262b, #18191d); --pli: #0e0f12;
+    --coque-plat: #18191d; --coque-ombre: #000; --charniere: linear-gradient(#2a2b31, #131417); --fente: #000;
     --cadre: #050506; --bouton: #3a3b42; --bouton-texte: #d9b56a; --bouton-ombre: #000;
-    --petit: #3a3b42; --texte: #8c7a52; --hp: #3a3b42; --epaule: #26272c; --epaule-texte: #d9b56a;
-    --lueur: 0 0 0 1px rgba(217,181,106,.25), 0 14px 40px rgba(0,0,0,.6);
+    --petit: #3a3b42; --grave: #8c7a52; --hp: #3a3b42; --epaule: #26272c; --epaule-texte: #d9b56a;
+    --lueur: 0 0 0 1px rgba(217,181,106,.25), 0 18px 50px rgba(0,0,0,.6);
   }
-  #ecran[data-theme="cerise"] {
+  [data-theme="cerise"] {
+    --accent: #e2475b; --sur-accent: #ffffff;
     --coque: linear-gradient(150deg, #e2475b, #a5162b 55%, #c42a3f);
-    --coque-ombre: #6e0d1b; --charniere: linear-gradient(#b51f34, #8c1124); --pli: #730e1e;
+    --coque-plat: #b41f35; --coque-ombre: #6e0d1b; --charniere: linear-gradient(#c22a3f, #8c1124); --fente: #5a0a16;
     --cadre: #160407; --bouton: #2b1216; --bouton-texte: #ffd9de; --bouton-ombre: #4a0811;
-    --petit: #f2c9cf; --texte: #ffd0d6; --hp: #7a0f20; --epaule: #ce3549; --epaule-texte: #ffe3e7;
+    --petit: #f2c9cf; --grave: #ffd0d6; --hp: #7a0f20; --epaule: #ce3549; --epaule-texte: #ffe3e7;
     --motif: radial-gradient(ellipse at 25% 10%, rgba(255,255,255,.35), transparent 45%);
-    --lueur: 0 14px 40px rgba(120,10,30,.45);
+    --lueur: 0 18px 50px rgba(120,10,30,.5);
   }
-  #ecran[data-theme="glacier"] {
-    --coque: linear-gradient(160deg, rgba(190,230,255,.75), rgba(120,180,230,.55) 60%, rgba(170,215,250,.7));
-    --coque-ombre: rgba(60,120,180,.6); --charniere: linear-gradient(rgba(160,205,240,.9), rgba(110,165,215,.9)); --pli: rgba(70,130,190,.6);
+  [data-theme="glacier"] {
+    --accent: #3d9be0; --sur-accent: #ffffff;
+    --coque: linear-gradient(160deg, rgba(190,230,255,.8), rgba(120,180,230,.6) 60%, rgba(170,215,250,.75));
+    --coque-plat: #93c4ea; --coque-ombre: rgba(60,120,180,.6); --charniere: linear-gradient(#a9d2f2, #6fa8d8); --fente: #4f86b8;
     --cadre: #0b1622; --bouton: rgba(30,70,110,.85); --bouton-texte: #e6f6ff; --bouton-ombre: rgba(10,30,50,.8);
-    --petit: rgba(40,90,140,.6); --texte: #20507a; --hp: rgba(40,90,140,.55); --epaule: rgba(150,200,240,.95); --epaule-texte: #1d4d78;
+    --petit: rgba(40,90,140,.6); --grave: #20507a; --hp: rgba(40,90,140,.55); --epaule: rgba(150,200,240,.95); --epaule-texte: #1d4d78;
     --motif: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.45) 38%, transparent 46%),
              repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 2px, transparent 2px 9px);
-    --lueur: 0 0 30px rgba(120,190,255,.35), 0 14px 40px rgba(0,0,0,.4);
+    --lueur: 0 0 40px rgba(120,190,255,.3), 0 18px 50px rgba(0,0,0,.45);
   }
-  #ecran[data-theme="galaxie"] {
+  [data-theme="galaxie"] {
+    --accent: #8e6bea; --sur-accent: #ffffff;
     --coque: radial-gradient(ellipse at 70% 20%, #5a2f9c, transparent 55%), radial-gradient(ellipse at 15% 85%, #1f4fa0, transparent 50%), #120c26;
-    --coque-ombre: #05030c; --charniere: linear-gradient(#2a1d52, #170f33); --pli: #3d2a78;
+    --coque-plat: #1a1236; --coque-ombre: #05030c; --charniere: linear-gradient(#2e2058, #170f33); --fente: #07041a;
     --cadre: #04020a; --bouton: #2b2156; --bouton-texte: #e7dcff; --bouton-ombre: #07041a;
-    --petit: #4a3a8a; --texte: #a796e8; --hp: #4a3a8a; --epaule: #2f2360; --epaule-texte: #cbbcff;
+    --petit: #4a3a8a; --grave: #a796e8; --hp: #4a3a8a; --epaule: #2f2360; --epaule-texte: #cbbcff;
     --motif: radial-gradient(1.5px 1.5px at 12% 18%, #fff, transparent), radial-gradient(1px 1px at 33% 72%, #fff, transparent),
              radial-gradient(1.5px 1.5px at 58% 34%, #fff, transparent), radial-gradient(1px 1px at 81% 61%, #fff, transparent),
              radial-gradient(2px 2px at 90% 14%, #ffe9a8, transparent), radial-gradient(1px 1px at 22% 48%, #cfe2ff, transparent),
              radial-gradient(1px 1px at 70% 88%, #fff, transparent), radial-gradient(1.5px 1.5px at 46% 9%, #fff, transparent),
              radial-gradient(1px 1px at 8% 92%, #fff, transparent), radial-gradient(1px 1px at 95% 40%, #fff, transparent);
-    --lueur: 0 0 40px rgba(110,70,220,.35), 0 14px 40px rgba(0,0,0,.55);
+    --lueur: 0 0 50px rgba(110,70,220,.3), 0 18px 50px rgba(0,0,0,.55);
   }
-  #ecran[data-theme="sakura"] {
+  [data-theme="sakura"] {
+    --accent: #d96585; --sur-accent: #ffffff;
     --coque: linear-gradient(160deg, #fff1f4, #f9d5de 70%, #f6c6d2);
-    --coque-ombre: #e3a9b8; --charniere: linear-gradient(#f4c3cf, #e9aebe); --pli: #dc98aa;
+    --coque-plat: #f6ccd7; --coque-ombre: #e3a9b8; --charniere: linear-gradient(#f4c3cf, #e2a3b4); --fente: #d996a9;
     --cadre: #2a1a20; --bouton: #8c4a5e; --bouton-texte: #fff0f4; --bouton-ombre: #5e2c3b;
-    --petit: #e3a9b8; --texte: #a8657a; --hp: #e3a9b8; --epaule: #f2bccb; --epaule-texte: #8c4a5e;
+    --petit: #e3a9b8; --grave: #a8657a; --hp: #e3a9b8; --epaule: #f2bccb; --epaule-texte: #8c4a5e;
     --motif: radial-gradient(circle at 12% 20%, rgba(232,120,150,.55) 0 4px, transparent 5px),
              radial-gradient(circle at 16% 24%, rgba(232,120,150,.35) 0 3px, transparent 4px),
              radial-gradient(circle at 85% 30%, rgba(232,120,150,.45) 0 5px, transparent 6px),
              radial-gradient(circle at 80% 78%, rgba(232,120,150,.4) 0 4px, transparent 5px),
              radial-gradient(circle at 20% 82%, rgba(232,120,150,.5) 0 3px, transparent 4px),
              radial-gradient(circle at 50% 6%, rgba(232,120,150,.3) 0 3px, transparent 4px);
-    --lueur: 0 14px 36px rgba(180,80,110,.3);
+    --lueur: 0 18px 46px rgba(180,80,110,.35);
   }
-  #ecran[data-theme="or"] {
+  [data-theme="or"] {
+    --accent: #d4b264; --sur-accent: #1a1408;
     --coque: linear-gradient(135deg, #0d0d0f, #1c1a16 50%, #0d0d0f);
-    --coque-ombre: #000; --charniere: linear-gradient(#e8c877, #b8913f 50%, #8d6a24); --pli: #6e5119;
+    --coque-plat: #141310; --coque-ombre: #000; --charniere: linear-gradient(#e8c877, #b8913f 50%, #8d6a24); --fente: #000;
     --cadre: #000; --bouton: linear-gradient(#f0d58c, #b8913f); --bouton-texte: #1a1408; --bouton-ombre: #5a4312;
-    --petit: #b8913f; --texte: #d4b264; --hp: #6e5a2c; --epaule: linear-gradient(#e8c877, #a8822f); --epaule-texte: #1a1408;
+    --petit: #b8913f; --grave: #d4b264; --hp: #6e5a2c; --epaule: linear-gradient(#e8c877, #a8822f); --epaule-texte: #1a1408;
     --motif: repeating-linear-gradient(45deg, rgba(212,178,100,.07) 0 1px, transparent 1px 12px),
              repeating-linear-gradient(-45deg, rgba(212,178,100,.07) 0 1px, transparent 1px 12px);
-    --lueur: 0 0 0 2px #b8913f, 0 16px 44px rgba(0,0,0,.6);
+    --lueur: 0 0 0 2px #b8913f, 0 18px 50px rgba(0,0,0,.6);
   }
-  #ecran[data-theme="neon"] {
+  [data-theme="neon"] {
+    --accent: #00e5ff; --sur-accent: #001418;
     --coque: #0b0c10;
-    --coque-ombre: #000; --charniere: #101218; --pli: #00e5ff;
+    --coque-plat: #0b0c10; --coque-ombre: #000; --charniere: #101218; --fente: #00e5ff;
     --cadre: #000; --bouton: #11131a; --bouton-texte: #ff3df2; --bouton-ombre: #ff3df2;
-    --petit: #00e5ff; --texte: #00e5ff; --hp: #ff3df2; --epaule: #11131a; --epaule-texte: #00e5ff;
+    --petit: #00e5ff; --grave: #00e5ff; --hp: #ff3df2; --epaule: #11131a; --epaule-texte: #00e5ff;
     --motif: linear-gradient(rgba(0,229,255,.06) 1px, transparent 1px) 0 0 / 100% 14px,
              linear-gradient(90deg, rgba(0,229,255,.06) 1px, transparent 1px) 0 0 / 14px 100%;
-    --lueur: 0 0 0 1.5px #00e5ff, 0 0 22px rgba(0,229,255,.55), 0 0 60px rgba(255,61,242,.25);
+    --lueur: 0 0 0 1.5px #00e5ff, 0 0 22px rgba(0,229,255,.5), 0 0 60px rgba(255,61,242,.22);
   }
-  #ecran[data-theme="neon"] .croix button, #ecran[data-theme="neon"] .croix .centre { box-shadow: 0 0 8px rgba(0,229,255,.5); outline: 1px solid #00e5ff; }
-  #ecran[data-theme="neon"] .abxy button { outline: 1px solid #ff3df2; box-shadow: 0 0 10px rgba(255,61,242,.6); }
-  #ecran[data-theme="neon"] .epaule { outline: 1px solid #00e5ff; }
-  .themes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
-  .theme {
-    display: flex; align-items: center; gap: 8px;
-    background: #2b2d31; color: #f2f3f5; border: 2px solid transparent; border-radius: 99px;
-    padding: 6px 12px 6px 6px; font: 600 13px system-ui, sans-serif; cursor: pointer;
-  }
-  .theme i { width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,.2); }
-  .theme[aria-pressed="true"] { border-color: #5865f2; }
-  #ecran button.appuye { filter: brightness(1.6); transform: translateY(1px); }
-  #ecran:fullscreen { background: #111216; width: 100vw; height: 100vh; place-content: center; padding: 0; }
-  #ecran:fullscreen { --h: min(calc(100vh - 60px), calc((100vw - 32px) * 448 / 512)); }
-  #ecran:fullscreen::before { top: calc(50vh - var(--h) / 2 - 28px); bottom: 50%; height: auto; left: calc(50vw - var(--w) / 2 - var(--cote)); right: calc(50vw - var(--w) / 2 - var(--cote)); }
-  #ecran:fullscreen::after { bottom: calc(50vh - var(--h) / 2 - 28px); top: 50%; height: auto; left: calc(50vw - var(--w) / 2 - var(--cote)); right: calc(50vw - var(--w) / 2 - var(--cote)); }
-  .barre {
+  [data-theme="neon"] .croix button, [data-theme="neon"] .croix .centre { box-shadow: 0 0 8px rgba(0,229,255,.5); outline: 1px solid #00e5ff; }
+  [data-theme="neon"] .abxy button { outline: 1px solid #ff3df2; box-shadow: 0 0 10px rgba(255,61,242,.6); }
+  [data-theme="neon"] .epaule { outline: 1px solid #00e5ff; }
+
+  /* ---------- Page ---------- */
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    min-height: var(--vh);
+    background:
+      radial-gradient(ellipse 60% 55% at 50% 55%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 70%),
+      var(--fond);
+    color: var(--texte);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     display: flex;
-    gap: 8px;
-    margin-top: 12px;
-    justify-content: center;
-    flex-wrap: wrap;
+    flex-direction: column;
+    overflow-x: hidden;
+    transition: background .4s;
   }
-  .bouton.secondaire { background: #4e5058; }
-  .bouton.secondaire:hover { background: #6d6f78; }
-  #nom-jeu { text-align: center; color: #b5bac1; font-size: 13px; margin: 8px 0 0; }
-  .presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 14px; }
-  .preset {
-    text-align: left;
-    background: #1e1f22;
-    color: #f2f3f5;
-    border: 2px solid #3f4147;
-    border-radius: 10px;
-    padding: 12px 14px;
-    cursor: pointer;
-    font: inherit;
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ---------- Barre du haut ---------- */
+  .barre-haut {
+    height: 52px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 12px 0 18px;
+    padding-top: env(safe-area-inset-top);
   }
-  .preset:hover { border-color: #6d6f78; }
-  .preset[aria-pressed="true"] { border-color: #5865f2; background: #262842; }
-  .preset strong { display: block; font-size: 15px; margin-bottom: 2px; }
-  .preset span { font-size: 13px; color: #b5bac1; }
-  .legende {
+  .marque { font: 600 22px/1 "Pixelify", system-ui, sans-serif; letter-spacing: .5px; color: var(--texte); }
+  .contexte { color: var(--texte-3); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .contexte b { color: var(--texte-2); font-weight: 600; }
+  .actions { margin-left: auto; display: flex; gap: 2px; flex: none; }
+  .action {
+    display: inline-flex; align-items: center; gap: 7px;
+    height: 36px; padding: 0 11px;
+    border: 0; border-radius: 9px; background: transparent;
+    color: var(--texte-2); font-size: 14px; font-weight: 500; cursor: pointer;
+  }
+  .action:hover { background: var(--surface); color: var(--texte); }
+  .action[aria-expanded="true"] { background: var(--surface-2); color: var(--texte); }
+  .action svg { width: 19px; height: 19px; flex: none; }
+  .action.ejecter { display: none; }
+  body.en-jeu .action.ejecter { display: inline-flex; }
+  @media (max-width: 900px) { .action span { display: none; } .action { padding: 0 9px; } }
+
+  /* ---------- Console ---------- */
+  .scene { flex: 1; display: grid; place-items: center; padding: 4px 12px 18px; }
+  #console {
+    --h: min(calc((var(--vh) - 80px) * 0.94), 860px, calc((100vw - 40px) * 448 / 512));
+    --w: calc(var(--h) * 256 / 448);
+    --u: calc(var(--w) / 256);
+    --cote: calc(var(--w) * 0.5);
+    position: relative;
+    width: calc(var(--w) + 2 * var(--cote));
+    padding: calc(var(--w) * 0.055) 0;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 6px 14px;
-    font-size: 14px;
-    color: #b5bac1;
+    grid-template-columns: var(--cote) var(--w) var(--cote);
+    grid-template-rows: calc(var(--h) / 2) calc(var(--h) / 2);
+    grid-template-areas: "hpg ecrans hpd" "croix ecrans droit";
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
   }
-  .legende div { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
-  #legende-jeu { background: #2b2d31; border-radius: 12px; padding: 12px 14px; margin-top: 12px; }
-  .note { margin-top: 12px !important; font-size: 13px !important; }
+  #console::before, #console::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0;
+    background: var(--motif), var(--coque);
+    box-shadow: inset 0 -3px 0 var(--coque-ombre), inset 0 2px 0 rgba(255,255,255,.2), var(--lueur);
+    transition: background .4s, box-shadow .4s;
+  }
+  #console::before { top: 0; height: calc(50% - 2px); border-radius: 24px 24px 12px 12px; }
+  #console::after { bottom: 0; height: calc(50% - 2px); border-radius: 12px 12px 30px 30px; }
+  :where(#console) > * { position: relative; z-index: 1; }
+
+  .zone-ecrans { grid-area: ecrans; width: var(--w); height: var(--h); }
+  .zone-ecrans::before {
+    content: ""; position: absolute; inset: calc(var(--w) * -0.035);
+    border-radius: 10px; background: var(--cadre); z-index: -1;
+  }
+  #game { position: absolute; inset: 0; background: #000; }
   #game:focus { outline: none; }
+
+  .charniere {
+    position: absolute;
+    left: calc(var(--cote) * -1); right: calc(var(--cote) * -1);
+    top: calc(50% - var(--u) * 32);
+    height: calc(var(--u) * 64);
+    display: grid;
+    grid-template-rows: 30% 40% 30%;
+    background: var(--fente);
+    z-index: 4;
+    pointer-events: none;
+    transition: background .4s;
+  }
+  .charniere .bord { background: var(--coque-plat); transition: background .4s; }
+  .charniere .bord.h { border-radius: 0 0 12px 12px; margin-bottom: 1px; }
+  .charniere .bord.b { border-radius: 12px 12px 0 0; margin-top: 1px; }
+  .charniere .cyl {
+    margin: 0 5%;
+    border-radius: 999px;
+    background: linear-gradient(rgba(255,255,255,.4), rgba(255,255,255,0) 45%, rgba(0,0,0,.22)), var(--charniere);
+    position: relative;
+  }
+  .led {
+    position: absolute; right: 9%; top: 50%;
+    width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%;
+    background: #3be07a; box-shadow: 0 0 6px #3be07a, 0 0 2px #fff inset;
+  }
+  body.chargement .led { animation: clignote 0.9s step-end infinite; }
+
+  .hp { align-self: center; justify-self: center; display: grid; grid-template-columns: repeat(3, 6px); gap: 6px; margin-top: calc(var(--u) * -10); }
+  .hp i { width: 6px; height: 6px; border-radius: 50%; background: var(--hp); box-shadow: inset 0 1px 1px rgba(0,0,0,.35); }
+  .hp.g { grid-area: hpg; } .hp.d { grid-area: hpd; }
+
+  /* Boutons physiques */
+  .croix { grid-area: croix; align-self: center; justify-self: center; position: relative; width: calc(var(--cote) * 0.62); aspect-ratio: 1; margin-top: calc(var(--u) * 10); }
+  .droit { grid-area: droit; align-self: center; justify-self: center; display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 14); margin-top: calc(var(--u) * 10); }
+  .abxy { position: relative; width: calc(var(--cote) * 0.66); aspect-ratio: 1; }
+  .croix button, .abxy button, .petits button, .epaule {
+    position: absolute; border: none; padding: 0; cursor: pointer;
+    font: 600 12px/1 system-ui, sans-serif; color: var(--bouton-texte);
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .05s, filter .05s;
+  }
+  .croix button, .croix .centre { background: var(--bouton); width: 34%; height: 34%; box-shadow: 0 2px 0 var(--bouton-ombre); }
+  .croix .h { left: 33%; top: 0; border-radius: 6px 6px 0 0; }
+  .croix .b { left: 33%; bottom: 0; border-radius: 0 0 6px 6px; }
+  .croix .g { left: 0; top: 33%; border-radius: 6px 0 0 6px; }
+  .croix .d { right: 0; top: 33%; border-radius: 0 6px 6px 0; }
+  .croix .centre { position: absolute; left: 33%; top: 33%; box-shadow: none; }
+  .croix .centre::after { content: ""; position: absolute; inset: 28%; border-radius: 50%; background: radial-gradient(circle at 50% 40%, rgba(0,0,0,.35), rgba(255,255,255,.06)); }
+  .croix button::after { content: ""; position: absolute; left: 50%; top: 50%; width: 0; height: 0; border: 5px solid transparent; opacity: .35; transform: translate(-50%, -50%); }
+  .croix .h::after { border-bottom-color: var(--bouton-texte); margin-top: -3px; }
+  .croix .b::after { border-top-color: var(--bouton-texte); margin-top: 3px; }
+  .croix .g::after { border-right-color: var(--bouton-texte); margin-left: -3px; }
+  .croix .d::after { border-left-color: var(--bouton-texte); margin-left: 3px; }
+  .abxy button {
+    width: 34%; height: 34%; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.18), transparent 55%), var(--bouton);
+    box-shadow: 0 3px 0 var(--bouton-ombre), 0 4px 8px rgba(0,0,0,.25);
+    font-size: max(11px, calc(var(--u) * 9));
+  }
+  .abxy .x { left: 33%; top: 0; } .abxy .b { left: 33%; bottom: 0; }
+  .abxy .y { left: 0; top: 33%; } .abxy .a { right: 0; top: 33%; }
+  .petits { position: relative; width: calc(var(--cote) * 0.56); height: 30px; }
+  .petits button { width: 44%; height: 13px; top: 0; border-radius: 99px; background: var(--petit); box-shadow: inset 0 -2px 0 rgba(0,0,0,.2); }
+  .petits .select { left: 0; } .petits .start { right: 0; }
+  .petits span { position: absolute; top: 17px; width: 44%; text-align: center; font: 600 9px/1 system-ui, sans-serif; letter-spacing: .3px; color: var(--grave); }
+  .petits .ls { left: 0; } .petits .lst { right: 0; }
+  .epaule {
+    top: calc(50% + var(--u) * 30);
+    width: 24%; height: calc(var(--u) * 13 + 10px);
+    background: var(--epaule); color: var(--epaule-texte);
+    z-index: 3 !important; font-size: 11px;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.15), 0 2px 4px rgba(0,0,0,.15);
+  }
+  .epaule.l { left: -7px; border-radius: 20px 6px 6px 3px; padding-left: 12px; text-align: left; }
+  .epaule.r { right: -7px; border-radius: 6px 20px 3px 6px; padding-right: 12px; text-align: right; }
+  #console button.appuye { filter: brightness(1.45); transform: translateY(2px); box-shadow: 0 0 0 var(--bouton-ombre); }
+
+  /* ---------- Menu système, dessiné dans les écrans ---------- */
+  #menu { position: absolute; inset: 0; z-index: 3; transition: opacity .35s; }
+  #menu.parti { opacity: 0; pointer-events: none; }
+  .lcd {
+    position: absolute; left: 0; right: 0;
+    height: calc(var(--h) * 192 / 448);
+    overflow: hidden;
+    color: var(--encre);
+    background:
+      linear-gradient(rgba(31,43,51,.035) 1px, transparent 1px) 0 0 / 100% calc(var(--u) * 2),
+      linear-gradient(180deg, var(--lcd), var(--lcd-2));
+    font: 400 max(11px, calc(var(--u) * 8.5))/1.25 "Pixelify", system-ui, sans-serif;
+    font-variant-ligatures: none;
+  }
+  .lcd.haut { top: 0; display: flex; flex-direction: column; }
+  .lcd.bas { bottom: 0; display: flex; flex-direction: column; }
+  .lcd::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: #fff; opacity: 0; }
+  #menu.flash .lcd::after { animation: flash .45s ease-out; }
+
+  .bandeau {
+    display: flex; align-items: center; justify-content: space-between;
+    height: calc(var(--u) * 17); padding: 0 calc(var(--u) * 8);
+    background: var(--accent); color: var(--sur-accent);
+    font-weight: 600; transition: background .4s;
+  }
+  .bandeau .signal { display: inline-flex; align-items: center; gap: calc(var(--u) * 4); }
+  .barres { display: inline-flex; align-items: flex-end; gap: 1px; height: calc(var(--u) * 8); }
+  .barres i { width: calc(var(--u) * 2); background: currentColor; }
+  .barres i:nth-child(1) { height: 40%; } .barres i:nth-child(2) { height: 70%; } .barres i:nth-child(3) { height: 100%; }
+  .horloge {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    font: 600 calc(var(--u) * 54)/1 "Pixelify", system-ui, sans-serif;
+    letter-spacing: calc(var(--u) * 1); padding-top: calc(var(--u) * 6);
+  }
+  .horloge .dp { animation: clignote 2s step-end infinite; margin: 0 calc(var(--u) * 2); }
+  #date { text-align: center; color: var(--encre-2); font-size: max(12px, calc(var(--u) * 11)); margin-top: calc(var(--u) * -4); }
+  .message-haut {
+    margin: calc(var(--u) * 10) calc(var(--u) * 8) calc(var(--u) * 8);
+    padding: calc(var(--u) * 5) calc(var(--u) * 7);
+    border: calc(var(--u) * 1) solid rgba(31,43,51,.18);
+    border-radius: calc(var(--u) * 4);
+    text-align: center; color: var(--encre);
+    background: rgba(255,255,255,.45);
+    min-height: calc(var(--u) * 20);
+  }
+  .progression { display: none; height: calc(var(--u) * 5); margin-top: calc(var(--u) * 5); border-radius: 99px; background: rgba(31,43,51,.12); overflow: hidden; }
+  .progression i { display: block; height: 100%; width: 35%; border-radius: inherit; background: var(--accent); animation: avance 1.1s ease-in-out infinite; }
+  body.chargement .progression { display: block; }
+
+  .titre-bas {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: calc(var(--u) * 7) calc(var(--u) * 9) calc(var(--u) * 4);
+    font-weight: 600; font-size: max(12px, calc(var(--u) * 10));
+  }
+  .titre-bas small { font-weight: 400; color: var(--encre-2); font-size: max(11px, calc(var(--u) * 8)); }
+  .grille {
+    flex: 1; overflow-y: auto; overscroll-behavior: contain;
+    display: grid; grid-template-columns: repeat(3, 1fr); align-content: start;
+    gap: calc(var(--u) * 7);
+    padding: calc(var(--u) * 2) calc(var(--u) * 9) calc(var(--u) * 9);
+    scrollbar-width: thin;
+  }
+  .pied-bas {
+    min-height: 0; padding: 0 calc(var(--u) * 9);
+    color: #b3261e; font-size: max(11px, calc(var(--u) * 8));
+  }
+  .pied-bas:not(:empty) { padding-bottom: calc(var(--u) * 6); }
+
+  /* Cartouches */
+  .emplacement { position: relative; }
+  .cart, .ajouter {
+    width: 100%; height: calc(var(--u) * 66);
+    border: 0; padding: 0; cursor: pointer; display: block; text-align: left;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cart {
+    position: relative;
+    clip-path: polygon(0 0, 82% 0, 100% 14%, 100% 100%, 0 100%);
+    border-radius: calc(var(--u) * 3);
+    background: linear-gradient(180deg, #3a3e46, #262930);
+    padding: calc(var(--u) * 5) calc(var(--u) * 5) calc(var(--u) * 9);
+    color: #eef1f4;
+    transition: transform .12s;
+  }
+  .cart::after {
+    content: ""; position: absolute; left: 12%; right: 12%; bottom: calc(var(--u) * 3); height: calc(var(--u) * 3);
+    background: repeating-linear-gradient(90deg, #c9a14a 0 calc(var(--u) * 2), transparent calc(var(--u) * 2) calc(var(--u) * 4));
+    opacity: .85;
+  }
+  .cart:hover, .cart:focus-visible { transform: translateY(calc(var(--u) * -2)); }
+  .cart:focus-visible { outline-offset: 1px; }
+  .etiquette {
+    display: grid; place-items: center;
+    height: calc(var(--u) * 30); border-radius: calc(var(--u) * 2);
+    background:
+      repeating-linear-gradient(135deg, rgba(255,255,255,.12) 0 calc(var(--u) * 3), transparent calc(var(--u) * 3) calc(var(--u) * 6)),
+      hsl(var(--teinte) 62% 52%);
+    font: 600 calc(var(--u) * 15)/1 "Pixelify", system-ui, sans-serif;
+    color: #fff; text-shadow: 0 calc(var(--u) * 1) 0 rgba(0,0,0,.35);
+  }
+  .cart .nom {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    margin-top: calc(var(--u) * 4);
+    font: 400 max(10px, calc(var(--u) * 7.5))/1.15 "Pixelify", system-ui, sans-serif;
+    word-break: break-word;
+  }
+  .retirer {
+    position: absolute; top: calc(var(--u) * -3); left: calc(var(--u) * -3);
+    width: max(20px, calc(var(--u) * 14)); height: max(20px, calc(var(--u) * 14));
+    border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+    background: var(--encre); color: var(--lcd);
+    font: 600 12px/1 system-ui, sans-serif;
+    display: grid; place-items: center;
+    opacity: 0; transition: opacity .12s; z-index: 2;
+  }
+  .emplacement:hover .retirer, .retirer:focus-visible { opacity: 1; }
+  @media (hover: none) { .retirer { opacity: .85; } }
+  .ajouter {
+    border-radius: calc(var(--u) * 3);
+    border: calc(var(--u) * 1.5) dashed rgba(31,43,51,.35);
+    background: rgba(255,255,255,.35);
+    color: var(--encre);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--u) * 3);
+    font: 400 max(10px, calc(var(--u) * 7.5))/1.15 "Pixelify", system-ui, sans-serif;
+    text-align: center;
+  }
+  .ajouter .plus { font: 600 calc(var(--u) * 20)/1 "Pixelify", system-ui, sans-serif; color: var(--accent); }
+  .ajouter:hover { background: rgba(255,255,255,.6); border-color: var(--accent); }
+  .vide {
+    grid-column: span 2; align-self: center;
+    color: var(--encre-2); font-size: max(11px, calc(var(--u) * 8));
+  }
+  .vide p { margin: 0 0 calc(var(--u) * 5); }
+  .vide b { color: var(--encre); font-weight: 600; }
+
+  .depot-msg {
+    position: absolute; inset: calc(var(--u) * 6);
+    display: none; place-items: center; text-align: center;
+    border: calc(var(--u) * 2) dashed var(--accent); border-radius: calc(var(--u) * 6);
+    background: color-mix(in srgb, var(--lcd) 88%, var(--accent));
+    font-weight: 600; font-size: max(12px, calc(var(--u) * 11));
+  }
+  body.depot .depot-msg { display: grid; }
+
+  /* Cartouche qui s'insère : le seul mouvement orchestré */
+  .insertion { position: absolute; z-index: 5; pointer-events: none; transition: transform .42s cubic-bezier(.55,0,.75,.2), opacity .42s; }
+  .insertion.entre { transform: translateY(calc(var(--u) * 70)) scale(.92); opacity: 0; }
+
+  /* ---------- Feuilles (réglages) ---------- */
+  .voile { position: fixed; inset: 0; z-index: 40; display: none; }
+  .voile.ouvert { display: block; }
+  .feuille {
+    position: fixed; z-index: 50;
+    top: 56px; right: 12px; width: min(380px, calc(100vw - 24px));
+    max-height: calc(var(--vh) - 72px); overflow-y: auto;
+    background: var(--surface); border-radius: 14px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.05), 0 16px 40px rgba(0,0,0,.5);
+    padding: 18px;
+    display: none;
+  }
+  .feuille.ouverte { display: block; animation: apparait .16s ease-out; }
+  .feuille h2 { margin: 0 0 4px; font-size: 16px; font-weight: 650; }
+  .feuille > p { margin: 0 0 14px; color: var(--texte-2); font-size: 14px; }
+  .feuille .note { margin: 14px 0 0; color: var(--texte-3); font-size: 13px; }
+
+  .coques { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .coque-choix {
+    border: 2px solid transparent; border-radius: 12px; background: var(--fond);
+    padding: 10px 4px 8px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+    font-size: 12px; color: var(--texte-2);
+  }
+  .coque-choix:hover { color: var(--texte); }
+  .coque-choix[aria-pressed="true"] { border-color: var(--accent); color: var(--texte); }
+  .mini { width: 34px; display: grid; gap: 2px; }
+  .mini i { height: 22px; border-radius: 6px 6px 3px 3px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.15); }
+  .mini i + i { border-radius: 3px 3px 7px 7px; }
+
+  .dispositions { display: grid; gap: 8px; margin-bottom: 14px; }
+  .dispo {
+    text-align: left; background: var(--fond); border: 2px solid transparent; border-radius: 12px;
+    padding: 11px 13px; cursor: pointer;
+  }
+  .dispo strong { display: block; font-size: 14.5px; }
+  .dispo span { font-size: 13px; color: var(--texte-2); }
+  .dispo[aria-pressed="true"] { border-color: var(--accent); }
+  .legende { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 18px; font-size: 14px; color: var(--texte-2); }
+  .legende div { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  kbd {
+    min-width: 26px; text-align: center;
+    background: var(--fond); border-radius: 5px; padding: 2px 7px;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.4);
+    font: 600 12.5px/1.4 system-ui, sans-serif; color: var(--texte);
+  }
+  .boutons-feuille { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .bouton {
+    border: 0; border-radius: 9px; padding: 10px 16px; cursor: pointer;
+    font-weight: 600; font-size: 14.5px;
+    background: var(--accent); color: var(--sur-accent);
+  }
+  .bouton.discret { background: #4e5058; color: #fff; }
+  .bouton.danger { background: #da373c; color: #fff; }
+
+  /* ---------- iPhone / téléphone en portrait : mode manette ---------- */
+  @media (orientation: portrait) and (max-width: 760px) {
+    .barre-haut { height: 48px; padding-left: 14px; }
+    .marque { font-size: 20px; }
+    .scene { padding: 0 8px calc(10px + env(safe-area-inset-bottom)); place-items: start center; }
+    #console {
+      --h: min(calc(var(--vh) - 290px), calc((100vw - 44px) * 448 / 256));
+      width: calc(100vw - 16px);
+      padding: 16px 14px 18px;
+      grid-template-columns: 1fr auto 1fr;
+      grid-template-rows: auto auto auto;
+      grid-template-areas: "ecrans ecrans ecrans" "epl . epr" "croix petits abxy";
+      row-gap: 14px;
+      align-items: center;
+    }
+    #console::before { top: 0; bottom: 0; height: auto; border-radius: 28px 28px 34px 34px; }
+    #console::after { display: none; }
+    .zone-ecrans { justify-self: center; margin-bottom: 4px; }
+    .charniere { left: calc(var(--w) * -0.035); right: calc(var(--w) * -0.035); }
+    .charniere .bord.h, .charniere .bord.b { border-radius: 0; }
+    .hp { display: none; }
+    .epaule { position: relative !important; top: auto; left: auto !important; right: auto !important; width: 78%; height: 34px; font-size: 13px; }
+    .epaule.l { grid-area: epl; justify-self: start; border-radius: 18px 10px 10px 18px; }
+    .epaule.r { grid-area: epr; justify-self: end; border-radius: 10px 18px 18px 10px; }
+    .croix { width: min(124px, 34vw); margin: 0; justify-self: start; margin-left: 4px; }
+    .droit { display: contents; }
+    .abxy { grid-area: abxy; width: min(130px, 35vw); justify-self: end; margin-right: 2px; }
+    .abxy button { font-size: 14px; }
+    .petits { grid-area: petits; width: 74px; height: 64px; }
+    .petits button { width: 100%; height: 14px; left: 0; right: auto; }
+    .petits .select { top: 0; } .petits .start { top: 34px; }
+    .petits span { width: 100%; left: 0; }
+    .petits .ls { top: 17px; } .petits .lst { top: 51px; }
+  }
+  /* Fenêtre minuscule (mode incrusté de Discord) */
+  @media (max-height: 380px) {
+    .barre-haut { display: none; }
+    .scene { padding: 6px; }
+    #console { --h: min(calc(var(--vh) - 24px), calc((100vw - 24px) * 448 / 512)); }
+  }
+
+  /* ---------- Plein écran ---------- */
+  :fullscreen body, body:fullscreen { background: #000; }
+
+  @keyframes clignote { 50% { opacity: 0; } }
+  @keyframes flash { 0% { opacity: .95; } 100% { opacity: 0; } }
+  @keyframes avance { 0% { transform: translateX(-110%); } 100% { transform: translateX(310%); } }
+  @keyframes apparait { from { opacity: 0; transform: translateY(-6px); } }
+  @media (max-width: 760px) and (orientation: portrait) {
+    .feuille { top: auto; bottom: 0; right: 0; left: 0; width: 100%; border-radius: 18px 18px 0 0; padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
+    .voile.ouvert { background: rgba(0,0,0,.45); }
+    @keyframes apparait { from { transform: translateY(30px); opacity: 0; } }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>Émulateur DS</h1>
-  <span class="badge">Étape 1 · solo</span>
+<header class="barre-haut">
+  <span class="marque">Rétro</span>
+  <span class="contexte" id="contexte"></span>
+  <nav class="actions" aria-label="Réglages">
+    <button class="action" type="button" data-feuille="feuille-coque" aria-expanded="false" title="Coque">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2.5" width="14" height="8.5" rx="2.5"/><rect x="5" y="13" width="14" height="8.5" rx="2.5"/><path d="M9 7h6M9 17h6"/></svg>
+      <span>Coque</span>
+    </button>
+    <button class="action" type="button" data-feuille="feuille-touches" aria-expanded="false" title="Touches">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M8 14h8"/></svg>
+      <span>Touches</span>
+    </button>
+    <button class="action" type="button" id="bouton-plein-ecran" title="Plein écran">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      <span>Plein écran</span>
+    </button>
+    <button class="action ejecter" type="button" data-feuille="feuille-ejecter" aria-expanded="false" title="Éjecter le jeu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5 20 14H4z"/><path d="M4 18.5h16" stroke-linecap="round"/></svg>
+      <span>Éjecter</span>
+    </button>
+  </nav>
 </header>
 
-<main id="accueil">
-  <section class="carte">
-    <h2>Charger un jeu</h2>
-    <p>Choisis un fichier <code>.nds</code> sur ton PC. Il reste sur ton appareil : rien n'est envoyé sur un serveur.</p>
-    <div class="zone-depot" id="zone-depot">
-      <p style="margin:0 0 12px;">Glisse ton fichier ici, ou</p>
-      <button class="bouton" id="bouton-fichier" type="button">Choisir un fichier</button>
-      <input type="file" id="fichier" accept=".nds,.zip,.7z" hidden>
-    </div>
-    <div class="erreur" id="erreur" role="alert"></div>
-  </section>
-
-  <section class="carte">
-    <h2>Disposition du clavier</h2>
-    <p>Choisis avant de lancer le jeu. Ton choix est retenu pour la prochaine fois.</p>
-    <div class="presets" id="presets"></div>
-    <div class="legende" id="legende-accueil"></div>
-    <h2 style="margin-top:18px;">Coque de la console</h2>
-    <div class="themes" id="themes-accueil" style="justify-content:flex-start"></div>
-    <p class="note">Écran tactile : clic de souris sur l'écran du bas. Une manette Xbox ou PlayStation branchée marche aussi directement.</p>
-  </section>
-
-  <section class="carte">
-    <h2>Des jeux à tester légalement</h2>
-    <p>Utilise des jeux homebrew gratuits (beaucoup sur itch.io en cherchant « Nintendo DS homebrew ») ou une copie de ta propre cartouche que tu as extraite toi-même.</p>
-  </section>
-</main>
-
-<section id="jeu-conteneur">
-  <div id="ecran">
+<main class="scene">
+  <div id="console">
     <button class="epaule l" data-bouton="10" type="button" aria-label="L">L</button>
     <button class="epaule r" data-bouton="11" type="button" aria-label="R">R</button>
-    <div class="cote">
-      <div class="haut-parleur" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-      <div class="bas-cote">
-        <div class="croix">
-          <button class="h" data-bouton="4" type="button" aria-label="Haut"></button>
-          <button class="g" data-bouton="6" type="button" aria-label="Gauche"></button>
-          <span class="centre"></span>
-          <button class="d" data-bouton="7" type="button" aria-label="Droite"></button>
-          <button class="b" data-bouton="5" type="button" aria-label="Bas"></button>
-        </div>
-      </div>
-    </div>
+    <div class="hp g" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="hp d" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
     <div class="zone-ecrans">
       <div id="game"></div>
-      <div class="charniere" aria-hidden="true"></div>
+
+      <div id="menu">
+        <section class="lcd haut" aria-label="Écran du haut">
+          <div class="bandeau">
+            <span>Rétro</span>
+            <span class="signal"><span id="lieu">Navigateur</span><span class="barres" aria-hidden="true"><i></i><i></i><i></i></span></span>
+          </div>
+          <div class="horloge" aria-hidden="true"><span id="hh">--</span><span class="dp">:</span><span id="mm">--</span></div>
+          <div id="date"></div>
+          <div class="message-haut" role="status">
+            <div id="message-haut">Choisis une cartouche sur l'écran du bas.</div>
+            <div class="progression" aria-hidden="true"><i></i></div>
+          </div>
+        </section>
+
+        <section class="lcd bas" aria-label="Écran du bas">
+          <div class="titre-bas"><span>Tes cartouches</span><small id="compte"></small></div>
+          <div class="grille" id="grille"></div>
+          <div class="pied-bas" id="erreur" role="alert"></div>
+          <div class="depot-msg">Lâche le fichier pour l'ajouter</div>
+        </section>
+      </div>
+
+      <div class="charniere" aria-hidden="true">
+        <div class="bord h"></div>
+        <div class="cyl"><span class="led"></span></div>
+        <div class="bord b"></div>
+      </div>
     </div>
-    <div class="cote">
-      <div class="haut-parleur" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-      <div class="bas-cote">
-        <div class="abxy">
-          <button class="x" data-bouton="9" type="button">X</button>
-          <button class="y" data-bouton="1" type="button">Y</button>
-          <button class="a" data-bouton="8" type="button">A</button>
-          <button class="b" data-bouton="0" type="button">B</button>
-        </div>
-        <div class="petits">
-          <button class="select" data-bouton="2" type="button" aria-label="Select"></button>
-          <button class="start" data-bouton="3" type="button" aria-label="Start"></button>
-          <span class="ls">SELECT</span><span class="lst">START</span>
-        </div>
+
+    <div class="croix">
+      <button class="h" data-bouton="4" type="button" aria-label="Haut"></button>
+      <button class="g" data-bouton="6" type="button" aria-label="Gauche"></button>
+      <span class="centre"></span>
+      <button class="d" data-bouton="7" type="button" aria-label="Droite"></button>
+      <button class="b" data-bouton="5" type="button" aria-label="Bas"></button>
+    </div>
+    <div class="droit">
+      <div class="abxy">
+        <button class="x" data-bouton="9" type="button">X</button>
+        <button class="y" data-bouton="1" type="button">Y</button>
+        <button class="a" data-bouton="8" type="button">A</button>
+        <button class="b" data-bouton="0" type="button">B</button>
+      </div>
+      <div class="petits">
+        <button class="select" data-bouton="2" type="button" aria-label="Select"></button>
+        <button class="start" data-bouton="3" type="button" aria-label="Start"></button>
+        <span class="ls">SELECT</span><span class="lst">START</span>
       </div>
     </div>
   </div>
-  <div class="themes" id="themes-jeu"></div>
-  <p id="nom-jeu"></p>
-  <div class="legende" id="legende-jeu"></div>
-  <div class="barre">
-    <button class="bouton" id="bouton-plein-ecran" type="button">Plein écran</button>
-    <button class="bouton secondaire" id="bouton-changer" type="button">Changer de jeu</button>
+</main>
+
+<input type="file" id="fichier" accept=".nds,.zip,.7z" hidden>
+<div class="voile" id="voile"></div>
+
+<section class="feuille" id="feuille-coque" role="dialog" aria-labelledby="t-coque">
+  <h2 id="t-coque">Coque</h2>
+  <p>Ton choix est gardé sur cet appareil.</p>
+  <div class="coques" id="coques"></div>
+</section>
+
+<section class="feuille" id="feuille-touches" role="dialog" aria-labelledby="t-touches">
+  <h2 id="t-touches">Touches du clavier</h2>
+  <p>Le changement s'applique au prochain lancement d'un jeu.</p>
+  <div class="dispositions" id="dispositions"></div>
+  <div class="legende" id="legende"></div>
+  <p class="note">Une manette Xbox ou PlayStation marche directement. L'écran du bas est tactile : clique ou touche-le.</p>
+</section>
+
+<section class="feuille" id="feuille-ejecter" role="dialog" aria-labelledby="t-ejecter">
+  <h2 id="t-ejecter">Quitter le jeu ?</h2>
+  <p>Ce que tu n'as pas sauvegardé dans le jeu sera perdu. La cartouche reste dans ta liste.</p>
+  <div class="boutons-feuille">
+    <button class="bouton danger" type="button" id="confirmer-ejecter">Quitter le jeu</button>
+    <button class="bouton discret" type="button" data-fermer>Continuer à jouer</button>
   </div>
 </section>
 
@@ -447,7 +675,7 @@
   let discordPret = Promise.resolve();
 
   if (DANS_DISCORD) {
-    document.querySelector("header .badge").textContent = "Dans Discord";
+    document.getElementById("lieu").textContent = "Discord";
     if (window.DiscordEmbedded && CONFIG.discordApplicationId) {
       DiscordEmbedded.patchUrlMappings(
         [{ prefix: "/emulatorjs", target: "cdn.emulatorjs.org" }],
@@ -459,7 +687,9 @@
     }
   }
   const EXTENSIONS = [".nds", ".zip", ".7z"];
+  const $ = id => document.getElementById(id);
 
+  // ---------- Touches ----------
   const BOUTONS = [
     { id: 4, nom: "Haut" }, { id: 5, nom: "Bas" }, { id: 6, nom: "Gauche" }, { id: 7, nom: "Droite" },
     { id: 8, nom: "A" }, { id: 0, nom: "B" }, { id: 9, nom: "X" }, { id: 1, nom: "Y" },
@@ -474,7 +704,7 @@
     zqsd: {
       gameId: 101,
       titre: "ZQSD + JKUI",
-      desc: "Main gauche pour bouger, main droite pour les boutons. Idéal clavier AZERTY.",
+      desc: "Main gauche pour bouger, main droite pour les boutons. Fait pour le clavier AZERTY.",
       touches: { 4: "z", 5: "s", 6: "q", 7: "d", 8: "k", 0: "j", 9: "i", 1: "u", 10: "a", 11: "e", 3: "enter", 2: "space" },
       noms: { z: "Z", s: "S", q: "Q", d: "D", k: "K", j: "J", i: "I", u: "U", a: "A", e: "E", enter: "Entrée", space: "Espace" }
     },
@@ -493,9 +723,9 @@
     if (memo && PRESETS[memo]) presetChoisi = memo;
   } catch (e) {}
 
-  function afficherLegende(cible) {
+  function afficherLegende() {
     const p = PRESETS[presetChoisi];
-    const el = document.getElementById(cible);
+    const el = $("legende");
     el.innerHTML = "";
     BOUTONS.forEach(b => {
       const ligne = document.createElement("div");
@@ -509,12 +739,12 @@
   }
 
   function afficherPresets() {
-    const conteneur = document.getElementById("presets");
+    const conteneur = $("dispositions");
     conteneur.innerHTML = "";
     Object.entries(PRESETS).forEach(([cle, p]) => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "preset";
+      btn.className = "dispo";
       btn.setAttribute("aria-pressed", String(cle === presetChoisi));
       const t = document.createElement("strong");
       t.textContent = p.titre;
@@ -525,7 +755,7 @@
         presetChoisi = cle;
         try { localStorage.setItem("ds-retro-preset", cle); } catch (e) {}
         afficherPresets();
-        afficherLegende("legende-accueil");
+        afficherLegende();
       });
       conteneur.appendChild(btn);
     });
@@ -541,8 +771,9 @@
   }
 
   afficherPresets();
-  afficherLegende("legende-accueil");
+  afficherLegende();
 
+  // ---------- Clavier et boutons à l'écran → émulateur ----------
   let jeuActif = false;
   const NOMS_VERS_CODES = {
     "up arrow": 38, "down arrow": 40, "left arrow": 37, "right arrow": 39,
@@ -558,16 +789,16 @@
   let codesJeu = codesDuPreset();
 
   function focusJeu() {
-    const g = document.getElementById("game");
+    const g = $("game");
     if (g && document.activeElement !== g && !g.contains(document.activeElement)) {
       g.focus({ preventScroll: true });
     }
   }
 
   function gererClavier(e) {
-    if (!jeuActif) return;
+    if (!jeuActif || feuilleOuverte) return;
     if (e.key === "Escape" || /^F\d+$/.test(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
-    const g = document.getElementById("game");
+    const g = $("game");
     const dedans = g.contains(e.target);
     if (dedans) {
       if (codesJeu.has(e.keyCode)) e.preventDefault();
@@ -587,8 +818,8 @@
   window.addEventListener("keydown", gererClavier, true);
   window.addEventListener("keyup", gererClavier, true);
 
-  document.getElementById("jeu-conteneur").addEventListener("pointerdown", e => {
-    if (!e.target.closest("button")) setTimeout(focusJeu, 0);
+  $("console").addEventListener("pointerdown", e => {
+    if (jeuActif && !e.target.closest("button")) setTimeout(focusJeu, 0);
   });
   document.addEventListener("fullscreenchange", () => setTimeout(focusJeu, 50));
   window.addEventListener("focus", () => { if (jeuActif) setTimeout(focusJeu, 50); });
@@ -597,14 +828,14 @@
     const nomTouche = PRESETS[presetChoisi].touches[idBouton];
     if (!nomTouche) return;
     const code = NOMS_VERS_CODES[nomTouche] || nomTouche.toUpperCase().charCodeAt(0);
-    const g = document.getElementById("game");
+    const g = $("game");
     const ev = new KeyboardEvent(type, { bubbles: true, cancelable: true });
     Object.defineProperty(ev, "keyCode", { get: () => code });
     Object.defineProperty(ev, "which", { get: () => code });
     g.dispatchEvent(ev);
   }
 
-  document.querySelectorAll("#ecran [data-bouton]").forEach(btn => {
+  document.querySelectorAll("#console [data-bouton]").forEach(btn => {
     const id = Number(btn.dataset.bouton);
     let actif = false;
     const appuyer = e => {
@@ -613,6 +844,7 @@
       actif = true;
       btn.classList.add("appuye");
       try { btn.setPointerCapture(e.pointerId); } catch (err) {}
+      if (navigator.vibrate) { try { navigator.vibrate(8); } catch (err) {} }
       envoyerTouche("keydown", id);
     };
     const relacher = () => {
@@ -620,7 +852,7 @@
       actif = false;
       btn.classList.remove("appuye");
       envoyerTouche("keyup", id);
-      focusJeu();
+      if (jeuActif) focusJeu();
     };
     btn.addEventListener("pointerdown", appuyer);
     btn.addEventListener("pointerup", relacher);
@@ -629,101 +861,292 @@
     btn.addEventListener("contextmenu", e => e.preventDefault());
   });
 
-  document.getElementById("bouton-plein-ecran").addEventListener("click", () => {
-    const ecran = document.getElementById("ecran");
-    const p = ecran.requestFullscreen ? ecran.requestFullscreen() : ecran.webkitRequestFullscreen && ecran.webkitRequestFullscreen();
+  // ---------- Feuilles de réglages ----------
+  let feuilleOuverte = null;
+  function ouvrirFeuille(id) {
+    fermerFeuille();
+    feuilleOuverte = $(id);
+    feuilleOuverte.classList.add("ouverte");
+    $("voile").classList.add("ouvert");
+    document.querySelectorAll(`[data-feuille="${id}"]`).forEach(b => b.setAttribute("aria-expanded", "true"));
+    const premier = feuilleOuverte.querySelector("button");
+    if (premier) premier.focus({ preventScroll: true });
+  }
+  function fermerFeuille() {
+    if (!feuilleOuverte) return;
+    feuilleOuverte.classList.remove("ouverte");
+    document.querySelectorAll(`[data-feuille="${feuilleOuverte.id}"]`).forEach(b => b.setAttribute("aria-expanded", "false"));
+    feuilleOuverte = null;
+    $("voile").classList.remove("ouvert");
+    if (jeuActif) setTimeout(focusJeu, 0);
+  }
+  document.querySelectorAll("[data-feuille]").forEach(b => b.addEventListener("click", () => {
+    if (feuilleOuverte && feuilleOuverte.id === b.dataset.feuille) fermerFeuille();
+    else ouvrirFeuille(b.dataset.feuille);
+  }));
+  document.querySelectorAll("[data-fermer]").forEach(b => b.addEventListener("click", fermerFeuille));
+  $("voile").addEventListener("click", fermerFeuille);
+  window.addEventListener("keydown", e => { if (e.key === "Escape" && feuilleOuverte) fermerFeuille(); });
+  $("confirmer-ejecter").addEventListener("click", () => location.reload());
+
+  $("bouton-plein-ecran").addEventListener("click", () => {
+    const el = document.documentElement;
+    if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return; }
+    const p = el.requestFullscreen ? el.requestFullscreen() : el.webkitRequestFullscreen && el.webkitRequestFullscreen();
     if (p && p.catch) p.catch(() => {});
     setTimeout(focusJeu, 100);
   });
 
-  const zone = document.getElementById("zone-depot");
-  const champ = document.getElementById("fichier");
-  const erreur = document.getElementById("erreur");
-
-  document.getElementById("bouton-fichier").addEventListener("click", () => champ.click());
-  champ.addEventListener("change", () => {
-    if (champ.files.length) lancer(champ.files[0]);
+  // ---------- Coques ----------
+  const THEMES = [
+    { id: "perle",   nom: "Perle",   haut: "#eef0f4", bas: "#dfe2e8" },
+    { id: "onyx",    nom: "Onyx",    haut: "linear-gradient(135deg,#2c2d33,#141519)", bas: "#1a1b20" },
+    { id: "cerise",  nom: "Cerise",  haut: "linear-gradient(135deg,#e2475b,#a5162b)", bas: "#b81f35" },
+    { id: "glacier", nom: "Glacier", haut: "linear-gradient(135deg,#bfe6ff,#78b4e6)", bas: "#93c4ea" },
+    { id: "galaxie", nom: "Galaxie", haut: "radial-gradient(circle at 70% 30%,#7a45d0,#120c26 75%)", bas: "#1a1236" },
+    { id: "sakura",  nom: "Sakura",  haut: "linear-gradient(135deg,#fff1f4,#f6c6d2)", bas: "#f6ccd7" },
+    { id: "or",      nom: "Or",      haut: "#121110", bas: "linear-gradient(#f0d58c,#b8913f)" },
+    { id: "neon",    nom: "Néon",    haut: "#0b0c10", bas: "conic-gradient(#00e5ff,#ff3df2,#00e5ff)" },
+  ];
+  function lireTheme() { try { return localStorage.getItem("ds-retro-theme") || "perle"; } catch (e) { return "perle"; } }
+  function appliquerTheme(id) {
+    if (!THEMES.some(t => t.id === id)) id = "perle";
+    document.documentElement.dataset.theme = id;
+    try { localStorage.setItem("ds-retro-theme", id); } catch (e) {}
+    document.querySelectorAll(".coque-choix").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.theme === id)));
+    const couleur = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+    window.EJS_color = couleur;
+  }
+  THEMES.forEach(t => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "coque-choix"; b.dataset.theme = t.id;
+    const mini = document.createElement("span");
+    mini.className = "mini"; mini.setAttribute("aria-hidden", "true");
+    const i1 = document.createElement("i"); i1.style.background = t.haut;
+    const i2 = document.createElement("i"); i2.style.background = t.bas;
+    mini.append(i1, i2);
+    const nom = document.createElement("span"); nom.textContent = t.nom;
+    b.append(mini, nom);
+    b.addEventListener("click", () => appliquerTheme(t.id));
+    $("coques").appendChild(b);
   });
+  appliquerTheme(lireTheme());
 
-  ["dragenter", "dragover"].forEach(ev =>
-    zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add("survol"); })
-  );
-  ["dragleave", "drop"].forEach(ev =>
-    zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove("survol"); })
-  );
-  zone.addEventListener("drop", e => {
-    if (e.dataTransfer.files.length) lancer(e.dataTransfer.files[0]);
-  });
+  // ---------- Horloge de l'écran du haut ----------
+  const formatDate = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  function majHorloge() {
+    const d = new Date();
+    $("hh").textContent = String(d.getHours()).padStart(2, "0");
+    $("mm").textContent = String(d.getMinutes()).padStart(2, "0");
+    $("date").textContent = formatDate.format(d);
+  }
+  majHorloge();
+  setInterval(majHorloge, 5000);
 
-  document.getElementById("bouton-changer").addEventListener("click", () => location.reload());
+  // ---------- Ludothèque locale (IndexedDB, reste sur l'appareil) ----------
+  let bdPromesse = null;
+  function bd() {
+    if (!bdPromesse) bdPromesse = new Promise((ok, ko) => {
+      const r = indexedDB.open("ds-retro", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("cartouches", { keyPath: "id" });
+      r.onsuccess = () => ok(r.result);
+      r.onerror = () => ko(r.error);
+    });
+    return bdPromesse;
+  }
+  async function magasin(mode, action) {
+    const base = await bd();
+    return new Promise((ok, ko) => {
+      const t = base.transaction("cartouches", mode);
+      const req = action(t.objectStore("cartouches"));
+      t.oncomplete = () => ok(req ? req.result : undefined);
+      t.onerror = () => ko(t.error);
+      t.onabort = () => ko(t.error);
+    });
+  }
+  const listerCartouches = () => magasin("readonly", s => s.getAll()).catch(() => []);
+  const lireCartouche = id => magasin("readonly", s => s.get(id));
+  const enregistrerCartouche = c => magasin("readwrite", s => s.put(c));
+  const retirerCartouche = id => magasin("readwrite", s => s.delete(id));
 
-  function lancer(fichier) {
-    erreur.textContent = "";
+  function nomLisible(nomFichier) {
+    return nomFichier.replace(/\.[^.]+$/, "").replace(/[_]+/g, " ").replace(/\s+/g, " ").trim() || nomFichier;
+  }
+  function initiales(nom) {
+    const mots = nom.split(/[\s\-.]+/).filter(Boolean);
+    if (mots.length >= 2) return (mots[0][0] + mots[1][0]).toUpperCase();
+    return nom.slice(0, 2).toUpperCase();
+  }
+  function teinte(texte) {
+    let h = 0;
+    for (const c of texte) h = (h * 31 + c.charCodeAt(0)) % 360;
+    return h;
+  }
+
+  async function afficherCartouches() {
+    const liste = (await listerCartouches()).sort((a, b) => (b.joue || 0) - (a.joue || 0));
+    const grille = $("grille");
+    grille.innerHTML = "";
+
+    const ajouter = document.createElement("button");
+    ajouter.type = "button"; ajouter.className = "ajouter";
+    ajouter.innerHTML = '<span class="plus" aria-hidden="true">+</span><span>Ajouter un jeu</span>';
+    ajouter.addEventListener("click", () => $("fichier").click());
+    grille.appendChild(ajouter);
+
+    liste.forEach(c => {
+      const nom = nomLisible(c.nom);
+      const emplacement = document.createElement("div");
+      emplacement.className = "emplacement";
+      const cart = document.createElement("button");
+      cart.type = "button"; cart.className = "cart";
+      cart.style.setProperty("--teinte", teinte(nom));
+      cart.setAttribute("aria-label", "Jouer à " + nom);
+      const etiquette = document.createElement("span");
+      etiquette.className = "etiquette"; etiquette.textContent = initiales(nom);
+      const titre = document.createElement("span");
+      titre.className = "nom"; titre.textContent = nom;
+      cart.append(etiquette, titre);
+      cart.addEventListener("click", async () => {
+        try {
+          const complet = await lireCartouche(c.id);
+          if (!complet || !complet.blob) throw new Error("absent");
+          complet.joue = Date.now();
+          enregistrerCartouche(complet).catch(() => {});
+          inserer(cart, complet.blob, c.nom);
+        } catch (e) {
+          $("erreur").textContent = "Cette cartouche n'est plus sur l'appareil. Ajoute à nouveau le fichier.";
+        }
+      });
+      const retirer = document.createElement("button");
+      retirer.type = "button"; retirer.className = "retirer";
+      retirer.textContent = "×";
+      retirer.setAttribute("aria-label", "Retirer " + nom + " de la liste");
+      retirer.addEventListener("click", async e => {
+        e.stopPropagation();
+        await retirerCartouche(c.id).catch(() => {});
+        afficherCartouches();
+      });
+      emplacement.append(cart, retirer);
+      grille.appendChild(emplacement);
+    });
+
+    if (!liste.length) {
+      const vide = document.createElement("div");
+      vide.className = "vide";
+      vide.innerHTML = "<p>Choisis un fichier <b>.nds</b> sur ton appareil. Il reste chez toi, rien n'est envoyé.</p><p>Pas de jeu ? Cherche « DS homebrew » sur itch.io.</p>";
+      grille.appendChild(vide);
+      $("compte").textContent = "";
+    } else {
+      $("compte").textContent = liste.length === 1 ? "1 jeu" : liste.length + " jeux";
+    }
+  }
+  afficherCartouches();
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+  async function ajouterFichier(fichier) {
+    $("erreur").textContent = "";
     const nom = fichier.name.toLowerCase();
     if (!EXTENSIONS.some(ext => nom.endsWith(ext))) {
-      erreur.textContent = "Ce fichier n'est pas un jeu DS. Choisis un fichier .nds (ou .zip / .7z qui en contient un).";
+      $("erreur").textContent = "Ce fichier n'est pas un jeu DS. Choisis un .nds, ou un .zip / .7z qui en contient un.";
       return;
     }
+    const id = fichier.name + "|" + fichier.size;
+    try {
+      await enregistrerCartouche({ id, nom: fichier.name, taille: fichier.size, ajoute: Date.now(), joue: Date.now(), blob: fichier });
+    } catch (e) {
+      // Plus de place sur l'appareil : on lance quand même, sans garder la cartouche.
+    }
+    await afficherCartouches();
+    const cart = [...document.querySelectorAll(".cart")].find(c => c.getAttribute("aria-label") === "Jouer à " + nomLisible(fichier.name));
+    inserer(cart, fichier, fichier.name);
+  }
 
-    document.getElementById("accueil").style.display = "none";
-    document.getElementById("jeu-conteneur").style.display = "block";
-    document.getElementById("nom-jeu").textContent = fichier.name;
+  $("fichier").addEventListener("change", () => {
+    if ($("fichier").files.length) ajouterFichier($("fichier").files[0]);
+    $("fichier").value = "";
+  });
+
+  // Glisser-déposer n'importe où sur la page
+  let profondeur = 0;
+  window.addEventListener("dragenter", e => { if (jeuActif) return; e.preventDefault(); profondeur++; document.body.classList.add("depot"); });
+  window.addEventListener("dragover", e => { if (!jeuActif) e.preventDefault(); });
+  window.addEventListener("dragleave", () => { if (--profondeur <= 0) { profondeur = 0; document.body.classList.remove("depot"); } });
+  window.addEventListener("drop", e => {
+    e.preventDefault(); profondeur = 0; document.body.classList.remove("depot");
+    if (!jeuActif && e.dataTransfer.files.length) ajouterFichier(e.dataTransfer.files[0]);
+  });
+
+  // ---------- Insertion de la cartouche puis démarrage ----------
+  const mouvementReduit = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function inserer(cart, blob, nomFichier) {
+    if (jeuActif) return;
+    jeuActif = true;
+    const nom = nomLisible(nomFichier);
+    $("message-haut").textContent = "Lancement de " + nom + "…";
+    document.body.classList.add("chargement");
+
+    if (cart && !mouvementReduit) {
+      const zone = document.querySelector(".lcd.bas").getBoundingClientRect();
+      const r = cart.getBoundingClientRect();
+      const fantome = cart.cloneNode(true);
+      fantome.classList.add("insertion");
+      Object.assign(fantome.style, { left: (r.left - zone.left) + "px", top: (r.top - zone.top) + "px", width: r.width + "px", height: r.height + "px" });
+      document.querySelector(".lcd.bas").appendChild(fantome);
+      cart.style.visibility = "hidden";
+      requestAnimationFrame(() => requestAnimationFrame(() => fantome.classList.add("entre")));
+      setTimeout(() => { $("menu").classList.add("flash"); demarrer(blob, nomFichier); }, 430);
+    } else {
+      demarrer(blob, nomFichier);
+    }
+  }
+
+  function demarrer(blob, nomFichier) {
+    document.body.classList.add("en-jeu");
+    $("contexte").innerHTML = "";
+    const b = document.createElement("b");
+    b.textContent = nomLisible(nomFichier);
+    $("contexte").appendChild(b);
+
+    let revele = false;
+    const reveler = () => {
+      if (revele) return;
+      revele = true;
+      document.body.classList.remove("chargement");
+      $("menu").classList.add("parti");
+      setTimeout(() => { $("menu").style.display = "none"; focusJeu(); }, 400);
+    };
 
     window.EJS_player = "#game";
     window.EJS_core = "desmume";
-    window.EJS_gameName = fichier.name.replace(/\.[^.]+$/, "");
-    window.EJS_gameUrl = URL.createObjectURL(fichier);
+    window.EJS_gameName = nomLisible(nomFichier);
+    window.EJS_gameUrl = URL.createObjectURL(blob);
     window.EJS_pathtodata = CDN;
     window.EJS_startOnLoaded = true;
-    window.EJS_color = "#5865f2";
     window.EJS_defaultControls = construireControles();
     window.EJS_defaultOptions = { desmume_screens_gap: "64", desmume_screens_layout: "top/bottom" };
     window.EJS_gameID = PRESETS[presetChoisi].gameId;
-    afficherLegende("legende-jeu");
+    window.EJS_ready = () => setTimeout(reveler, 150);
+    window.EJS_onGameStart = () => { reveler(); setTimeout(focusJeu, 100); };
     codesJeu = codesDuPreset();
-    jeuActif = true;
-    window.EJS_onGameStart = () => setTimeout(focusJeu, 100);
-    setTimeout(focusJeu, 500);
+    // Si l'émulateur attend un clic (son bloqué), on montre son écran quand même.
+    setTimeout(reveler, 12000);
+
+    if ("wakeLock" in navigator) navigator.wakeLock.request("screen").catch(() => {});
 
     const script = document.createElement("script");
     script.src = CDN + "loader.js";
     script.onerror = () => {
-      document.getElementById("jeu-conteneur").style.display = "none";
-      document.getElementById("accueil").style.display = "block";
-      erreur.textContent = "Impossible de charger l'émulateur. Vérifie ta connexion internet et que la page est ouverte via http://localhost.";
+      jeuActif = false;
+      document.body.classList.remove("chargement", "en-jeu");
+      $("contexte").textContent = "";
+      $("message-haut").textContent = "Choisis une cartouche sur l'écran du bas.";
+      $("erreur").textContent = "L'émulateur n'a pas pu se charger. Vérifie ta connexion, puis réessaie.";
+      afficherCartouches();
     };
     discordPret.then(() => document.body.appendChild(script));
   }
-
-  // ---------- Thèmes de coque ----------
-  const THEMES = [
-    { id: "perle",   nom: "Blanc perle",  pastille: "#e9ebf0" },
-    { id: "onyx",    nom: "Onyx & or",    pastille: "linear-gradient(135deg,#2c2d33,#141519)" },
-    { id: "cerise",  nom: "Rouge cerise", pastille: "linear-gradient(135deg,#e2475b,#a5162b)" },
-    { id: "glacier", nom: "Glacier",      pastille: "linear-gradient(135deg,#bfe6ff,#78b4e6)" },
-    { id: "galaxie", nom: "Galaxie",      pastille: "radial-gradient(circle at 70% 30%,#7a45d0,#120c26 70%)" },
-    { id: "sakura",  nom: "Sakura",       pastille: "linear-gradient(135deg,#fff1f4,#f6c6d2)" },
-    { id: "or",      nom: "Édition or",   pastille: "linear-gradient(135deg,#f0d58c,#8d6a24)" },
-    { id: "neon",    nom: "Néon",         pastille: "conic-gradient(#00e5ff,#ff3df2,#00e5ff)" },
-  ];
-  function lireTheme() { try { return localStorage.getItem("ds-retro-theme") || "perle"; } catch (e) { return "perle"; } }
-  function appliquerTheme(id) {
-    const ecran = document.getElementById("ecran");
-    if (id === "perle") ecran.removeAttribute("data-theme"); else ecran.setAttribute("data-theme", id);
-    try { localStorage.setItem("ds-retro-theme", id); } catch (e) {}
-    document.querySelectorAll(".theme").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.theme === id)));
-  }
-  ["themes-accueil", "themes-jeu"].forEach(idConteneur => {
-    const c = document.getElementById(idConteneur);
-    THEMES.forEach(t => {
-      const b = document.createElement("button");
-      b.type = "button"; b.className = "theme"; b.dataset.theme = t.id;
-      b.innerHTML = '<i style="background:' + t.pastille + '"></i>' + t.nom;
-      b.addEventListener("click", () => { appliquerTheme(t.id); if (typeof focusJeu === "function" && jeuActif) focusJeu(); });
-      c.appendChild(b);
-    });
-  });
-  appliquerTheme(lireTheme());
 </script>
 </body>
 </html>
