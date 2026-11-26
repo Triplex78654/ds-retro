@@ -38,7 +38,9 @@ export async function lancerScenarios({ site }) {
       : { viewport: { width: 1100, height: 650 } });
     const p = await ctx.newPage();
     p.erreurs = [];
-    p.on("pageerror", e => { if (!/Failed to fetch/.test(String(e))) p.erreurs.push(String(e)); });
+    // Ignorées : la vérification de mise à jour d'EmulatorJS (hors ligne ici) et la demande d'écran
+    // allumé faite par le cœur de l'émulateur, refusée par le navigateur des tests.
+    p.on("pageerror", e => { if (!/Failed to fetch|Wake Lock permission/.test(String(e))) p.erreurs.push(String(e)); });
     const kit = `window.DiscordEmbedded = { patchUrlMappings() {}, DiscordSDK: class { constructor() { this.instanceId = ${JSON.stringify(instance)}; this.guildId = ${JSON.stringify(serveur)};
       this.commands = { authorize: async () => ({ code: "x" }), authenticate: async () => ({ user: { id: ${JSON.stringify(id)}, username: ${JSON.stringify(nom)}, global_name: ${JSON.stringify(nom)} } }) }; }
       ready() { return Promise.resolve(); } } };`;
