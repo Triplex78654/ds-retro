@@ -94,7 +94,19 @@
     --cote: calc(var(--w) * 0.5);
     --coque: #e9ebf0;
     --coque-ombre: #c7cad3;
+    --motif: linear-gradient(transparent, transparent);
+    --lueur: 0 10px 30px rgba(0,0,0,.35);
     --charniere: #b8bcc6;
+    --pli: #a5a9b4;
+    --cadre: #1b1c20;
+    --bouton: #2a2c31;
+    --bouton-texte: #e9ebf0;
+    --bouton-ombre: #111;
+    --petit: #9da1ab;
+    --texte: #7d818b;
+    --hp: #9da1ab;
+    --epaule: #c4c8d0;
+    --epaule-texte: #5b5f69;
     position: relative;
     width: calc(var(--w) + 2 * var(--cote));
     margin: 0 auto;
@@ -109,8 +121,9 @@
     content: "";
     position: absolute;
     left: 0; right: 0;
-    background: var(--coque);
-    box-shadow: inset 0 -3px 0 var(--coque-ombre), 0 10px 30px rgba(0,0,0,.35);
+    background: var(--motif), var(--coque);
+    box-shadow: inset 0 -3px 0 var(--coque-ombre), inset 0 2px 0 rgba(255,255,255,.18), var(--lueur);
+    transition: background .3s, box-shadow .3s;
     z-index: 0;
   }
   #ecran::before { top: 0; height: calc(50% - 2px); border-radius: 22px 22px 10px 10px; }
@@ -127,7 +140,7 @@
     position: absolute;
     inset: calc(var(--w) * -0.035);
     border-radius: 10px;
-    background: #1b1c20;
+    background: var(--cadre);
     z-index: -1;
   }
   #game { position: absolute; inset: 0; background: #000; }
@@ -148,7 +161,7 @@
     top: 18%; bottom: 18%;
     width: 14%;
     border-radius: 99px;
-    background: #a5a9b4;
+    background: var(--pli);
   }
   .charniere::before { left: 4%; }
   .charniere::after { right: 4%; }
@@ -167,7 +180,7 @@
     gap: 6px;
     align-self: center;
   }
-  .haut-parleur i { width: 6px; height: 6px; border-radius: 50%; background: #9da1ab; }
+  .haut-parleur i { width: 6px; height: 6px; border-radius: 50%; background: var(--hp); }
   .bas-cote { display: flex; flex-direction: column; align-items: center; gap: calc(var(--w) * 0.08); padding-top: calc(var(--h) * 0.04); }
   .croix {
     position: relative;
@@ -180,21 +193,21 @@
     padding: 0;
     cursor: pointer;
     font: 600 12px/1 system-ui, sans-serif;
-    color: #e9ebf0;
+    color: var(--bouton-texte);
     -webkit-tap-highlight-color: transparent;
   }
-  .croix button { background: #2a2c31; width: 34%; height: 34%; }
+  .croix button { background: var(--bouton); width: 34%; height: 34%; }
   .croix .h { left: 33%; top: 0; border-radius: 5px 5px 0 0; }
   .croix .b { left: 33%; bottom: 0; border-radius: 0 0 5px 5px; }
   .croix .g { left: 0; top: 33%; border-radius: 5px 0 0 5px; }
   .croix .d { right: 0; top: 33%; border-radius: 0 5px 5px 0; }
-  .croix .centre { position: absolute; left: 33%; top: 33%; width: 34%; height: 34%; background: #2a2c31; }
+  .croix .centre { position: absolute; left: 33%; top: 33%; width: 34%; height: 34%; background: var(--bouton); }
   .abxy { position: relative; width: calc(var(--cote) * 0.66); height: calc(var(--cote) * 0.66); }
   .abxy button {
     width: 34%; height: 34%;
     border-radius: 50%;
-    background: #2a2c31;
-    box-shadow: 0 2px 0 #111;
+    background: var(--bouton-a, var(--bouton));
+    box-shadow: 0 2px 0 var(--bouton-ombre);
   }
   .abxy .x { left: 33%; top: 0; }
   .abxy .b { left: 33%; bottom: 0; }
@@ -204,25 +217,105 @@
   .petits button {
     width: 46%; height: 14px; top: 0;
     border-radius: 99px;
-    background: #9da1ab;
+    background: var(--petit);
     font-size: 0;
   }
   .petits .select { left: 0; }
   .petits .start { right: 0; }
-  .petits span { position: absolute; top: 16px; font-size: 10px; color: #7d818b; width: 46%; text-align: center; }
+  .petits span { position: absolute; top: 16px; font-size: 10px; color: var(--texte); width: 46%; text-align: center; }
   .petits .ls { left: 0; } .petits .lst { right: 0; }
   .epaule {
     top: calc(50% + var(--h) * 32 / 448 - 2px);
     width: 24%;
     height: calc(var(--h) * 0.035 + 8px);
-    background: #c4c8d0;
-    color: #5b5f69;
+    background: var(--epaule);
+    color: var(--epaule-texte);
     z-index: 3;
     font-size: 11px;
     box-shadow: inset 0 -2px 0 rgba(0,0,0,.15);
   }
   .epaule.l { left: -6px; border-radius: 18px 6px 6px 2px; padding-left: 10px; text-align: left; }
   .epaule.r { right: -6px; border-radius: 6px 18px 2px 6px; padding-right: 10px; text-align: right; }
+
+  /* ---------- Thèmes de coque ---------- */
+  #ecran[data-theme="onyx"] {
+    --coque: linear-gradient(160deg, #2c2d33, #141519 60%, #1d1e23);
+    --coque-ombre: #000; --charniere: linear-gradient(#25262b, #18191d); --pli: #0e0f12;
+    --cadre: #050506; --bouton: #3a3b42; --bouton-texte: #d9b56a; --bouton-ombre: #000;
+    --petit: #3a3b42; --texte: #8c7a52; --hp: #3a3b42; --epaule: #26272c; --epaule-texte: #d9b56a;
+    --lueur: 0 0 0 1px rgba(217,181,106,.25), 0 14px 40px rgba(0,0,0,.6);
+  }
+  #ecran[data-theme="cerise"] {
+    --coque: linear-gradient(150deg, #e2475b, #a5162b 55%, #c42a3f);
+    --coque-ombre: #6e0d1b; --charniere: linear-gradient(#b51f34, #8c1124); --pli: #730e1e;
+    --cadre: #160407; --bouton: #2b1216; --bouton-texte: #ffd9de; --bouton-ombre: #4a0811;
+    --petit: #f2c9cf; --texte: #ffd0d6; --hp: #7a0f20; --epaule: #ce3549; --epaule-texte: #ffe3e7;
+    --motif: radial-gradient(ellipse at 25% 10%, rgba(255,255,255,.35), transparent 45%);
+    --lueur: 0 14px 40px rgba(120,10,30,.45);
+  }
+  #ecran[data-theme="glacier"] {
+    --coque: linear-gradient(160deg, rgba(190,230,255,.75), rgba(120,180,230,.55) 60%, rgba(170,215,250,.7));
+    --coque-ombre: rgba(60,120,180,.6); --charniere: linear-gradient(rgba(160,205,240,.9), rgba(110,165,215,.9)); --pli: rgba(70,130,190,.6);
+    --cadre: #0b1622; --bouton: rgba(30,70,110,.85); --bouton-texte: #e6f6ff; --bouton-ombre: rgba(10,30,50,.8);
+    --petit: rgba(40,90,140,.6); --texte: #20507a; --hp: rgba(40,90,140,.55); --epaule: rgba(150,200,240,.95); --epaule-texte: #1d4d78;
+    --motif: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.45) 38%, transparent 46%),
+             repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 2px, transparent 2px 9px);
+    --lueur: 0 0 30px rgba(120,190,255,.35), 0 14px 40px rgba(0,0,0,.4);
+  }
+  #ecran[data-theme="galaxie"] {
+    --coque: radial-gradient(ellipse at 70% 20%, #5a2f9c, transparent 55%), radial-gradient(ellipse at 15% 85%, #1f4fa0, transparent 50%), #120c26;
+    --coque-ombre: #05030c; --charniere: linear-gradient(#2a1d52, #170f33); --pli: #3d2a78;
+    --cadre: #04020a; --bouton: #2b2156; --bouton-texte: #e7dcff; --bouton-ombre: #07041a;
+    --petit: #4a3a8a; --texte: #a796e8; --hp: #4a3a8a; --epaule: #2f2360; --epaule-texte: #cbbcff;
+    --motif: radial-gradient(1.5px 1.5px at 12% 18%, #fff, transparent), radial-gradient(1px 1px at 33% 72%, #fff, transparent),
+             radial-gradient(1.5px 1.5px at 58% 34%, #fff, transparent), radial-gradient(1px 1px at 81% 61%, #fff, transparent),
+             radial-gradient(2px 2px at 90% 14%, #ffe9a8, transparent), radial-gradient(1px 1px at 22% 48%, #cfe2ff, transparent),
+             radial-gradient(1px 1px at 70% 88%, #fff, transparent), radial-gradient(1.5px 1.5px at 46% 9%, #fff, transparent),
+             radial-gradient(1px 1px at 8% 92%, #fff, transparent), radial-gradient(1px 1px at 95% 40%, #fff, transparent);
+    --lueur: 0 0 40px rgba(110,70,220,.35), 0 14px 40px rgba(0,0,0,.55);
+  }
+  #ecran[data-theme="sakura"] {
+    --coque: linear-gradient(160deg, #fff1f4, #f9d5de 70%, #f6c6d2);
+    --coque-ombre: #e3a9b8; --charniere: linear-gradient(#f4c3cf, #e9aebe); --pli: #dc98aa;
+    --cadre: #2a1a20; --bouton: #8c4a5e; --bouton-texte: #fff0f4; --bouton-ombre: #5e2c3b;
+    --petit: #e3a9b8; --texte: #a8657a; --hp: #e3a9b8; --epaule: #f2bccb; --epaule-texte: #8c4a5e;
+    --motif: radial-gradient(circle at 12% 20%, rgba(232,120,150,.55) 0 4px, transparent 5px),
+             radial-gradient(circle at 16% 24%, rgba(232,120,150,.35) 0 3px, transparent 4px),
+             radial-gradient(circle at 85% 30%, rgba(232,120,150,.45) 0 5px, transparent 6px),
+             radial-gradient(circle at 80% 78%, rgba(232,120,150,.4) 0 4px, transparent 5px),
+             radial-gradient(circle at 20% 82%, rgba(232,120,150,.5) 0 3px, transparent 4px),
+             radial-gradient(circle at 50% 6%, rgba(232,120,150,.3) 0 3px, transparent 4px);
+    --lueur: 0 14px 36px rgba(180,80,110,.3);
+  }
+  #ecran[data-theme="or"] {
+    --coque: linear-gradient(135deg, #0d0d0f, #1c1a16 50%, #0d0d0f);
+    --coque-ombre: #000; --charniere: linear-gradient(#e8c877, #b8913f 50%, #8d6a24); --pli: #6e5119;
+    --cadre: #000; --bouton: linear-gradient(#f0d58c, #b8913f); --bouton-texte: #1a1408; --bouton-ombre: #5a4312;
+    --petit: #b8913f; --texte: #d4b264; --hp: #6e5a2c; --epaule: linear-gradient(#e8c877, #a8822f); --epaule-texte: #1a1408;
+    --motif: repeating-linear-gradient(45deg, rgba(212,178,100,.07) 0 1px, transparent 1px 12px),
+             repeating-linear-gradient(-45deg, rgba(212,178,100,.07) 0 1px, transparent 1px 12px);
+    --lueur: 0 0 0 2px #b8913f, 0 16px 44px rgba(0,0,0,.6);
+  }
+  #ecran[data-theme="neon"] {
+    --coque: #0b0c10;
+    --coque-ombre: #000; --charniere: #101218; --pli: #00e5ff;
+    --cadre: #000; --bouton: #11131a; --bouton-texte: #ff3df2; --bouton-ombre: #ff3df2;
+    --petit: #00e5ff; --texte: #00e5ff; --hp: #ff3df2; --epaule: #11131a; --epaule-texte: #00e5ff;
+    --motif: linear-gradient(rgba(0,229,255,.06) 1px, transparent 1px) 0 0 / 100% 14px,
+             linear-gradient(90deg, rgba(0,229,255,.06) 1px, transparent 1px) 0 0 / 14px 100%;
+    --lueur: 0 0 0 1.5px #00e5ff, 0 0 22px rgba(0,229,255,.55), 0 0 60px rgba(255,61,242,.25);
+  }
+  #ecran[data-theme="neon"] .croix button, #ecran[data-theme="neon"] .croix .centre { box-shadow: 0 0 8px rgba(0,229,255,.5); outline: 1px solid #00e5ff; }
+  #ecran[data-theme="neon"] .abxy button { outline: 1px solid #ff3df2; box-shadow: 0 0 10px rgba(255,61,242,.6); }
+  #ecran[data-theme="neon"] .epaule { outline: 1px solid #00e5ff; }
+  .themes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
+  .theme {
+    display: flex; align-items: center; gap: 8px;
+    background: #2b2d31; color: #f2f3f5; border: 2px solid transparent; border-radius: 99px;
+    padding: 6px 12px 6px 6px; font: 600 13px system-ui, sans-serif; cursor: pointer;
+  }
+  .theme i { width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,.2); }
+  .theme[aria-pressed="true"] { border-color: #5865f2; }
   #ecran button.appuye { filter: brightness(1.6); transform: translateY(1px); }
   #ecran:fullscreen { background: #111216; width: 100vw; height: 100vh; place-content: center; padding: 0; }
   #ecran:fullscreen { --h: min(calc(100vh - 60px), calc((100vw - 32px) * 448 / 512)); }
@@ -290,6 +383,8 @@
     <p>Choisis avant de lancer le jeu. Ton choix est retenu pour la prochaine fois.</p>
     <div class="presets" id="presets"></div>
     <div class="legende" id="legende-accueil"></div>
+    <h2 style="margin-top:18px;">Coque de la console</h2>
+    <div class="themes" id="themes-accueil" style="justify-content:flex-start"></div>
     <p class="note">Écran tactile : clic de souris sur l'écran du bas. Une manette Xbox ou PlayStation branchée marche aussi directement.</p>
   </section>
 
@@ -336,6 +431,7 @@
       </div>
     </div>
   </div>
+  <div class="themes" id="themes-jeu"></div>
   <p id="nom-jeu"></p>
   <div class="legende" id="legende-jeu"></div>
   <div class="barre">
@@ -598,6 +694,36 @@
     };
     discordPret.then(() => document.body.appendChild(script));
   }
+
+  // ---------- Thèmes de coque ----------
+  const THEMES = [
+    { id: "perle",   nom: "Blanc perle",  pastille: "#e9ebf0" },
+    { id: "onyx",    nom: "Onyx & or",    pastille: "linear-gradient(135deg,#2c2d33,#141519)" },
+    { id: "cerise",  nom: "Rouge cerise", pastille: "linear-gradient(135deg,#e2475b,#a5162b)" },
+    { id: "glacier", nom: "Glacier",      pastille: "linear-gradient(135deg,#bfe6ff,#78b4e6)" },
+    { id: "galaxie", nom: "Galaxie",      pastille: "radial-gradient(circle at 70% 30%,#7a45d0,#120c26 70%)" },
+    { id: "sakura",  nom: "Sakura",       pastille: "linear-gradient(135deg,#fff1f4,#f6c6d2)" },
+    { id: "or",      nom: "Édition or",   pastille: "linear-gradient(135deg,#f0d58c,#8d6a24)" },
+    { id: "neon",    nom: "Néon",         pastille: "conic-gradient(#00e5ff,#ff3df2,#00e5ff)" },
+  ];
+  function lireTheme() { try { return localStorage.getItem("ds-retro-theme") || "perle"; } catch (e) { return "perle"; } }
+  function appliquerTheme(id) {
+    const ecran = document.getElementById("ecran");
+    if (id === "perle") ecran.removeAttribute("data-theme"); else ecran.setAttribute("data-theme", id);
+    try { localStorage.setItem("ds-retro-theme", id); } catch (e) {}
+    document.querySelectorAll(".theme").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.theme === id)));
+  }
+  ["themes-accueil", "themes-jeu"].forEach(idConteneur => {
+    const c = document.getElementById(idConteneur);
+    THEMES.forEach(t => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "theme"; b.dataset.theme = t.id;
+      b.innerHTML = '<i style="background:' + t.pastille + '"></i>' + t.nom;
+      b.addEventListener("click", () => { appliquerTheme(t.id); if (typeof focusJeu === "function" && jeuActif) focusJeu(); });
+      c.appendChild(b);
+    });
+  });
+  appliquerTheme(lireTheme());
 </script>
 </body>
 </html>
