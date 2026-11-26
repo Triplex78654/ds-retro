@@ -8,17 +8,23 @@
 //   GET  /sauvegardes           liste des sauvegardes du joueur
 //   GET  /sauvegardes/:jeu      télécharge une sauvegarde
 //   PUT  /sauvegardes/:jeu      envoie une sauvegarde (en-tête X-Maj = date en ms)
+//   GET  /ludotheque            jeux personnels du joueur (privés, seulement pour lui)
+//   GET  /ludotheque/:id/:n     télécharge le morceau n d'un jeu
+//   PUT  /ludotheque/:id/:n     envoie le morceau n (en-têtes X-Nom, X-Taille, X-Morceaux)
+//   DELETE /ludotheque/:id      retire un jeu
 
 import { DurableObject } from "cloudflare:workers";
 
 const DISCORD = "https://discord.com/api";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Maj",
-  "Access-Control-Allow-Methods": "GET, PUT, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Maj, X-Nom, X-Taille, X-Morceaux",
+  "Access-Control-Allow-Methods": "GET, PUT, POST, DELETE, OPTIONS",
   "Access-Control-Expose-Headers": "X-Maj",
 };
 const TAILLE_MAX_SAUVEGARDE = 2_000_000;
+const TAILLE_MORCEAU = 1_900_000;          // un morceau de jeu tient dans une ligne SQLite (2 Mo max)
+const QUOTA_LUDOTHEQUE = 1_000_000_000;    // 1 Go de jeux par joueur
 
 function json(objet, statut = 200) {
   return new Response(JSON.stringify(objet), { status: statut, headers: { ...CORS, "Content-Type": "application/json" } });
@@ -90,6 +96,22 @@ export default {
       if (!joueur) return json({ erreur: "Non connecté." }, 401);
       const coffre = env.COFFRES.get(env.COFFRES.idFromName(joueur.id));
       const r = await coffre.fetch(new Request("https://coffre/" + (m[1] || ""), {
+        method: req.method,
+        headers: req.headers,
+        body: req.method === "PUT" ? req.body : null,
+      }));
+      const entetes = new Headers(r.headers);
+      for (const [k, v] of Object.entries(CORS)) entetes.set(k, v);
+      return new Response(r.body, { status: r.status, headers: entetes });
+    }
+
+    m = chemin.match(/^\/ludotheque(?:\/([a-f0-9]{16,64})(?:\/(\d{1,5}))?)?$/);
+    if (m) {
+      const jeton = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+      const joueur = await joueurDepuisJeton(jeton, env);
+      if (!joueur) return json({ erreur: "Non connecté." }, 401);
+      const coffre = env.COFFRES.get(env.COFFRES.idFromName(joueur.id));
+      const r = await coffre.fetch(new Request("https://coffre/ludo/" + (m[1] || "") + (m[2] !== undefined ? "/" + m[2] : ""), {
         method: req.method,
         headers: req.headers,
         body: req.method === "PUT" ? req.body : null,
@@ -240,10 +262,65 @@ export class Coffre extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS sauvegardes (jeu TEXT PRIMARY KEY, maj INTEGER NOT NULL, donnees BLOB NOT NULL)");
+    ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS cartouches (id TEXT PRIMARY KEY, nom TEXT NOT NULL, taille INTEGER NOT NULL, morceaux INTEGER NOT NULL, ajoute INTEGER NOT NULL)");
+    ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS morceaux (id TEXT NOT NULL, n INTEGER NOT NULL, donnees BLOB NOT NULL, PRIMARY KEY (id, n))");
+  }
+
+  // Ludothèque : les jeux personnels du joueur, découpés en morceaux.
+  async ludotheque(req, id, n) {
+    const sql = this.ctx.storage.sql;
+    const ligne = requete => [...requete][0];
+
+    if (!id) {
+      if (req.method !== "GET") return new Response(null, { status: 405 });
+      const jeux = [...sql.exec(
+        "SELECT c.id, c.nom, c.taille, c.morceaux, c.ajoute, (SELECT COUNT(*) FROM morceaux m WHERE m.id = c.id) AS recus FROM cartouches c ORDER BY c.ajoute DESC"
+      )];
+      const utilise = ligne(sql.exec("SELECT COALESCE(SUM(length(donnees)), 0) AS t FROM morceaux")).t;
+      return Response.json({ jeux, utilise, quota: QUOTA_LUDOTHEQUE });
+    }
+
+    if (req.method === "DELETE") {
+      sql.exec("DELETE FROM morceaux WHERE id = ?", id);
+      sql.exec("DELETE FROM cartouches WHERE id = ?", id);
+      return Response.json({ ok: true });
+    }
+
+    if (n === null) return new Response(null, { status: 404 });
+
+    if (req.method === "GET") {
+      const m = ligne(sql.exec("SELECT donnees FROM morceaux WHERE id = ? AND n = ?", id, n));
+      if (!m) return new Response(null, { status: 404 });
+      return new Response(m.donnees, { headers: { "Content-Type": "application/octet-stream" } });
+    }
+
+    if (req.method === "PUT") {
+      const nom = decodeURIComponent(req.headers.get("X-Nom") || "").slice(0, 200);
+      const taille = Number(req.headers.get("X-Taille"));
+      const morceaux = Number(req.headers.get("X-Morceaux"));
+      if (!nom || !(taille > 0) || !(morceaux > 0) || n >= morceaux) return new Response("En-têtes invalides.", { status: 400 });
+      const donnees = await req.arrayBuffer();
+      if (!donnees.byteLength || donnees.byteLength > TAILLE_MORCEAU) return new Response("Morceau invalide.", { status: 400 });
+      const utilise = ligne(sql.exec("SELECT COALESCE(SUM(length(donnees)), 0) AS t FROM morceaux WHERE NOT (id = ? AND n = ?)", id, n)).t;
+      if (utilise + donnees.byteLength > QUOTA_LUDOTHEQUE) return Response.json({ ok: false, raison: "quota" }, { status: 507 });
+      sql.exec(
+        "INSERT INTO cartouches (id, nom, taille, morceaux, ajoute) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET nom = excluded.nom, taille = excluded.taille, morceaux = excluded.morceaux",
+        id, nom, taille, morceaux, Date.now()
+      );
+      sql.exec("INSERT OR REPLACE INTO morceaux (id, n, donnees) VALUES (?, ?, ?)", id, n, donnees);
+      const recus = ligne(sql.exec("SELECT COUNT(*) AS c FROM morceaux WHERE id = ?", id)).c;
+      return Response.json({ ok: true, recus, morceaux });
+    }
+
+    return new Response(null, { status: 405 });
   }
 
   async fetch(req) {
-    const jeu = new URL(req.url).pathname.slice(1);
+    const chemin = new URL(req.url).pathname;
+    const ludo = chemin.match(/^\/ludo\/?([a-f0-9]*)(?:\/(\d+))?$/);
+    if (ludo) return this.ludotheque(req, ludo[1] || null, ludo[2] !== undefined ? Number(ludo[2]) : null);
+
+    const jeu = chemin.slice(1);
     const sql = this.ctx.storage.sql;
 
     if (!jeu) {
