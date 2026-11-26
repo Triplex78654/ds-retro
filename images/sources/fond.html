@@ -1,0 +1,22 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; }
+body { position: relative; background:
+  radial-gradient(1.5px 1.5px at 30px 40px, #fff, transparent) 0 0 / 130px 110px,
+  radial-gradient(1px 1px at 80px 20px, #cfe2ff, transparent) 0 0 / 170px 150px,
+  radial-gradient(ellipse 30% 60% at 0% 50%, rgba(255,61,242,.35), transparent 70%),
+  radial-gradient(ellipse 30% 60% at 100% 50%, rgba(0,229,255,.3), transparent 70%),
+  linear-gradient(#0b0418, #1d0834); }
+.sol { position: absolute; left: -40%; right: -40%; top: 78%; bottom: -30%;
+  background: linear-gradient(rgba(0,229,255,.45) 3px, transparent 3px) 0 0 / 100% 70px, linear-gradient(90deg, rgba(255,61,242,.4) 3px, transparent 3px) 0 0 / 70px 100%;
+  transform: perspective(380px) rotateX(60deg); transform-origin: top; -webkit-mask-image: linear-gradient(#000, transparent 85%); }
+.c { position: absolute; width: 150px; height: 124px; background: linear-gradient(#3a3e46, #262930); clip-path: polygon(0 0, 80% 0, 100% 16%, 100% 100%, 0 100%); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+.c::before { content: ""; position: absolute; left: 14px; right: 14px; top: 14px; height: 62px; border-radius: 6px; background: repeating-linear-gradient(135deg, rgba(255,255,255,.15) 0 8px, transparent 8px 16px), var(--c); }
+.c::after { content: ""; position: absolute; left: 22px; right: 22px; bottom: 12px; height: 10px; background: repeating-linear-gradient(90deg, #c9a14a 0 6px, transparent 6px 11px); }
+</style></head><body><div class="sol"></div>
+<div class="c" style="--c:#e2475b; left:60px; top:120px; transform:rotate(-14deg)"></div>
+<div class="c" style="--c:#3d9be0; left:190px; top:520px; transform:rotate(9deg) scale(.8)"></div>
+<div class="c" style="--c:#8e6bea; left:40px; top:760px; transform:rotate(-6deg) scale(.9)"></div>
+<div class="c" style="--c:#f6c35b; right:70px; top:140px; transform:rotate(12deg)"></div>
+<div class="c" style="--c:#3be07a; right:200px; top:480px; transform:rotate(-10deg) scale(.8)"></div>
+<div class="c" style="--c:#d96585; right:50px; top:780px; transform:rotate(7deg) scale(.9)"></div>
+</body></html>

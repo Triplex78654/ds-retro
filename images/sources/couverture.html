@@ -1,0 +1,24 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+@font-face { font-family: Pixelify; src: url("../../polices/pixelify-sans-latin-600-normal.woff2"); font-weight: 600; }
+@font-face { font-family: Pixelify; src: url("../../polices/pixelify-sans-latin-400-normal.woff2"); font-weight: 400; }
+html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; }
+body { position: relative; background:
+  radial-gradient(circle at 50% 64%, rgba(255,61,242,.55) 0, rgba(255,140,60,.28) 10%, transparent 24%),
+  radial-gradient(1.5px 1.5px at 30px 40px, #fff, transparent) 0 0 / 130px 110px,
+  radial-gradient(1px 1px at 80px 20px, #cfe2ff, transparent) 0 0 / 170px 150px,
+  linear-gradient(#090316 0%, #1f0838 45%, #4a0d52 63%, #0a0418 63.2%); }
+.sol { position: absolute; left: -40%; right: -40%; top: 63%; bottom: -30%;
+  background: linear-gradient(rgba(0,229,255,.55) 3px, transparent 3px) 0 0 / 100% 70px, linear-gradient(90deg, rgba(255,61,242,.5) 3px, transparent 3px) 0 0 / 70px 100%;
+  transform: perspective(380px) rotateX(60deg); transform-origin: top;
+  -webkit-mask-image: linear-gradient(#000, transparent 80%); }
+.console { position: absolute; left: 340px; top: 50%; width: 660px; transform: translateY(-50%); filter: drop-shadow(0 30px 60px rgba(0,0,0,.6)); }
+.titre { position: absolute; left: 1030px; top: 50%; transform: translateY(-50%); width: 570px; color: #fff; font-family: Pixelify; }
+.titre h1 { margin: 0; font-weight: 600; font-size: 150px; line-height: .95; letter-spacing: 2px;
+  text-shadow: 6px 6px 0 #ff3df2, -3px -3px 0 #00e5ff, 0 0 40px rgba(0,229,255,.5); }
+.titre p { margin: 34px 0 0; font-size: 46px; line-height: 1.2; color: #e7f9ff; font-weight: 400; text-shadow: 0 2px 0 rgba(0,0,0,.5); }
+.titre .tag { display: inline-block; margin-top: 30px; padding: 10px 22px; border-radius: 999px; background: #00e5ff; color: #001418; font-size: 32px; font-weight: 600; }
+</style></head><body>
+<div class="sol"></div>
+<img class="console" src="../couverture.png" style="display:none">
+<div class="titre"><h1>DS<br>Retro</h1><p>Joue à plusieurs dans ton salon vocal</p><span class="tag">Passe la manette</span></div>
+</body></html>

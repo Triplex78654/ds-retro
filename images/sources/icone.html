@@ -1,0 +1,35 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+html, body { margin: 0; width: 1024px; height: 1024px; overflow: hidden; background: transparent; }
+.fond { position: absolute; inset: 0; border-radius: 0;
+  background: radial-gradient(circle at 50% 30%, #7c86ff, #5865f2 45%, #3a43b8); }
+.fond::after { content: ""; position: absolute; inset: 0; background: linear-gradient(rgba(255,255,255,.06) 2px, transparent 2px) 0 0 / 100% 16px; }
+.ds { position: absolute; left: 50%; top: 50%; width: 560px; transform: translate(-50%, -50%); filter: drop-shadow(0 24px 30px rgba(10,14,60,.45)); }
+.moitie { position: relative; background: linear-gradient(170deg, #ffffff, #e6e9f2); border-radius: 48px; box-shadow: inset 0 -10px 0 #c6cad6; }
+.haut { height: 290px; border-radius: 56px 56px 26px 26px; }
+.bas { height: 300px; margin-top: 18px; border-radius: 26px 26px 64px 64px; }
+.ecran { position: absolute; left: 50%; transform: translateX(-50%); width: 300px; height: 210px; border: 18px solid #1b1d24; border-radius: 16px; background: linear-gradient(#e8f0f3, #cfdde3); }
+.haut .ecran { top: 30px; }
+.bas .ecran { top: 34px; border-width: 12px; }
+.bandeau { height: 36px; background: #5865f2; }
+.horloge { font: 700 92px/1 monospace; color: #1f2b33; text-align: center; margin-top: 30px; letter-spacing: 4px; font-family: Pixelify; }
+.charniere { position: absolute; left: 70px; right: 70px; top: 300px; height: 40px; border-radius: 99px; background: linear-gradient(#f2f4f8, #b7bcc8); box-shadow: 0 4px 6px rgba(0,0,0,.2); z-index: 2; }
+.led { position: absolute; right: 50px; top: 14px; width: 12px; height: 12px; border-radius: 50%; background: #3be07a; box-shadow: 0 0 10px #3be07a; }
+.croix { position: absolute; left: 34px; top: 110px; width: 84px; height: 84px; }
+.croix::before, .croix::after { content: ""; position: absolute; background: #2a2c31; border-radius: 6px; }
+.croix::before { left: 28px; top: 0; width: 28px; height: 84px; } .croix::after { top: 28px; left: 0; width: 84px; height: 28px; }
+.boutons { position: absolute; right: 34px; top: 106px; width: 92px; height: 92px; }
+.boutons i { position: absolute; width: 30px; height: 30px; border-radius: 50%; background: #2a2c31; }
+.boutons i:nth-child(1) { left: 31px; top: 0 } .boutons i:nth-child(2) { left: 0; top: 31px } .boutons i:nth-child(3) { right: 0; top: 31px } .boutons i:nth-child(4) { left: 31px; bottom: 0 }
+.cart { position: absolute; left: 50%; top: 66px; transform: translateX(-50%); width: 150px; height: 120px; background: linear-gradient(#3a3e46, #262930);
+  clip-path: polygon(0 0, 80% 0, 100% 16%, 100% 100%, 0 100%); border-radius: 8px; }
+.cart::before { content: ""; position: absolute; left: 14px; right: 14px; top: 14px; height: 60px; border-radius: 6px; background: repeating-linear-gradient(135deg, rgba(255,255,255,.15) 0 8px, transparent 8px 16px), #e2475b; }
+.cart::after { content: ""; position: absolute; left: 22px; right: 22px; bottom: 12px; height: 10px; background: repeating-linear-gradient(90deg, #c9a14a 0 6px, transparent 6px 11px); }
+@font-face { font-family: Pixelify; src: url("../../polices/pixelify-sans-latin-600-normal.woff2"); font-weight: 700; }
+</style></head><body>
+<div class="fond"></div>
+<div class="ds">
+  <div class="moitie haut"><div class="ecran"><div class="bandeau"></div><div class="horloge">20:30</div></div></div>
+  <div class="charniere"><span class="led"></span></div>
+  <div class="moitie bas"><div class="croix"></div><div class="ecran"><div class="cart"></div></div><div class="boutons"><i></i><i></i><i></i><i></i></div></div>
+</div>
+</body></html>
