@@ -2162,7 +2162,8 @@
     // Si l'émulateur attend un clic (son bloqué), on montre son écran quand même.
     setTimeout(reveler, 12000);
 
-    if ("wakeLock" in navigator) navigator.wakeLock.request("screen").catch(() => {});
+    // Garder l'écran allumé : refusé par certains navigateurs, sans conséquence.
+    try { if ("wakeLock" in navigator) Promise.resolve(navigator.wakeLock.request("screen")).catch(() => {}); } catch (e) {}
 
     const script = document.createElement("script");
     script.src = CDN + "loader.js";
