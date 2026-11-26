@@ -105,6 +105,31 @@
   .bouton.secondaire { background: #4e5058; }
   .bouton.secondaire:hover { background: #6d6f78; }
   #nom-jeu { text-align: center; color: #b5bac1; font-size: 13px; margin: 8px 0 0; }
+  .presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .preset {
+    text-align: left;
+    background: #1e1f22;
+    color: #f2f3f5;
+    border: 2px solid #3f4147;
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    font: inherit;
+  }
+  .preset:hover { border-color: #6d6f78; }
+  .preset[aria-pressed="true"] { border-color: #5865f2; background: #262842; }
+  .preset strong { display: block; font-size: 15px; margin-bottom: 2px; }
+  .preset span { font-size: 13px; color: #b5bac1; }
+  .legende {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 6px 14px;
+    font-size: 14px;
+    color: #b5bac1;
+  }
+  .legende div { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  #legende-jeu { background: #2b2d31; border-radius: 12px; padding: 12px 14px; margin-top: 12px; }
+  .note { margin-top: 12px !important; font-size: 13px !important; }
 </style>
 </head>
 <body>
@@ -127,14 +152,11 @@
   </section>
 
   <section class="carte">
-    <h2>Commandes par défaut</h2>
-    <ul class="touches">
-      <li>Croix directionnelle : <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></li>
-      <li>A / B / X / Y : <kbd>X</kbd> <kbd>Z</kbd> <kbd>S</kbd> <kbd>A</kbd></li>
-      <li>Start / Select : <kbd>Entrée</kbd> <kbd>Maj</kbd></li>
-      <li>Écran tactile : clic de souris sur l'écran du bas</li>
-      <li>Les touches et la manette se règlent dans le menu de l'émulateur (icône manette).</li>
-    </ul>
+    <h2>Disposition du clavier</h2>
+    <p>Choisis avant de lancer le jeu. Ton choix est retenu pour la prochaine fois.</p>
+    <div class="presets" id="presets"></div>
+    <div class="legende" id="legende-accueil"></div>
+    <p class="note">Écran tactile : clic de souris sur l'écran du bas. Une manette Xbox ou PlayStation branchée marche aussi directement.</p>
   </section>
 
   <section class="carte">
@@ -146,6 +168,7 @@
 <section id="jeu-conteneur">
   <div id="ecran"><div id="game"></div></div>
   <p id="nom-jeu"></p>
+  <div class="legende" id="legende-jeu"></div>
   <div class="barre">
     <button class="bouton secondaire" id="bouton-changer" type="button">Changer de jeu</button>
   </div>
@@ -154,6 +177,89 @@
 <script>
   const CDN = "https://cdn.emulatorjs.org/stable/data/";
   const EXTENSIONS = [".nds", ".zip", ".7z"];
+
+  const BOUTONS = [
+    { id: 4, nom: "Haut" }, { id: 5, nom: "Bas" }, { id: 6, nom: "Gauche" }, { id: 7, nom: "Droite" },
+    { id: 8, nom: "A" }, { id: 0, nom: "B" }, { id: 9, nom: "X" }, { id: 1, nom: "Y" },
+    { id: 10, nom: "L" }, { id: 11, nom: "R" }, { id: 3, nom: "Start" }, { id: 2, nom: "Select" }
+  ];
+  const MANETTE = {
+    0: "BUTTON_2", 1: "BUTTON_4", 2: "SELECT", 3: "START", 4: "DPAD_UP", 5: "DPAD_DOWN",
+    6: "DPAD_LEFT", 7: "DPAD_RIGHT", 8: "BUTTON_1", 9: "BUTTON_3",
+    10: "LEFT_TOP_SHOULDER", 11: "RIGHT_TOP_SHOULDER"
+  };
+  const PRESETS = {
+    zqsd: {
+      gameId: 101,
+      titre: "ZQSD + JKUI",
+      desc: "Main gauche pour bouger, main droite pour les boutons. Idéal clavier AZERTY.",
+      touches: { 4: "z", 5: "s", 6: "q", 7: "d", 8: "k", 0: "j", 9: "i", 1: "u", 10: "a", 11: "e", 3: "enter", 2: "space" },
+      noms: { z: "Z", s: "S", q: "Q", d: "D", k: "K", j: "J", i: "I", u: "U", a: "A", e: "E", enter: "Entrée", space: "Espace" }
+    },
+    fleches: {
+      gameId: 102,
+      titre: "Flèches + lettres",
+      desc: "Flèches pour bouger, lettres à gauche pour les boutons. Le classique des émulateurs.",
+      touches: { 4: "up arrow", 5: "down arrow", 6: "left arrow", 7: "right arrow", 8: "x", 0: "w", 9: "s", 1: "q", 10: "a", 11: "z", 3: "enter", 2: "shift" },
+      noms: { "up arrow": "↑", "down arrow": "↓", "left arrow": "←", "right arrow": "→", x: "X", w: "W", s: "S", q: "Q", a: "A", z: "Z", enter: "Entrée", shift: "Maj" }
+    }
+  };
+
+  let presetChoisi = "zqsd";
+  try {
+    const memo = localStorage.getItem("ds-retro-preset");
+    if (memo && PRESETS[memo]) presetChoisi = memo;
+  } catch (e) {}
+
+  function afficherLegende(cible) {
+    const p = PRESETS[presetChoisi];
+    const el = document.getElementById(cible);
+    el.innerHTML = "";
+    BOUTONS.forEach(b => {
+      const ligne = document.createElement("div");
+      const nom = document.createElement("span");
+      nom.textContent = b.nom;
+      const touche = document.createElement("kbd");
+      touche.textContent = p.noms[p.touches[b.id]];
+      ligne.append(nom, touche);
+      el.appendChild(ligne);
+    });
+  }
+
+  function afficherPresets() {
+    const conteneur = document.getElementById("presets");
+    conteneur.innerHTML = "";
+    Object.entries(PRESETS).forEach(([cle, p]) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "preset";
+      btn.setAttribute("aria-pressed", String(cle === presetChoisi));
+      const t = document.createElement("strong");
+      t.textContent = p.titre;
+      const d = document.createElement("span");
+      d.textContent = p.desc;
+      btn.append(t, d);
+      btn.addEventListener("click", () => {
+        presetChoisi = cle;
+        try { localStorage.setItem("ds-retro-preset", cle); } catch (e) {}
+        afficherPresets();
+        afficherLegende("legende-accueil");
+      });
+      conteneur.appendChild(btn);
+    });
+  }
+
+  function construireControles() {
+    const p = PRESETS[presetChoisi];
+    const joueur1 = {};
+    for (let i = 0; i < 30; i++) joueur1[i] = { value: "" };
+    Object.entries(MANETTE).forEach(([id, bouton]) => { joueur1[id].value2 = bouton; });
+    Object.entries(p.touches).forEach(([id, touche]) => { joueur1[id].value = touche; });
+    return { 0: joueur1, 1: {}, 2: {}, 3: {} };
+  }
+
+  afficherPresets();
+  afficherLegende("legende-accueil");
 
   const zone = document.getElementById("zone-depot");
   const champ = document.getElementById("fichier");
@@ -195,6 +301,9 @@
     window.EJS_pathtodata = CDN;
     window.EJS_startOnLoaded = true;
     window.EJS_color = "#5865f2";
+    window.EJS_defaultControls = construireControles();
+    window.EJS_gameID = PRESETS[presetChoisi].gameId;
+    afficherLegende("legende-jeu");
 
     const script = document.createElement("script");
     script.src = CDN + "loader.js";
