@@ -527,6 +527,58 @@
 
   body.nav-manette #menu button:focus { outline: calc(var(--u) * 2) solid var(--encre); outline-offset: calc(var(--u) * 1); }
 
+  /* ---------- Salon ---------- */
+  #ecran-distant {
+    position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; background: #000;
+    image-rendering: pixelated; touch-action: none;
+    clip-path: polygon(0 0, 100% 0, 100% 42.857%, 0 42.857%, 0 57.143%, 100% 57.143%, 100% 100%, 0 100%);
+  }
+  .pastilles-spectateur { position: absolute; left: calc(var(--u) * 5); top: calc(var(--u) * 5); z-index: 4; display: flex; gap: calc(var(--u) * 4); pointer-events: none; }
+  .pastilles-spectateur span {
+    padding: calc(var(--u) * 2) calc(var(--u) * 6); border-radius: 99px;
+    background: rgba(10,12,16,.72); color: #fff;
+    font: 600 max(10px, calc(var(--u) * 7.5))/1.3 "Pixelify", system-ui, sans-serif;
+  }
+  .pastilles-spectateur span.vif { background: var(--accent); color: var(--sur-accent); }
+  .bulle {
+    position: absolute; left: 50%; top: calc(var(--u) * 150); transform: translateX(-50%);
+    width: max-content; max-width: calc(var(--u) * 236); z-index: 6; pointer-events: none;
+    padding: calc(var(--u) * 5) calc(var(--u) * 9); border-radius: calc(var(--u) * 5);
+    background: rgba(10,12,16,.88); color: #fff; text-align: center;
+    font: 400 max(11px, calc(var(--u) * 8.5))/1.3 "Pixelify", system-ui, sans-serif;
+    box-shadow: 0 4px 14px rgba(0,0,0,.35);
+    animation: bulle 4.2s ease forwards;
+  }
+  @keyframes bulle { 0% { opacity: 0; transform: translate(-50%, 6px); } 8%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
+  .onglet { position: relative; }
+  .onglet .point { position: absolute; top: calc(var(--u) * 4); right: calc(var(--u) * 6); width: calc(var(--u) * 5); height: calc(var(--u) * 5); border-radius: 50%; background: #e2475b; }
+  .actions-salon { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--u) * 5); padding: calc(var(--u) * 8) calc(var(--u) * 10) 0; }
+  .actions-salon:empty { display: none; }
+  .actions-salon .choix { text-align: center; font-weight: 600; padding: calc(var(--u) * 6) calc(var(--u) * 4); }
+  .actions-salon .seul { grid-column: span 2; }
+  .liste-joueurs { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: calc(var(--u) * 4); padding: calc(var(--u) * 7) calc(var(--u) * 10) calc(var(--u) * 8); }
+  .joueur {
+    display: flex; align-items: center; gap: calc(var(--u) * 6);
+    padding: calc(var(--u) * 4) calc(var(--u) * 5); border-radius: calc(var(--u) * 4);
+    background: rgba(255,255,255,.5); font-size: max(11px, calc(var(--u) * 8.5));
+  }
+  .joueur .rond {
+    flex: none; width: calc(var(--u) * 16); height: calc(var(--u) * 16); border-radius: 50%;
+    display: grid; place-items: center; color: #fff; font-weight: 600; font-size: max(10px, calc(var(--u) * 8));
+    background: hsl(var(--teinte) 55% 48%);
+  }
+  .joueur .qui { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .joueur .tag { flex: none; padding: 0 calc(var(--u) * 4); border-radius: 99px; background: var(--encre); color: var(--lcd); font-size: max(9px, calc(var(--u) * 7)); line-height: 1.6; }
+  .joueur .tag.manette { background: var(--accent); color: var(--sur-accent); }
+  .joueur button {
+    flex: none; border: calc(var(--u) * 1) solid rgba(31,43,51,.3); border-radius: calc(var(--u) * 3); background: #fff; cursor: pointer;
+    padding: calc(var(--u) * 2) calc(var(--u) * 5); font: 600 max(10px, calc(var(--u) * 7.5))/1.2 "Pixelify", system-ui, sans-serif; color: var(--encre);
+  }
+  .joueur button.demande { background: var(--accent); color: var(--sur-accent); border-color: transparent; }
+  .salon-vide { color: var(--encre-2); font-size: max(11px, calc(var(--u) * 8)); }
+  body.spectateur #game { visibility: hidden; }
+  body.menu-ouvert .pastilles-spectateur { display: none; }
+
   /* ---------- Décors ---------- */
   body { background: var(--decor, var(--fond)); background-attachment: fixed; }
   body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: -1; }
@@ -627,6 +679,9 @@
     <div class="vitre-haut" aria-hidden="true"></div>
     <div class="vitre-bas" aria-hidden="true"></div>
     <div id="game"></div>
+    <canvas id="ecran-distant" width="256" height="448" hidden></canvas>
+    <div class="pastilles-spectateur" id="pastilles-spectateur" hidden></div>
+    <div class="bulle" id="bulle" role="status" hidden></div>
 
     <div id="menu" data-onglet="jeux">
       <section class="lcd haut" aria-label="Écran du haut">
@@ -652,7 +707,17 @@
           <div class="infos-sauvegarde">
             <div><span>Sauvegarde du jeu</span><b id="info-sram">copiée à l'instant</b></div>
             <div><span>État de la partie</span><b id="info-etat">aucun</b></div>
+            <div><span>Cloud</span><b id="info-cloud">hors ligne</b></div>
           </div>
+        </div>
+
+        <div class="panneau" data-p="salon" hidden>
+          <div class="titre-lcd"><span>Salon vocal</span><small id="salon-compte"></small></div>
+          <div class="vedette">
+            <small id="salon-sous"></small>
+            <strong id="salon-titre"></strong>
+          </div>
+          <div class="encadre" id="salon-message"></div>
         </div>
 
         <div class="panneau" data-p="coque" hidden>
@@ -687,6 +752,11 @@
           </div>
         </div>
 
+        <div class="panneau" data-p="salon" hidden>
+          <div class="actions-salon" id="actions-salon"></div>
+          <div class="liste-joueurs" id="liste-joueurs"></div>
+        </div>
+
         <div class="panneau" data-p="coque" hidden>
           <div class="coques" id="coques"></div>
           <button class="bascule" type="button" id="bascule-decor" aria-pressed="true"><span>Décor autour de la console</span><b id="etat-decor">Assorti</b></button>
@@ -706,6 +776,8 @@
             <svg viewBox="0 0 12 12" aria-hidden="true"><path fill="currentColor" d="M2 1h6l2 2v8H2z"/><path fill="var(--lcd)" d="M3.5 2.5h4v3h-4z"/></svg>Jeux</button>
           <button class="onglet" type="button" role="tab" data-onglet="partie" hidden>
             <svg viewBox="0 0 12 12" aria-hidden="true"><path fill="currentColor" d="M3 2h2v8H3zM7 2h2v8H7z"/></svg>Partie</button>
+          <button class="onglet" type="button" role="tab" data-onglet="salon">
+            <svg viewBox="0 0 12 12" aria-hidden="true"><path fill="currentColor" d="M2 2h3v3H2zM7 2h3v3H7zM1 7h5v4H1zM6 7h5v4H6z"/></svg>Salon<i class="point" id="point-salon" hidden></i></button>
           <button class="onglet" type="button" role="tab" data-onglet="coque">
             <svg viewBox="0 0 12 12" aria-hidden="true"><path fill="currentColor" d="M2 1h8v4.5H2zM2 6.5h8V11H2z"/></svg>Coque</button>
           <button class="onglet" type="button" role="tab" data-onglet="touches">
@@ -752,6 +824,14 @@
 
 <input type="file" id="fichier" accept=".nds,.zip,.7z" hidden>
 <script>
+  // L'émulateur dessine en WebGL : on garde chaque image lisible pour pouvoir la diffuser au salon.
+  (() => {
+    const origine = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type, options) {
+      if (type === "webgl" || type === "webgl2" || type === "experimental-webgl") options = Object.assign({}, options, { preserveDrawingBuffer: true });
+      return origine.call(this, type, options);
+    };
+  })();
   const CONFIG = window.DS_RETRO_CONFIG || {};
   const DANS_DISCORD = new URLSearchParams(location.search).has("frame_id");
   const CDN = DANS_DISCORD ? "/.proxy/emulatorjs/stable/data/" : "https://cdn.emulatorjs.org/stable/data/";
@@ -778,6 +858,7 @@
   let jeuActif = false;     // une cartouche est insérée (chargement ou jeu)
   let jeuDemarre = false;   // l'émulateur tourne
   let menuOuvert = false;   // menu affiché pendant une partie (jeu en pause)
+  let spectateur = false;   // on regarde l'écran d'un autre joueur du salon
   let cartoucheId = null;
   let nomJeu = "";
 
@@ -902,7 +983,26 @@
     }
   }
 
+  function nomDeTouche(e) {
+    const speciales = { ArrowUp: "up arrow", ArrowDown: "down arrow", ArrowLeft: "left arrow", ArrowRight: "right arrow", Enter: "enter", " ": "space", Shift: "shift" };
+    return speciales[e.key] || (e.key.length === 1 ? e.key.toLowerCase() : null);
+  }
+  function boutonDepuisTouche(e) {
+    const nom = nomDeTouche(e);
+    if (!nom) return null;
+    const trouve = Object.entries(PRESETS[presetChoisi].touches).find(([, v]) => v === nom);
+    return trouve ? Number(trouve[0]) : null;
+  }
+
   function gererClavier(e) {
+    if (spectateur && !menuOuvert) {
+      if (e.key === "Escape" || e.ctrlKey || e.metaKey || e.altKey) return;
+      const b = boutonDepuisTouche(e);
+      if (b === null) return;
+      e.preventDefault();
+      if (!e.repeat) toucheSpectateur(b, e.type === "keydown");
+      return;
+    }
     if (!jeuActif || menuOuvert) return;
     if (e.key === "Escape" || /^F\d+$/.test(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
     const g = $("game");
@@ -925,7 +1025,7 @@
   window.addEventListener("keydown", gererClavier, true);
   window.addEventListener("keyup", gererClavier, true);
   window.addEventListener("keydown", e => {
-    if (e.key === "Escape" && jeuDemarre) { e.preventDefault(); menuOuvert ? fermerPause() : ouvrirPause(); return; }
+    if (e.key === "Escape" && (jeuDemarre || spectateur)) { e.preventDefault(); menuOuvert ? fermerPause() : ouvrirPause(); return; }
     if (!menuVisible()) return;
     const fleches = { ArrowUp: "haut", ArrowDown: "bas", ArrowLeft: "gauche", ArrowRight: "droite" };
     if (fleches[e.key]) { e.preventDefault(); naviguer(fleches[e.key]); }
@@ -967,13 +1067,15 @@
       try { btn.setPointerCapture(e.pointerId); } catch (err) {}
       if (navigator.vibrate) { try { navigator.vibrate(8); } catch (err) {} }
       if (menuVisible()) { naviguer(NAV_CONSOLE[id]); return; }
+      if (spectateur) { toucheSpectateur(id, true); return; }
       envoyerTouche("keydown", id);
     };
     const relacher = () => {
       if (!actif) return;
       actif = false;
       btn.classList.remove("appuye");
-      envoyerTouche("keyup", id);
+      if (spectateur) toucheSpectateur(id, false);
+      else envoyerTouche("keyup", id);
       if (jeuActif) focusJeu();
     };
     btn.addEventListener("pointerdown", appuyer);
@@ -985,7 +1087,13 @@
 
   // ---------- Menu système (onglets) ----------
   let ongletActif = "jeux";
-  const menuVisible = () => !jeuDemarre ? !jeuActif : menuOuvert;
+  const menuVisible = () => (jeuDemarre || spectateur) ? menuOuvert : !jeuActif;
+  function majOnglets() {
+    document.querySelector('.onglet[data-onglet="jeux"]').hidden = jeuActif || spectateur;
+    document.querySelector('.onglet[data-onglet="partie"]').hidden = !jeuActif;
+    const actuel = document.querySelector(`.onglet[data-onglet="${ongletActif}"]`);
+    if (actuel && actuel.hidden) afficherOnglet(ongletsDisponibles()[0]);
+  }
   function ongletsDisponibles() {
     return [...document.querySelectorAll(".onglet")].filter(o => !o.hidden).map(o => o.dataset.onglet);
   }
@@ -995,6 +1103,7 @@
     document.querySelectorAll("#menu .panneau").forEach(p => { p.hidden = p.dataset.p !== nom; });
     document.querySelectorAll(".onglet").forEach(o => o.setAttribute("aria-selected", String(o.dataset.onglet === nom)));
     if (nom === "partie") majInfosPartie();
+    if (nom === "salon") { $("point-salon").hidden = true; majSalon(); }
   }
   document.querySelectorAll(".onglet").forEach(o => o.addEventListener("click", () => afficherOnglet(o.dataset.onglet)));
   afficherOnglet("jeux");
@@ -1004,29 +1113,42 @@
     const b = e.currentTarget;
     b.classList.add("appuye");
     setTimeout(() => b.classList.remove("appuye"), 120);
-    if (jeuDemarre) menuOuvert ? fermerPause() : ouvrirPause();
+    if (jeuDemarre || spectateur) menuOuvert ? fermerPause() : ouvrirPause();
     else if (!jeuActif) afficherOnglet("jeux");
   });
 
   function ouvrirPause() {
-    if (!jeuDemarre || menuOuvert) return;
+    if (menuOuvert || (!jeuDemarre && !spectateur)) return;
     menuOuvert = true;
-    try { window.EJS_emulator.pause(); } catch (e) {}
-    sauverSram();
+    document.body.classList.add("menu-ouvert");
+    relacherToutSpectateur();
+    if (jeuDemarre) {
+      try { window.EJS_emulator.pause(); } catch (e) {}
+      sauverSram(true);
+      if (estHote()) envoyerSalon({ t: "pause", pause: true });
+    }
     const m = $("menu");
     m.style.display = "";
     m.classList.remove("parti", "flash");
-    afficherOnglet("partie");
+    majOnglets();
+    afficherOnglet(jeuDemarre ? "partie" : "salon");
     $("quitter").classList.remove("arme");
     $("quitter").textContent = "Quitter le jeu";
-    setTimeout(() => $("reprendre").focus({ preventScroll: true }), 30);
+    setTimeout(() => {
+      const cible = jeuDemarre ? $("reprendre") : elementsNavigables().find(b => !b.classList.contains("onglet"));
+      if (cible) cible.focus({ preventScroll: true });
+    }, 30);
   }
   function fermerPause() {
     if (!menuOuvert) return;
     menuOuvert = false;
+    document.body.classList.remove("menu-ouvert");
     $("menu").classList.add("parti");
     setTimeout(() => { if (!menuOuvert) $("menu").style.display = "none"; }, 300);
-    try { window.EJS_emulator.play(); } catch (e) {}
+    if (jeuDemarre) {
+      try { window.EJS_emulator.play(); } catch (e) {}
+      if (estHote()) envoyerSalon({ t: "pause", pause: false });
+    }
     codesJeu = codesDuPreset();
     setTimeout(focusJeu, 30);
   }
@@ -1050,7 +1172,9 @@
       return;
     }
     b.textContent = "Sauvegarde…";
-    await sauverSram();
+    await sauverSram(true);
+    await viderCloud();
+    envoyerSalon({ t: "fin" });
     location.reload();
   });
 
@@ -1259,7 +1383,7 @@
     for (let i = 0; i < octets.length; i += 7) h = Math.imul(h ^ octets[i], 16777619);
     return octets.length + ":" + (h >>> 0);
   }
-  async function sauverSram() {
+  async function sauverSram(urgent) {
     if (!jeuDemarre || !cartoucheId) return;
     try {
       const gm = window.EJS_emulator && window.EJS_emulator.gameManager;
@@ -1267,27 +1391,42 @@
       if (!donnees || !donnees.length) return;
       const e = empreinte(donnees);
       if (e !== derniereEmpreinte) {
-        await ecrireDans("sauvegardes", { id: cartoucheId, donnees: new Uint8Array(donnees), maj: Date.now() });
+        const copie = new Uint8Array(donnees);
+        const maj = Date.now();
+        await ecrireDans("sauvegardes", { id: cartoucheId, donnees: copie, maj });
         derniereEmpreinte = e;
+        programmerCloud(cartoucheId, copie, maj, urgent);
+      } else if (urgent) {
+        await viderCloud();
       }
       derniereCopie = Date.now();
     } catch (err) {}
   }
+  // Au lancement : on prend la sauvegarde la plus récente entre cet appareil et le cloud.
   async function restaurerSram() {
     if (!cartoucheId) return;
     try {
-      const s = await lireDans("sauvegardes", cartoucheId);
-      if (!s || !s.donnees) return;
+      const id = cartoucheId;
+      const locale = await lireDans("sauvegardes", id).catch(() => null);
+      const distante = await lireCloud(id);
+      let choisie = locale;
+      if (distante && (!locale || distante.maj > (locale.maj || 0))) {
+        choisie = distante;
+        ecrireDans("sauvegardes", { id, donnees: distante.donnees, maj: distante.maj }).catch(() => {});
+        bulle("Sauvegarde récupérée depuis le cloud.");
+      } else if (locale && (!distante || (locale.maj || 0) > distante.maj)) {
+        programmerCloud(id, locale.donnees, locale.maj || Date.now(), true);
+      }
+      if (!choisie || !choisie.donnees) return;
       const gm = window.EJS_emulator.gameManager;
-      const chemin = gm.getSaveFilePath();
-      gm.FS.writeFile(chemin, s.donnees);
+      gm.FS.writeFile(gm.getSaveFilePath(), choisie.donnees);
       gm.loadSaveFiles();
-      derniereEmpreinte = empreinte(s.donnees);
+      derniereEmpreinte = empreinte(choisie.donnees);
     } catch (err) {}
   }
   setInterval(sauverSram, 20000);
   document.addEventListener("visibilitychange", () => { if (document.hidden) sauverSram(); });
-  window.addEventListener("pagehide", () => { sauverSram(); });
+  window.addEventListener("pagehide", () => { sauverSram(true); });
 
   function ilYA(t) {
     if (!t) return "aucun";
@@ -1303,6 +1442,11 @@
     const etat = cartoucheId ? await lireDans("etats", cartoucheId).catch(() => null) : null;
     $("info-etat").textContent = etat ? ilYA(etat.maj) : "aucun";
     $("charger-etat").disabled = !etat;
+    $("info-cloud").textContent = !DANS_DISCORD ? "dans Discord seulement"
+      : !salon.jeton ? "hors ligne"
+      : cloud.erreur ? "échec, nouvel essai bientôt"
+      : cloud.derniereSync ? "à jour " + ilYA(cloud.derniereSync)
+      : "en attente";
   }
   $("sauver-etat").addEventListener("click", async () => {
     const b = $("sauver-etat");
@@ -1332,7 +1476,7 @@
   const mouvementReduit = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function inserer(cart, blob, nomFichier, id) {
-    if (jeuActif) return;
+    if (jeuActif || spectateur) return;
     jeuActif = true;
     cartoucheId = id || null;
     nomJeu = nomLisible(nomFichier);
@@ -1356,14 +1500,14 @@
   }
 
   function demarrer(blob, nomFichier) {
-    document.querySelector('.onglet[data-onglet="jeux"]').hidden = true;
-    document.querySelector('.onglet[data-onglet="partie"]').hidden = false;
+    majOnglets();
 
     let revele = false;
     const reveler = () => {
       if (revele) return;
       revele = true;
       jeuDemarre = true;
+      annoncerJeu();
       document.body.classList.remove("chargement");
       $("menu").classList.add("parti");
       setTimeout(() => { if (!menuOuvert) { $("menu").style.display = "none"; focusJeu(); } }, 350);
@@ -1391,14 +1535,377 @@
     script.onerror = () => {
       jeuActif = false;
       document.body.classList.remove("chargement");
-      document.querySelector('.onglet[data-onglet="jeux"]').hidden = false;
-      document.querySelector('.onglet[data-onglet="partie"]').hidden = true;
+      majOnglets();
       $("message-haut").textContent = "Choisis une cartouche sur l'écran du bas.";
       $("erreur").textContent = "L'émulateur n'a pas pu se charger. Vérifie ta connexion, puis réessaie.";
       afficherCartouches();
     };
     discordPret.then(() => document.body.appendChild(script));
   }
+
+  // ---------- Salon du vocal (canapé partagé) et sauvegardes dans le cloud ----------
+  // L'hôte fait tourner le jeu et diffuse son écran ; les autres regardent et peuvent
+  // recevoir la manette. Tout passe par le serveur de l'Activité (/.proxy/api).
+  const API = "/.proxy/api";
+  const salon = {
+    etat: DANS_DISCORD ? "connexion" : "hors-discord",
+    erreur: "",
+    jeton: null,
+    moi: null,
+    ws: null,
+    tentative: 0,
+    infos: { joueurs: [], hote: null, manette: null, jeu: null, pause: false },
+    demandes: new Set(),
+  };
+  const moiId = () => salon.moi && salon.moi.id;
+  const estHote = () => Boolean(salon.infos.hote) && salon.infos.hote === moiId();
+  const nomDe = id => { const j = salon.infos.joueurs.find(x => x.id === id); return j ? j.nom : "Quelqu'un"; };
+
+  let derniereBulle = { texte: "", t: 0 };
+  function bulle(texte) {
+    const t = Date.now();
+    if (texte === derniereBulle.texte && t - derniereBulle.t < 4500) return;
+    derniereBulle = { texte, t };
+    const b = $("bulle");
+    b.hidden = true; b.textContent = texte; void b.offsetWidth; b.hidden = false;
+    clearTimeout(bulle.minuteur);
+    bulle.minuteur = setTimeout(() => { b.hidden = true; }, 4300);
+  }
+
+  async function connecterDiscord() {
+    majSalon();
+    try {
+      await discordPret;
+      if (!window.discordSdk) throw new Error("Le kit Discord n'a pas démarré.");
+      const serveur = await fetch(API + "/etat").then(r => (r.ok ? r.json() : null)).catch(() => null);
+      if (!serveur) throw new Error("Le serveur du salon n'est pas encore en ligne.");
+      if (!serveur.connexionDiscord) throw new Error("Le serveur attend encore le secret Discord.");
+      const { code } = await discordSdk.commands.authorize({
+        client_id: CONFIG.discordApplicationId, response_type: "code", state: "", prompt: "none", scope: ["identify"],
+      });
+      const r = await fetch(API + "/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+      const d = await r.json().catch(() => ({}));
+      if (!d.access_token) throw new Error(d.erreur || "Discord a refusé la connexion.");
+      const auth = await discordSdk.commands.authenticate({ access_token: d.access_token });
+      salon.jeton = d.access_token;
+      salon.moi = { id: auth.user.id, nom: auth.user.global_name || auth.user.username };
+      ouvrirSalle();
+      if (jeuDemarre) restaurerSram();
+    } catch (e) {
+      salon.etat = "indisponible";
+      salon.erreur = (e && e.message) || "Connexion impossible.";
+      majSalon();
+    }
+  }
+
+  function ouvrirSalle() {
+    const url = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + API + "/salle/"
+      + encodeURIComponent(discordSdk.instanceId) + "?jeton=" + encodeURIComponent(salon.jeton);
+    const ws = new WebSocket(url);
+    ws.binaryType = "arraybuffer";
+    salon.ws = ws;
+    ws.onopen = () => { salon.etat = "connecte"; salon.tentative = 0; majSalon(); };
+    ws.onmessage = e => {
+      if (typeof e.data === "string") { try { recevoirMessage(JSON.parse(e.data)); } catch (err) {} }
+      else recevoirImage(e.data);
+    };
+    ws.onclose = () => {
+      if (salon.ws !== ws) return;
+      salon.ws = null;
+      salon.etat = "deconnecte";
+      arreterDeRegarder();
+      majSalon();
+      setTimeout(ouvrirSalle, Math.min(15000, 1000 * 2 ** salon.tentative++));
+    };
+  }
+  function envoyerSalon(message) {
+    if (!salon.ws || salon.ws.readyState !== 1) return;
+    salon.ws.send(message instanceof Blob || message instanceof ArrayBuffer ? message : JSON.stringify(message));
+  }
+
+  function recevoirMessage(m) {
+    if (m.t === "etat") {
+      const avant = salon.infos;
+      salon.infos = m;
+      if (avant.manette !== m.manette) relacherTouchesDistantes();
+      if (spectateur && m.hote !== avant.hote) {
+        arreterDeRegarder();
+        bulle(nomDe(avant.hote) === "Quelqu'un" ? "La partie est terminée." : avant.jeu ? "Fin de la partie de " + avant.jeu + "." : "La partie est terminée.");
+      }
+      if (m.hote && m.hote !== avant.hote && m.hote !== moiId()) {
+        bulle(nomDe(m.hote) + " joue à " + (m.jeu || "un jeu") + ". MENU, puis Salon pour regarder.");
+        if (ongletActif !== "salon") $("point-salon").hidden = false;
+        if (!jeuActif && !spectateur) $("message-haut").textContent = nomDe(m.hote) + " joue à " + (m.jeu || "un jeu") + ". Ouvre l'onglet Salon pour regarder.";
+      }
+      if (!m.hote && !jeuActif) $("message-haut").textContent = "Choisis une cartouche sur l'écran du bas.";
+      if (m.manette === moiId() && avant.manette !== m.manette && m.hote && m.hote !== moiId()) bulle("Tu as la manette !");
+      if (m.manette !== moiId() && avant.manette === moiId() && m.hote && m.hote !== moiId()) bulle("La manette est repartie chez " + nomDe(m.manette) + ".");
+      if (jeuDemarre && !m.hote) annoncerJeu();
+      majSalon();
+    } else if (m.t === "demande") {
+      salon.demandes.add(m.de.id);
+      bulle(m.de.nom + " demande la manette. MENU, puis Salon pour la lui donner.");
+      if (ongletActif !== "salon") $("point-salon").hidden = false;
+      majSalon();
+    } else if (m.t === "touche") {
+      if (estHote()) toucheDistante(m.b, m.e);
+    } else if (m.t === "tactile") {
+      if (estHote()) tactileDistant(m);
+    } else if (m.t === "refus") {
+      bulle(m.raison + " Ta partie reste en solo.");
+    }
+  }
+
+  function annoncerJeu() {
+    if (salon.etat === "connecte" && jeuDemarre && (!salon.infos.hote || estHote())) envoyerSalon({ t: "hote", jeu: nomJeu });
+  }
+
+  // Hôte : capture de l'écran du jeu, 20 images par seconde, seulement s'il y a du monde.
+  let toileCapture = null, encodage = false;
+  setInterval(() => {
+    if (!estHote() || !jeuDemarre || menuOuvert || encodage || salon.infos.joueurs.length < 2) return;
+    if (!salon.ws || salon.ws.readyState !== 1 || salon.ws.bufferedAmount > 256 * 1024) return;
+    const source = document.querySelector("#game canvas");
+    if (!source || !source.width) return;
+    if (!toileCapture) { toileCapture = document.createElement("canvas"); toileCapture.width = 256; toileCapture.height = 448; }
+    toileCapture.getContext("2d").drawImage(source, 0, 0, 256, 448);
+    encodage = true;
+    toileCapture.toBlob(b => { encodage = false; if (b) envoyerSalon(b); }, "image/jpeg", 0.75);
+  }, 50);
+
+  // Hôte : touches et tactile envoyés par le joueur qui a la manette.
+  const touchesDistantes = new Set();
+  function toucheDistante(b, enfonce) {
+    if (menuOuvert) return;
+    if (enfonce) touchesDistantes.add(b); else touchesDistantes.delete(b);
+    envoyerTouche(enfonce ? "keydown" : "keyup", b);
+  }
+  function relacherTouchesDistantes() {
+    touchesDistantes.forEach(b => envoyerTouche("keyup", b));
+    touchesDistantes.clear();
+  }
+  function tactileDistant(m) {
+    if (menuOuvert) return;
+    const c = document.querySelector("#game canvas");
+    if (!c) return;
+    const r = c.getBoundingClientRect();
+    const x = r.left + Math.min(1, Math.max(0, m.x)) * r.width;
+    const y = r.top + (256 + Math.min(1, Math.max(0, m.y)) * 192) / 448 * r.height;
+    const type = m.e === "bas" ? "mousedown" : m.e === "haut" ? "mouseup" : "mousemove";
+    c.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true, button: 0, buttons: m.e === "haut" ? 0 : 1, view: window }));
+  }
+
+  // Spectateur : affichage de l'écran de l'hôte.
+  let imageEnCours = false;
+  function recevoirImage(donnees) {
+    if (!spectateur || imageEnCours) return;
+    imageEnCours = true;
+    createImageBitmap(new Blob([donnees], { type: "image/jpeg" }))
+      .then(img => { $("ecran-distant").getContext("2d").drawImage(img, 0, 0, 256, 448); if (img.close) img.close(); })
+      .catch(() => {})
+      .finally(() => { imageEnCours = false; });
+  }
+
+  // Spectateur : envoi des touches quand on a la manette.
+  const touchesSpectateur = new Set();
+  function toucheSpectateur(b, enfonce) {
+    if (!spectateur || menuOuvert) return;
+    if (enfonce === touchesSpectateur.has(b)) return;
+    if (salon.infos.manette !== moiId()) {
+      if (enfonce) bulle("Pour jouer, demande la manette : MENU, puis Salon.");
+      return;
+    }
+    if (enfonce) touchesSpectateur.add(b); else touchesSpectateur.delete(b);
+    envoyerSalon({ t: "touche", b, e: enfonce ? 1 : 0 });
+  }
+  function relacherToutSpectateur() {
+    touchesSpectateur.forEach(b => envoyerSalon({ t: "touche", b, e: 0 }));
+    touchesSpectateur.clear();
+  }
+  const INDEX_MANETTE = { BUTTON_1: 0, BUTTON_2: 1, BUTTON_3: 2, BUTTON_4: 3, LEFT_TOP_SHOULDER: 4, RIGHT_TOP_SHOULDER: 5, SELECT: 8, START: 9, DPAD_UP: 12, DPAD_DOWN: 13, DPAD_LEFT: 14, DPAD_RIGHT: 15 };
+  function carteManette() {
+    const carte = {};
+    Object.entries({ ...MANETTE_COMMUNS, ...MANETTES[manetteChoisie].boutons }).forEach(([id, nom]) => { carte[id] = INDEX_MANETTE[nom]; });
+    return carte;
+  }
+
+  // Spectateur : écran tactile (écran du bas de l'image reçue).
+  const ecranDistant = $("ecran-distant");
+  let doigtPose = false, dernierMouvement = 0;
+  function positionTactile(e) {
+    const r = ecranDistant.getBoundingClientRect();
+    return { x: (e.clientX - r.left) / r.width, y: ((e.clientY - r.top) / r.height * 448 - 256) / 192 };
+  }
+  ecranDistant.addEventListener("pointerdown", e => {
+    const p = positionTactile(e);
+    if (p.y < 0 || p.y > 1) return;
+    if (salon.infos.manette !== moiId()) { bulle("Pour jouer, demande la manette : MENU, puis Salon."); return; }
+    doigtPose = true;
+    try { ecranDistant.setPointerCapture(e.pointerId); } catch (err) {}
+    envoyerSalon({ t: "tactile", e: "bas", ...p });
+  });
+  ecranDistant.addEventListener("pointermove", e => {
+    if (!doigtPose || performance.now() - dernierMouvement < 30) return;
+    dernierMouvement = performance.now();
+    envoyerSalon({ t: "tactile", e: "bouge", ...positionTactile(e) });
+  });
+  const leverDoigt = e => {
+    if (!doigtPose) return;
+    doigtPose = false;
+    envoyerSalon({ t: "tactile", e: "haut", ...positionTactile(e) });
+  };
+  ecranDistant.addEventListener("pointerup", leverDoigt);
+  ecranDistant.addEventListener("pointercancel", leverDoigt);
+
+  function regarder() {
+    if (!salon.infos.hote || estHote() || jeuActif) return;
+    spectateur = true;
+    document.body.classList.add("spectateur");
+    const c = $("ecran-distant");
+    c.hidden = false;
+    const g = c.getContext("2d");
+    g.fillStyle = "#000"; g.fillRect(0, 0, 256, 448);
+    menuOuvert = true;
+    fermerPause();
+    majOnglets();
+    majSalon();
+  }
+  function arreterDeRegarder() {
+    if (!spectateur) return;
+    relacherToutSpectateur();
+    if (salon.infos.manette === moiId()) envoyerSalon({ t: "rendre" });
+    spectateur = false;
+    document.body.classList.remove("spectateur", "menu-ouvert");
+    $("ecran-distant").hidden = true;
+    menuOuvert = false;
+    const m = $("menu");
+    m.style.display = "";
+    m.classList.remove("parti");
+    majOnglets();
+    afficherOnglet("salon");
+  }
+
+  function majSalon() {
+    const i = salon.infos, moi = moiId(), nb = i.joueurs.length;
+    $("salon-compte").textContent = salon.etat === "connecte" ? (nb <= 1 ? "1 joueur" : nb + " joueurs") : "";
+    let sous = "", titre = "", message = "";
+    if (salon.etat === "hors-discord") { titre = "Hors de Discord"; message = "Lance l'Activité dans un salon vocal pour jouer à plusieurs."; }
+    else if (salon.etat === "connexion") { titre = "Connexion…"; message = "Connexion au salon vocal en cours."; }
+    else if (salon.etat === "indisponible") { titre = "Indisponible"; message = salon.erreur + " Tu peux jouer en solo en attendant."; }
+    else if (salon.etat === "deconnecte") { titre = "Reconnexion…"; message = "La connexion au salon a coupé. Nouvel essai en cours."; }
+    else if (!i.hote) { sous = nb > 1 ? "Personne ne joue" : "Tu es seul ici"; titre = "Salon libre"; message = "Lance un jeu : les autres pourront regarder et prendre la manette."; }
+    else if (i.hote === moi) { sous = "Tu diffuses"; titre = i.jeu || nomJeu; message = i.manette === moi ? "Tu as la manette. Tu peux la donner à un pote en dessous." : "Manette : " + nomDe(i.manette) + "."; }
+    else {
+      sous = nomDe(i.hote) + " joue"; titre = i.jeu || "un jeu";
+      message = jeuActif ? "Tu joues déjà à ton propre jeu. Quitte-le pour regarder."
+        : !spectateur ? "Touche Regarder pour voir son écran."
+        : i.manette === moi ? "Tu as la manette." : "Manette : " + nomDe(i.manette) + ". Demande-la en dessous.";
+    }
+    $("salon-sous").textContent = sous;
+    $("salon-titre").textContent = titre;
+    $("salon-message").textContent = message;
+
+    const actions = $("actions-salon");
+    actions.innerHTML = "";
+    const bouton = (texte, action, classe) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "choix " + (classe || "");
+      b.textContent = texte;
+      b.addEventListener("click", action);
+      actions.appendChild(b);
+    };
+    if (salon.etat === "connecte" && i.hote && i.hote !== moi && !jeuActif) {
+      if (spectateur) bouton("Arrêter de regarder", arreterDeRegarder);
+      else bouton("Regarder", regarder, "principal");
+      if (i.manette === moi) bouton("Rendre la manette", () => envoyerSalon({ t: "rendre" }));
+      else bouton("Demander la manette", () => { envoyerSalon({ t: "demande" }); bulle("Demande envoyée à " + nomDe(i.hote) + "."); });
+    }
+
+    const liste = $("liste-joueurs");
+    liste.innerHTML = "";
+    if (salon.etat === "connecte") {
+      i.joueurs.forEach(j => {
+        const ligne = document.createElement("div");
+        ligne.className = "joueur";
+        const rond = document.createElement("span");
+        rond.className = "rond"; rond.style.setProperty("--teinte", teinte(j.nom));
+        rond.textContent = (j.nom[0] || "?").toUpperCase();
+        const qui = document.createElement("span");
+        qui.className = "qui"; qui.textContent = j.nom + (j.id === moi ? " (toi)" : "");
+        ligne.append(rond, qui);
+        const etiquette = (texte, classe) => { const t = document.createElement("span"); t.className = "tag " + (classe || ""); t.textContent = texte; ligne.appendChild(t); };
+        if (j.id === i.hote) etiquette("joue");
+        if (j.id === i.manette) etiquette("manette", "manette");
+        if (estHote() && j.id !== moi) {
+          const b = document.createElement("button");
+          b.type = "button";
+          if (i.manette === j.id) {
+            b.textContent = "Reprendre";
+            b.addEventListener("click", () => envoyerSalon({ t: "manette", a: moi }));
+          } else {
+            b.textContent = "Donner la manette";
+            if (salon.demandes.has(j.id)) b.classList.add("demande");
+            b.addEventListener("click", () => { salon.demandes.delete(j.id); envoyerSalon({ t: "manette", a: j.id }); });
+          }
+          ligne.appendChild(b);
+        }
+        liste.appendChild(ligne);
+      });
+    }
+
+    const pastilles = $("pastilles-spectateur");
+    pastilles.innerHTML = "";
+    const pastille = (texte, vif) => { const p = document.createElement("span"); p.textContent = texte; if (vif) p.className = "vif"; pastilles.appendChild(p); };
+    if (spectateur) {
+      pastille("Écran de " + nomDe(i.hote));
+      if (i.manette === moi) pastille("Tu as la manette", true);
+      if (i.pause) pastille("En pause");
+    } else if (estHote() && nb > 1) {
+      pastille("En direct");
+      if (i.manette !== moi) pastille("Manette : " + nomDe(i.manette), true);
+    }
+    pastilles.hidden = !pastilles.children.length;
+  }
+
+  // Sauvegardes dans le cloud : une par joueur Discord et par jeu.
+  const cloud = { derniereSync: 0, erreur: false, attente: null, minuteur: null };
+  async function cleJeu(id) {
+    const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(id));
+    return [...new Uint8Array(h)].slice(0, 16).map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+  async function lireCloud(id) {
+    if (!salon.jeton) return null;
+    try {
+      const r = await fetch(API + "/sauvegardes/" + await cleJeu(id), { headers: { Authorization: "Bearer " + salon.jeton } });
+      if (!r.ok) return null;
+      return { donnees: new Uint8Array(await r.arrayBuffer()), maj: Number(r.headers.get("X-Maj")) || 0 };
+    } catch (e) { return null; }
+  }
+  function programmerCloud(id, donnees, maj, urgent) {
+    if (!salon.jeton) return;
+    cloud.attente = { id, donnees, maj };
+    clearTimeout(cloud.minuteur);
+    const delai = urgent ? 0 : Math.max(0, 60000 - (Date.now() - cloud.derniereSync));
+    cloud.minuteur = setTimeout(viderCloud, delai);
+  }
+  async function viderCloud() {
+    const a = cloud.attente;
+    if (!a || !salon.jeton) return;
+    cloud.attente = null;
+    try {
+      const r = await fetch(API + "/sauvegardes/" + await cleJeu(a.id), {
+        method: "PUT", headers: { Authorization: "Bearer " + salon.jeton, "X-Maj": String(a.maj) }, body: a.donnees,
+      });
+      if (!r.ok && r.status !== 409) throw new Error(r.status);
+      cloud.derniereSync = Date.now();
+      cloud.erreur = false;
+    } catch (e) {
+      cloud.erreur = true;
+      if (!cloud.attente) { cloud.attente = a; clearTimeout(cloud.minuteur); cloud.minuteur = setTimeout(viderCloud, 30000); }
+    }
+  }
+
+  if (DANS_DISCORD) connecterDiscord(); else majSalon();
 
   // ---------- Navigation dans le menu (manette, croix de la console) ----------
   function elementsNavigables() {
@@ -1478,8 +1985,14 @@
         if (nouveau(4)) naviguer("onglet-");
         if (nouveau(5)) naviguer("onglet+");
         if (jeuDemarre && (nouveau(9) || nouveau(16))) fermerPause();
-      } else if (jeuDemarre) {
+      } else if (jeuDemarre || spectateur) {
         if (nouveau(16) || (appuye(8) && appuye(9) && (nouveau(8) || nouveau(9)))) ouvrirPause();
+        else if (spectateur) {
+          Object.entries(carteManette()).forEach(([id, i]) => {
+            const maintenantAppuye = appuye(i) || (i === 12 && axeY < -0.6) || (i === 13 && axeY > 0.6) || (i === 14 && axeX < -0.6) || (i === 15 && axeX > 0.6);
+            toucheSpectateur(Number(id), maintenantAppuye, true);
+          });
+        }
       }
       precedents[p.index] = p.buttons.map(b => b.pressed);
     });
