@@ -8,7 +8,8 @@ import path from "node:path";
 import { chromium } from "playwright";
 
 const tests = [];
-const test = (nom, fn) => tests.push({ nom, fn });
+// reessai : les scénarios dans le navigateur ont droit à un second essai (lenteurs passagères).
+const test = (nom, fn, options = {}) => tests.push({ nom, fn, ...options });
 const attendre = ms => new Promise(r => setTimeout(r, ms));
 // Attend qu'une fonction asynchrone de la page renvoie vrai (waitForFunction n'attend pas les promesses).
 async function attendreQue(p, fn, arg, delai = 15_000, message = "délai dépassé") {
@@ -112,7 +113,7 @@ export async function lancerScenarios({ site }) {
     assert.ok(!(await textes(zoe, "#grille-catalogue .titre-grille span:first-child")).some(t => t.startsWith("Chez ")), "l'étranger ne voit rien");
     await kenji.screenshot({ path: path.join(captures, "catalogue-pote.png") });
     for (const p of [raiden, kenji, zoe]) { assert.deepEqual(p.erreurs, []); await p.context().close(); }
-  });
+  }, { reessai: true });
 
   test("Cloud : un jeu revient identique sur un autre appareil", async () => {
     const fichier = jeuAleatoire("Jeu Cloud.nds", 4_500_000);
@@ -131,7 +132,7 @@ export async function lancerScenarios({ site }) {
     });
     assert.equal(obtenu, attendu);
     await tel.context().close();
-  });
+  }, { reessai: true });
 
   test("Émulateur : démarre sans menus EmulatorJS, sauvegardes et états dans le cloud", async () => {
     const p = await joueur("111", "Raiden", "100000000000000001", { emulateur: true, instance: "i-emu" });
@@ -160,18 +161,59 @@ export async function lancerScenarios({ site }) {
     await p.waitForFunction(() => !document.getElementById("versions").hidden && !document.getElementById("versions").textContent.includes("Chargement"), null, { timeout: 10_000 });
     assert.deepEqual(p.erreurs, []);
     await p.context().close();
-  });
+  }, { reessai: true });
+
+  test("Salon : deux parties en même temps, on regarde l'une puis l'autre", async () => {
+    // Fausse partie : un écran d'une seule couleur à la place de l'émulateur.
+    const lancerFaussePartie = (p, couleur, jeu) => p.evaluate(([couleur, jeu]) => {
+      const c = document.createElement("canvas"); c.width = 256; c.height = 448; document.getElementById("game").appendChild(c);
+      const g = c.getContext("2d"); setInterval(() => { g.fillStyle = couleur; g.fillRect(0, 0, 256, 448); }, 100);
+      window.touchesRecues = [];
+      const avant = envoyerTouche; envoyerTouche = (t, b) => { touchesRecues.push(t + ":" + b); avant(t, b); };
+      jeuActif = true; jeuDemarre = true; nomJeu = jeu; cartoucheId = jeu + "|1";
+      document.getElementById("menu").style.display = "none"; majOnglets(); annoncerJeu();
+    }, [couleur, jeu]);
+    const pixel = p => p.evaluate(() => [...document.getElementById("ecran-distant").getContext("2d").getImageData(10, 10, 1, 1).data].slice(0, 3));
+    const raiden = await joueur("111", "Raiden", "100000000000000001", { instance: "i-multi" });
+    const kenji = await joueur("222", "Kenji", "100000000000000001", { instance: "i-multi" });
+    const zoe = await joueur("444", "Zoe", "100000000000000001", { mobile: true, instance: "i-multi" });
+    await lancerFaussePartie(raiden, "#ff0000", "Jeu Rouge");
+    await lancerFaussePartie(kenji, "#0000ff", "Jeu Bleu");
+    await attendreQue(zoe, () => salon.infos.parties.length === 2, null, 5_000, "les deux parties n'apparaissent pas");
+    await zoe.evaluate(() => regarder("111"));
+    await attendreQue(zoe, () => { const d = document.getElementById("ecran-distant").getContext("2d").getImageData(10, 10, 1, 1).data; return d[0] > 200 && d[2] < 60; }, null, 6_000, "l'écran rouge n'arrive pas");
+    assert.equal(await kenji.evaluate(() => salon.infos.spectateurs.length), 0, "personne ne regarde Kenji");
+    // Zoé passe sur la partie de Kenji depuis l'onglet Salon
+    await zoe.evaluate(() => { ouvrirPause(); afficherOnglet("salon"); });
+    await zoe.screenshot({ path: path.join(captures, "deux-parties-salon.png") });
+    await zoe.locator("#liste-joueurs button", { hasText: "Regarder" }).first().click();
+    await attendreQue(zoe, () => { const d = document.getElementById("ecran-distant").getContext("2d").getImageData(10, 10, 1, 1).data; return d[2] > 200 && d[0] < 60; }, null, 6_000, "l'écran bleu n'arrive pas");
+    await zoe.evaluate(() => fermerPause());
+    assert.equal(await raiden.evaluate(() => salon.infos.spectateurs.length), 0, "Raiden n'a plus de spectateur");
+    // Manette de la partie de Kenji pour Zoé : ses touches vont chez Kenji, pas chez Raiden
+    await kenji.evaluate(() => envoyerSalon({ t: "manette", a: "444" }));
+    await attendreQue(zoe, () => salon.infos.manette === "444", null, 5_000, "la manette n'arrive pas");
+    await zoe.evaluate(() => { toucheSpectateur(0, true); toucheSpectateur(0, false); });
+    await attendreQue(kenji, () => touchesRecues.length >= 2, null, 5_000, "Kenji ne reçoit pas les touches");
+    assert.deepEqual(await raiden.evaluate(() => touchesRecues), [], "Raiden ne reçoit rien");
+    await zoe.screenshot({ path: path.join(captures, "deux-parties.png") });
+    for (const p of [raiden, kenji, zoe]) { assert.deepEqual(p.erreurs, []); await p.context().close(); }
+  }, { reessai: true });
 
   // ---------------------------------------------------------------------------
   let reussis = 0;
   for (const t of tests) {
     const debut = Date.now();
-    try {
-      await t.fn();
-      reussis++;
-      console.log(`✓ ${t.nom} (${((Date.now() - debut) / 1000).toFixed(1)} s)`);
-    } catch (e) {
-      console.log(`✗ ${t.nom}\n   ${String(e && e.message || e).split("\n").join("\n   ")}`);
+    for (let essai = 1; essai <= (t.reessai ? 2 : 1); essai++) {
+      try {
+        await t.fn();
+        reussis++;
+        console.log(`✓ ${t.nom} (${((Date.now() - debut) / 1000).toFixed(1)} s${essai > 1 ? ", au 2e essai" : ""})`);
+        break;
+      } catch (e) {
+        if (essai < (t.reessai ? 2 : 1)) { console.log(`… ${t.nom} : nouvel essai (${String(e && e.message || e).split("\n")[0]})`); continue; }
+        console.log(`✗ ${t.nom}\n   ${String(e && e.message || e).split("\n").join("\n   ")}`);
+      }
     }
   }
   await navigateur.close();

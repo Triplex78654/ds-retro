@@ -277,8 +277,9 @@ export default {
 };
 
 // ---------- Salon : une instance par Activité lancée dans un salon vocal ----------
-// L'hôte fait tourner le jeu et envoie ses images ; le serveur les relaie aux autres.
-// Le joueur qui a la manette envoie ses touches, relayées à l'hôte seulement.
+// Chaque joueur peut diffuser sa propre partie. Les autres choisissent laquelle regarder :
+// le serveur n'envoie les images d'une partie qu'à ceux qui la regardent. Le joueur qui a
+// la manette d'une partie envoie ses touches, relayées à l'hôte de cette partie seulement.
 export class Salle extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
@@ -301,12 +302,15 @@ export class Salle extends DurableObject {
   }
 
   async charger() {
-    if (!this.etat) this.etat = (await this.ctx.storage.get("etat")) || { hote: null, manette: null, jeu: null, pause: false };
+    if (!this.etat) {
+      const e = (await this.ctx.storage.get("parties")) || null;
+      this.etat = { parties: (e && e.parties) || {} };
+    }
     return this.etat;
   }
 
   async enregistrer() {
-    await this.ctx.storage.put("etat", this.etat);
+    await this.ctx.storage.put("parties", this.etat);
   }
 
   ouverts() {
@@ -321,23 +325,35 @@ export class Salle extends DurableObject {
     }
     const [client, serveur] = Object.values(new WebSocketPair());
     this.ctx.acceptWebSocket(serveur, [joueur.id]);
-    serveur.serializeAttachment(joueur);
+    serveur.serializeAttachment({ id: joueur.id, nom: joueur.nom, regarde: null });
     await this.diffuserEtat();
     return new Response(null, { status: 101, webSocket: client });
   }
 
   async diffuserEtat() {
     const e = await this.charger();
-    const presents = new Map();
+    const presents = new Map(), spectateurs = {};
     for (const ws of this.ouverts()) {
       const j = ws.deserializeAttachment();
-      if (j) presents.set(j.id, j);
+      if (!j) continue;
+      presents.set(j.id, { id: j.id, nom: j.nom });
+      if (j.regarde) (spectateurs[j.regarde] = spectateurs[j.regarde] || []).push(j.id);
     }
     let change = false;
-    if (e.hote && !presents.has(e.hote)) { Object.assign(e, { hote: null, manette: null, jeu: null, pause: false }); change = true; }
-    if (e.manette && !presents.has(e.manette)) { e.manette = e.hote; change = true; }
+    for (const [hote, p] of Object.entries(e.parties)) {
+      if (!presents.has(hote)) { delete e.parties[hote]; change = true; continue; }
+      if (p.manette && !presents.has(p.manette)) { p.manette = hote; change = true; }
+    }
     if (change) await this.enregistrer();
-    this.envoyerATous({ t: "etat", joueurs: [...presents.values()], hote: e.hote, manette: e.manette, jeu: e.jeu, pause: e.pause });
+    const parties = Object.entries(e.parties)
+      .map(([hote, p]) => ({ hote, jeu: p.jeu, manette: p.manette, pause: p.pause, debut: p.debut, spectateurs: spectateurs[hote] || [] }))
+      .sort((a, b) => a.debut - b.debut);
+    // hote/manette/jeu/pause : la partie la plus ancienne, pour les consoles pas encore à jour.
+    const premiere = parties[0] || {};
+    this.envoyerATous({
+      t: "etat", joueurs: [...presents.values()], parties,
+      hote: premiere.hote || null, manette: premiere.manette || null, jeu: premiere.jeu || null, pause: Boolean(premiere.pause),
+    });
   }
 
   envoyerATous(message, sauf) {
@@ -356,16 +372,24 @@ export class Salle extends DurableObject {
     }
   }
 
+  // Une seule manette par joueur : la lui prendre dans les autres parties.
+  liberer(e, id, sauf) {
+    for (const [hote, p] of Object.entries(e.parties)) if (hote !== sauf && p.manette === id && hote !== id) p.manette = hote;
+  }
+
   async webSocketMessage(ws, message) {
     const joueur = ws.deserializeAttachment();
     if (!joueur) return;
     const e = await this.charger();
+    const maPartie = e.parties[joueur.id];
 
-    // Message binaire = une image de l'écran de l'hôte.
+    // Message binaire = une image de l'écran d'un hôte, pour ceux qui regardent sa partie.
     if (typeof message !== "string") {
-      if (e.hote !== joueur.id || message.byteLength > 400_000) return;
+      if (!maPartie || message.byteLength > 400_000) return;
       for (const autre of this.ouverts()) {
         if (autre === ws) continue;
+        const a = autre.deserializeAttachment();
+        if (!a || a.regarde !== joueur.id) continue;
         try { autre.send(message); } catch (err) {}
       }
       return;
@@ -375,46 +399,60 @@ export class Salle extends DurableObject {
     let m;
     try { m = JSON.parse(message); } catch (err) { return; }
     if (!m || typeof m.t !== "string" || !this.permis(joueur.id, m.t)) return;
-    const estHote = e.hote === joueur.id;
+    const partieTenue = () => Object.entries(e.parties).find(([hote, p]) => p.manette === joueur.id && hote !== joueur.id);
 
     switch (m.t) {
       case "hote":
-        if (e.hote && !estHote) return ws.send(JSON.stringify({ t: "refus", raison: "Quelqu'un diffuse déjà un jeu." }));
-        Object.assign(e, { hote: joueur.id, manette: joueur.id, jeu: String(m.jeu || "").slice(0, 80), pause: false });
+        this.liberer(e, joueur.id);
+        e.parties[joueur.id] = { jeu: String(m.jeu || "").slice(0, 80), manette: joueur.id, pause: false, debut: (maPartie && maPartie.debut) || Date.now() };
+        if (joueur.regarde) ws.serializeAttachment({ ...joueur, regarde: null });
         await this.enregistrer();
         return this.diffuserEtat();
       case "fin":
-        if (!estHote) return;
-        Object.assign(e, { hote: null, manette: null, jeu: null, pause: false });
+        if (!maPartie) return;
+        delete e.parties[joueur.id];
         await this.enregistrer();
         return this.diffuserEtat();
       case "pause":
-        if (!estHote) return;
-        e.pause = Boolean(m.pause);
+        if (!maPartie) return;
+        maPartie.pause = Boolean(m.pause);
         await this.enregistrer();
         return this.diffuserEtat();
-      case "manette":
-        if (!estHote) return;
-        e.manette = typeof m.a === "string" ? m.a : joueur.id;
+      case "manette": {
+        if (!maPartie) return;
+        const a = typeof m.a === "string" ? m.a : joueur.id;
+        if (a !== joueur.id && !this.ctx.getWebSockets(a).length) return;
+        this.liberer(e, a, joueur.id);
+        maPartie.manette = a;
         await this.enregistrer();
         return this.diffuserEtat();
-      case "rendre":
-        if (e.manette !== joueur.id || !e.hote) return;
-        e.manette = e.hote;
+      }
+      case "rendre": {
+        const tenue = partieTenue();
+        if (!tenue) return;
+        tenue[1].manette = tenue[0];
         await this.enregistrer();
         return this.diffuserEtat();
-      case "demande":
-        if (e.hote && !estHote) this.envoyerA(e.hote, { t: "demande", de: joueur });
+      }
+      case "regarder": {
+        const hote = typeof m.hote === "string" && e.parties[m.hote] && m.hote !== joueur.id ? m.hote : null;
+        ws.serializeAttachment({ ...joueur, regarde: hote });
+        return this.diffuserEtat();
+      }
+      case "demande": {
+        const hote = typeof m.hote === "string" ? m.hote : Object.keys(e.parties)[0];
+        if (hote && e.parties[hote] && hote !== joueur.id) this.envoyerA(hote, { t: "demande", de: { id: joueur.id, nom: joueur.nom } });
         return;
+      }
       case "touche": {
-        if (!e.hote || estHote || e.manette !== joueur.id) return;
-        if (!Number.isInteger(m.b) || m.b < 0 || m.b > 11) return;
-        return this.envoyerA(e.hote, { t: "touche", b: m.b, e: m.e ? 1 : 0, de: joueur.id });
+        const tenue = partieTenue();
+        if (!tenue || !Number.isInteger(m.b) || m.b < 0 || m.b > 11) return;
+        return this.envoyerA(tenue[0], { t: "touche", b: m.b, e: m.e ? 1 : 0, de: joueur.id });
       }
       case "tactile": {
-        if (!e.hote || estHote || e.manette !== joueur.id) return;
-        if (!Number.isFinite(m.x) || !Number.isFinite(m.y) || !["bas", "haut", "bouge"].includes(m.e)) return;
-        return this.envoyerA(e.hote, { t: "tactile", x: Math.min(1, Math.max(0, m.x)), y: Math.min(1, Math.max(0, m.y)), e: m.e, de: joueur.id });
+        const tenue = partieTenue();
+        if (!tenue || !Number.isFinite(m.x) || !Number.isFinite(m.y) || !["bas", "haut", "bouge"].includes(m.e)) return;
+        return this.envoyerA(tenue[0], { t: "tactile", x: Math.min(1, Math.max(0, m.x)), y: Math.min(1, Math.max(0, m.y)), e: m.e, de: joueur.id });
       }
       case "liste": {
         // Liste des jeux d'un joueur (noms seulement, jamais les fichiers), montrée aux autres.
@@ -425,7 +463,7 @@ export class Salle extends DurableObject {
       }
       case "propose":
         if (typeof m.a === "string" && m.a !== joueur.id && m.jeu) {
-          this.envoyerA(m.a, { t: "propose", de: joueur, jeu: { id: String(m.jeu.id || "").slice(0, 80), nom: String(m.jeu.nom || "").slice(0, 80) } });
+          this.envoyerA(m.a, { t: "propose", de: { id: joueur.id, nom: joueur.nom }, jeu: { id: String(m.jeu.id || "").slice(0, 80), nom: String(m.jeu.nom || "").slice(0, 80) } });
         }
         return;
       case "ping":

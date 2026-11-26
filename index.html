@@ -2189,7 +2189,8 @@
     moi: null,
     ws: null,
     tentative: 0,
-    infos: { joueurs: [], hote: null, manette: null, jeu: null, pause: false },
+    infos: { joueurs: [], parties: [], hote: null, manette: null, jeu: null, pause: false, spectateurs: [] },
+    regarde: null,            // hôte de la partie que tu regardes
     demandes: new Set(),
     listes: new Map(),        // jeux des autres joueurs (noms seulement)
     propositions: [],         // jeux que les autres te proposent de lancer
@@ -2198,6 +2199,15 @@
   };
   const moiId = () => salon.moi && salon.moi.id;
   const estHote = () => Boolean(salon.infos.hote) && salon.infos.hote === moiId();
+  // Plusieurs parties peuvent tourner dans le salon. « La partie qui te concerne » : la tienne,
+  // celle que tu regardes, celle dont tu as la manette, sinon la plus récente.
+  function projeter(m) {
+    const moi = moiId();
+    const parties = m.parties || (m.hote ? [{ hote: m.hote, jeu: m.jeu, manette: m.manette, pause: m.pause, spectateurs: [] }] : []);
+    const p = parties.find(x => x.hote === moi) || parties.find(x => x.hote === salon.regarde)
+      || parties.find(x => x.manette === moi) || parties[parties.length - 1] || null;
+    return { joueurs: m.joueurs || [], parties, hote: p ? p.hote : null, manette: p ? p.manette : null, jeu: p ? p.jeu : null, pause: p ? Boolean(p.pause) : false, spectateurs: (p && p.spectateurs) || [] };
+  }
   const nomDe = id => { const j = salon.infos.joueurs.find(x => x.id === id); return j ? j.nom : "Quelqu'un"; };
 
   let derniereBulle = { texte: "", t: 0 };
@@ -2292,15 +2302,17 @@
   function recevoirMessage(m) {
     if (m.t === "etat") {
       const avant = salon.infos;
-      salon.infos = m;
+      if (salon.regarde && !(m.parties || []).some(p => p.hote === salon.regarde)) salon.regarde = null;
+      m = salon.infos = projeter(m);
       const presents = new Set(m.joueurs.map(j => j.id));
       [...salon.listes.keys()].forEach(id => { if (!presents.has(id)) salon.listes.delete(id); });
       salon.propositions = salon.propositions.filter(p => presents.has(p.de.id));
       if (m.joueurs.length > avant.joueurs.length) envoyerMaListe(true);
       // Ton pote lance le jeu que tu lui as proposé : tu regardes directement, la manette arrive.
-      if (salon.proposeA && m.hote === salon.proposeA.a && !jeuActif && !spectateur) {
+      if (salon.proposeA && m.parties.some(p => p.hote === salon.proposeA.a) && !jeuActif && !spectateur) {
+        const hote = salon.proposeA.a;
         salon.proposeA = null;
-        setTimeout(regarder, 200);
+        setTimeout(() => regarder(hote), 200);
       }
       // Tu viens de lancer un jeu proposé : la manette part chez celui qui l'a proposé.
       if (salon.donnerManetteA && m.hote === moiId() && presents.has(salon.donnerManetteA)) {
@@ -2312,15 +2324,16 @@
         arreterDeRegarder();
         bulle(nomDe(avant.hote) === "Quelqu'un" ? "La partie est terminée." : avant.jeu ? "Fin de la partie de " + avant.jeu + "." : "La partie est terminée.");
       }
-      if (m.hote && m.hote !== avant.hote && m.hote !== moiId()) {
-        bulle(nomDe(m.hote) + " joue à " + (m.jeu || "un jeu") + ". MENU, puis Salon pour regarder.");
+      // Nouvelles parties lancées par les autres
+      m.parties.filter(p => p.hote !== moiId() && !(avant.parties || []).some(a => a.hote === p.hote)).forEach(p => {
+        bulle(nomDe(p.hote) + " joue à " + (p.jeu || "un jeu") + ". MENU, puis Salon pour regarder.");
         if (ongletActif !== "salon") $("point-salon").hidden = false;
-        if (!jeuActif && !spectateur) $("message-haut").textContent = nomDe(m.hote) + " joue à " + (m.jeu || "un jeu") + ". Ouvre l'onglet Salon pour regarder.";
-      }
+        if (!jeuActif && !spectateur) $("message-haut").textContent = nomDe(p.hote) + " joue à " + (p.jeu || "un jeu") + ". Ouvre l'onglet Salon pour regarder.";
+      });
       if (!m.hote && !jeuActif) $("message-haut").textContent = "Choisis une cartouche sur l'écran du bas.";
       if (m.manette === moiId() && avant.manette !== m.manette && m.hote && m.hote !== moiId()) bulle("Tu as la manette !");
       if (m.manette !== moiId() && avant.manette === moiId() && m.hote && m.hote !== moiId()) bulle("La manette est repartie chez " + nomDe(m.manette) + ".");
-      if (jeuDemarre && !m.hote) annoncerJeu();
+      if (jeuDemarre && !m.parties.some(p => p.hote === moiId())) annoncerJeu();
       majSalon();
       afficherCatalogue();
     } else if (m.t === "demande") {
@@ -2348,13 +2361,13 @@
   }
 
   function annoncerJeu() {
-    if (salon.etat === "connecte" && jeuDemarre && (!salon.infos.hote || estHote())) envoyerSalon({ t: "hote", jeu: nomJeu });
+    if (salon.etat === "connecte" && jeuDemarre) envoyerSalon({ t: "hote", jeu: nomJeu });
   }
 
   // Hôte : capture de l'écran du jeu, 20 images par seconde, seulement s'il y a du monde.
   let toileCapture = null, encodage = false;
   setInterval(() => {
-    if (!estHote() || !jeuDemarre || menuOuvert || encodage || salon.infos.joueurs.length < 2) return;
+    if (!estHote() || !jeuDemarre || menuOuvert || encodage || !salon.infos.spectateurs.length) return;
     if (!salon.ws || salon.ws.readyState !== 1 || salon.ws.bufferedAmount > 256 * 1024) return;
     const source = document.querySelector("#game canvas");
     if (!source || !source.width) return;
@@ -2448,8 +2461,14 @@
   ecranDistant.addEventListener("pointerup", leverDoigt);
   ecranDistant.addEventListener("pointercancel", leverDoigt);
 
-  function regarder() {
-    if (!salon.infos.hote || estHote() || jeuActif) return;
+  function regarder(hote) {
+    hote = typeof hote === "string" ? hote : salon.infos.hote;
+    if (!hote || hote === moiId() || jeuActif) return;
+    if (spectateur && salon.regarde === hote) return;
+    if (spectateur) { relacherToutSpectateur(); if (salon.infos.manette === moiId()) envoyerSalon({ t: "rendre" }); }
+    salon.regarde = hote;
+    envoyerSalon({ t: "regarder", hote });
+    salon.infos = projeter(salon.infos);
     spectateur = true;
     document.body.classList.add("spectateur");
     const c = $("ecran-distant");
@@ -2465,6 +2484,9 @@
     if (!spectateur) return;
     relacherToutSpectateur();
     if (salon.infos.manette === moiId()) envoyerSalon({ t: "rendre" });
+    salon.regarde = null;
+    envoyerSalon({ t: "regarder", hote: null });
+    salon.infos = projeter(salon.infos);
     spectateur = false;
     document.body.classList.remove("spectateur", "menu-ouvert");
     $("ecran-distant").hidden = true;
@@ -2486,7 +2508,7 @@
     else if (salon.etat === "refuse") { titre = "Accès réservé"; message = salon.erreur + " Tu peux jouer en solo, sans cloud ni salon."; }
     else if (salon.etat === "deconnecte") { titre = "Reconnexion…"; message = "La connexion au salon a coupé. Nouvel essai en cours."; }
     else if (!i.hote) { sous = nb > 1 ? "Personne ne joue" : "Tu es seul ici"; titre = "Salon libre"; message = "Lance un jeu : les autres pourront regarder et prendre la manette."; }
-    else if (i.hote === moi) { sous = "Tu diffuses"; titre = i.jeu || nomJeu; message = i.manette === moi ? "Tu as la manette. Tu peux la donner à un pote en dessous." : "Manette : " + nomDe(i.manette) + "."; }
+    else if (i.hote === moi) { sous = "Tu diffuses" + (i.spectateurs.length ? ", " + i.spectateurs.length + (i.spectateurs.length > 1 ? " regardent" : " regarde") : ""); titre = i.jeu || nomJeu; message = i.manette === moi ? "Tu as la manette. Tu peux la donner à un pote en dessous." : "Manette : " + nomDe(i.manette) + "."; }
     else {
       sous = nomDe(i.hote) + " joue"; titre = i.jeu || "un jeu";
       message = jeuActif ? "Tu joues déjà à ton propre jeu. Quitte-le pour regarder."
@@ -2510,7 +2532,7 @@
       if (spectateur) bouton("Arrêter de regarder", arreterDeRegarder);
       else bouton("Regarder", regarder, "principal");
       if (i.manette === moi) bouton("Rendre la manette", () => envoyerSalon({ t: "rendre" }));
-      else bouton("Demander la manette", () => { envoyerSalon({ t: "demande" }); bulle("Demande envoyée à " + nomDe(i.hote) + "."); });
+      else bouton("Demander la manette", () => { envoyerSalon({ t: "demande", hote: i.hote }); bulle("Demande envoyée à " + nomDe(i.hote) + "."); });
     }
 
     const liste = $("liste-joueurs");
@@ -2526,7 +2548,7 @@
         qui.className = "qui"; qui.textContent = j.nom + (j.id === moi ? " (toi)" : "");
         ligne.append(rond, qui);
         const etiquette = (texte, classe) => { const t = document.createElement("span"); t.className = "tag " + (classe || ""); t.textContent = texte; ligne.appendChild(t); };
-        if (j.id === i.hote) etiquette("joue");
+        if (i.parties.some(p => p.hote === j.id)) etiquette("joue");
         if (j.id === i.manette) etiquette("manette", "manette");
         if (estHote() && j.id !== moi) {
           const b = document.createElement("button");
@@ -2561,6 +2583,11 @@
         ligne.append(rond, qui, b);
         liste.appendChild(ligne);
       };
+      const autresParties = i.parties.filter(p => p.hote !== moi && p.hote !== i.hote);
+      if (autresParties.length && !jeuActif) {
+        titreSection("Autres parties en cours");
+        autresParties.forEach(p => ligneJeu(p.jeu || "Un jeu", nomDe(p.hote) + (p.spectateurs.length ? ", " + p.spectateurs.length + " spectateur" + (p.spectateurs.length > 1 ? "s" : "") : ""), "Regarder", () => regarder(p.hote)));
+      }
       if (salon.propositions.length && !jeuActif) {
         titreSection("On te propose");
         salon.propositions.forEach(p => ligneJeu(p.jeu.nom, p.de.nom, "Lancer", () => lancerProposition(p), true));
