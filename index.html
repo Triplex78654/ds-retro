@@ -130,6 +130,9 @@
   .legende div { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
   #legende-jeu { background: #2b2d31; border-radius: 12px; padding: 12px 14px; margin-top: 12px; }
   .note { margin-top: 12px !important; font-size: 13px !important; }
+  #ecran:fullscreen { max-height: none; aspect-ratio: auto; border-radius: 0; width: 100vw; height: 100vh; }
+  #ecran:fullscreen #game { width: 100%; height: 100%; }
+  #game:focus { outline: none; }
 </style>
 </head>
 <body>
@@ -170,6 +173,7 @@
   <p id="nom-jeu"></p>
   <div class="legende" id="legende-jeu"></div>
   <div class="barre">
+    <button class="bouton" id="bouton-plein-ecran" type="button">Plein écran</button>
     <button class="bouton secondaire" id="bouton-changer" type="button">Changer de jeu</button>
   </div>
 </section>
@@ -261,6 +265,63 @@
   afficherPresets();
   afficherLegende("legende-accueil");
 
+  let jeuActif = false;
+  const NOMS_VERS_CODES = {
+    "up arrow": 38, "down arrow": 40, "left arrow": 37, "right arrow": 39,
+    enter: 13, space: 32, shift: 16
+  };
+  function codesDuPreset() {
+    const codes = new Set([32, 37, 38, 39, 40]);
+    Object.values(PRESETS[presetChoisi].touches).forEach(t => {
+      codes.add(NOMS_VERS_CODES[t] || t.toUpperCase().charCodeAt(0));
+    });
+    return codes;
+  }
+  let codesJeu = codesDuPreset();
+
+  function focusJeu() {
+    const g = document.getElementById("game");
+    if (g && document.activeElement !== g && !g.contains(document.activeElement)) {
+      g.focus({ preventScroll: true });
+    }
+  }
+
+  function gererClavier(e) {
+    if (!jeuActif) return;
+    if (e.key === "Escape" || /^F\d+$/.test(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
+    const g = document.getElementById("game");
+    const dedans = g.contains(e.target);
+    if (dedans) {
+      if (codesJeu.has(e.keyCode)) e.preventDefault();
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    focusJeu();
+    const copie = new KeyboardEvent(e.type, {
+      key: e.key, code: e.code, repeat: e.repeat, bubbles: true, cancelable: true,
+      shiftKey: e.shiftKey
+    });
+    Object.defineProperty(copie, "keyCode", { get: () => e.keyCode });
+    Object.defineProperty(copie, "which", { get: () => e.keyCode });
+    g.dispatchEvent(copie);
+  }
+  window.addEventListener("keydown", gererClavier, true);
+  window.addEventListener("keyup", gererClavier, true);
+
+  document.getElementById("jeu-conteneur").addEventListener("pointerdown", e => {
+    if (!e.target.closest("button")) setTimeout(focusJeu, 0);
+  });
+  document.addEventListener("fullscreenchange", () => setTimeout(focusJeu, 50));
+  window.addEventListener("focus", () => { if (jeuActif) setTimeout(focusJeu, 50); });
+
+  document.getElementById("bouton-plein-ecran").addEventListener("click", () => {
+    const ecran = document.getElementById("ecran");
+    const p = ecran.requestFullscreen ? ecran.requestFullscreen() : ecran.webkitRequestFullscreen && ecran.webkitRequestFullscreen();
+    if (p && p.catch) p.catch(() => {});
+    setTimeout(focusJeu, 100);
+  });
+
   const zone = document.getElementById("zone-depot");
   const champ = document.getElementById("fichier");
   const erreur = document.getElementById("erreur");
@@ -304,6 +365,10 @@
     window.EJS_defaultControls = construireControles();
     window.EJS_gameID = PRESETS[presetChoisi].gameId;
     afficherLegende("legende-jeu");
+    codesJeu = codesDuPreset();
+    jeuActif = true;
+    window.EJS_onGameStart = () => setTimeout(focusJeu, 100);
+    setTimeout(focusJeu, 500);
 
     const script = document.createElement("script");
     script.src = CDN + "loader.js";
