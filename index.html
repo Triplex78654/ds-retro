@@ -809,7 +809,7 @@
           <button class="onglet" type="button" role="tab" data-onglet="touches">
             <svg viewBox="0 0 12 12" aria-hidden="true"><path fill="currentColor" d="M1 3h10v6H1z"/><path fill="var(--lcd)" d="M2.5 4.5h1v1h-1zM5.5 4.5h1v1h-1zM8.5 4.5h1v1h-1zM3.5 6.5h5v1h-5z"/></svg>Touches</button>
         </nav>
-        <div class="depot-msg">Lâche le fichier pour l'ajouter</div>
+        <div class="depot-msg">Lâche les jeux pour les ajouter</div>
       </section>
     </div>
   </div>
@@ -848,7 +848,7 @@
   <div class="gravure" aria-hidden="true">Rétro</div>
 </div>
 
-<input type="file" id="fichier" accept=".nds,.zip,.7z" hidden>
+<input type="file" id="fichier" accept=".nds,.zip,.7z" multiple hidden>
 <script>
   // L'émulateur dessine en WebGL : on garde chaque image lisible pour pouvoir la diffuser au salon.
   (() => {
@@ -1310,7 +1310,7 @@
 
     const ajouter = document.createElement("button");
     ajouter.type = "button"; ajouter.className = "ajouter";
-    ajouter.innerHTML = '<span class="plus" aria-hidden="true">+</span><span>Ajouter un jeu</span>';
+    ajouter.innerHTML = '<span class="plus" aria-hidden="true">+</span><span>Ajouter des jeux</span>';
     ajouter.addEventListener("click", () => $("fichier").click());
     grille.appendChild(ajouter);
 
@@ -1355,7 +1355,7 @@
     if (!liste.length) {
       const vide = document.createElement("div");
       vide.className = "vide";
-      vide.innerHTML = "<p>Choisis un fichier <b>.nds</b> sur ton appareil. Il reste chez toi, rien n'est envoyé.</p><p>Pas de jeu ? Cherche « DS homebrew » sur itch.io.</p>";
+      vide.innerHTML = "<p>Choisis un ou plusieurs fichiers <b>.nds</b> sur ton appareil. Ils restent chez toi, rien n'est envoyé.</p><p>Pas de jeu ? Va voir le Catalogue.</p>";
       grille.appendChild(vide);
       $("compte").textContent = "";
     } else {
@@ -1384,8 +1384,38 @@
     inserer(cart, fichier, fichier.name, id);
   }
 
+  // Plusieurs jeux d'un coup : ils rejoignent tous « Tes cartouches », sans lancer de partie.
+  async function ajouterPlusieurs(fichiers) {
+    const jeux = [...fichiers].filter(f => EXTENSIONS.some(ext => f.name.toLowerCase().endsWith(ext)));
+    const ignores = fichiers.length - jeux.length;
+    $("erreur").textContent = "";
+    afficherVueJeux("perso");
+    let ajoutes = 0, sansPlace = 0;
+    for (let i = 0; i < jeux.length; i++) {
+      const f = jeux[i];
+      $("message-haut").textContent = "Ajout des jeux… " + (i + 1) + " / " + jeux.length;
+      const id = f.name + "|" + f.size;
+      try {
+        const ancien = await lireDans("cartouches", id).catch(() => null);
+        await ecrireDans("cartouches", { id, nom: f.name, taille: f.size, ajoute: ancien ? ancien.ajoute : Date.now(), joue: ancien ? ancien.joue : 0, blob: f });
+        ajoutes++;
+      } catch (e) { sansPlace++; }
+    }
+    await afficherCartouches();
+    $("message-haut").textContent = ajoutes === 1 ? "1 jeu ajouté à tes cartouches." : ajoutes + " jeux ajoutés à tes cartouches.";
+    const remarques = [];
+    if (ignores) remarques.push(ignores === 1 ? "1 fichier ignoré (ce n'est pas un jeu DS)." : ignores + " fichiers ignorés (ce ne sont pas des jeux DS).");
+    if (sansPlace) remarques.push(sansPlace === 1 ? "1 jeu n'a pas pu être gardé : plus de place sur l'appareil." : sansPlace + " jeux n'ont pas pu être gardés : plus de place sur l'appareil.");
+    $("erreur").textContent = remarques.join(" ");
+  }
+  function recevoirFichiers(liste) {
+    if (!liste || !liste.length) return;
+    if (liste.length === 1) ajouterFichier(liste[0]);
+    else ajouterPlusieurs(liste);
+  }
+
   $("fichier").addEventListener("change", () => {
-    if ($("fichier").files.length) ajouterFichier($("fichier").files[0]);
+    recevoirFichiers($("fichier").files);
     $("fichier").value = "";
   });
 
@@ -1395,7 +1425,7 @@
   window.addEventListener("dragleave", () => { if (--profondeur <= 0) { profondeur = 0; document.body.classList.remove("depot"); } });
   window.addEventListener("drop", e => {
     e.preventDefault(); profondeur = 0; document.body.classList.remove("depot");
-    if (!jeuActif && e.dataTransfer.files.length) ajouterFichier(e.dataTransfer.files[0]);
+    if (!jeuActif && !spectateur) recevoirFichiers(e.dataTransfer.files);
   });
 
   // ---------- Catalogue : jeux partagés, dans le dossier catalogue/ du dépôt ----------
