@@ -414,6 +414,15 @@
     background: #fff; box-shadow: 0 0 0 calc(var(--u) * 1) rgba(0,0,0,.25);
   }
 
+  .etat-ludo { padding: 0 calc(var(--u) * 9) calc(var(--u) * 5); color: var(--encre-2); font-size: max(10px, calc(var(--u) * 7.5)); }
+  .cart .nuage-ok {
+    position: absolute; right: calc(var(--u) * 4); top: calc(var(--u) * 6);
+    font: 400 max(10px, calc(var(--u) * 9))/1 system-ui, sans-serif; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  }
+  .cart.nuage { opacity: .62; }
+  .cart.nuage .etiquette { filter: grayscale(.4); }
+  .retirer.arme { opacity: 1; background: #b3261e; color: #fff; width: auto; padding: 0 calc(var(--u) * 5); border-radius: 99px; font-size: max(10px, calc(var(--u) * 7)); }
+
   /* Cartouches */
   .emplacement { position: relative; }
   .cart, .ajouter {
@@ -765,6 +774,7 @@
           </div>
           <div class="grille" id="grille"></div>
           <div class="grille" id="grille-catalogue" hidden></div>
+          <div class="etat-ludo" id="etat-ludo" hidden></div>
           <div class="erreur" id="erreur" role="alert"></div>
         </div>
 
@@ -1339,29 +1349,75 @@
           $("erreur").textContent = "Cette cartouche n'est plus sur l'appareil. Ajoute à nouveau le fichier.";
         }
       });
-      const retirer = document.createElement("button");
-      retirer.type = "button"; retirer.className = "retirer";
-      retirer.textContent = "×";
-      retirer.setAttribute("aria-label", "Retirer " + nom + " de la liste");
-      retirer.addEventListener("click", async e => {
-        e.stopPropagation();
+      if (ludoContient(c.id)) {
+        const nuage = document.createElement("span");
+        nuage.className = "nuage-ok"; nuage.textContent = "☁"; nuage.title = "Aussi dans ton cloud";
+        cart.appendChild(nuage);
+      }
+      emplacement.append(cart, boutonRetirer(nom, async () => {
         await retirerCartouche(c.id).catch(() => {});
-        afficherCartouches();
-      });
-      emplacement.append(cart, retirer);
+        await retirerDuCloud(c.id);
+      }));
       grille.appendChild(emplacement);
     });
 
-    if (!liste.length) {
+    // Jeux de ton cloud qui ne sont pas encore sur cet appareil
+    for (const d of await jeuxSeulementDansLeCloud(liste)) {
+      const nom = nomLisible(d.nom);
+      const emplacement = document.createElement("div");
+      emplacement.className = "emplacement";
+      const cart = document.createElement("button");
+      cart.type = "button"; cart.className = "cart nuage";
+      cart.style.setProperty("--teinte", teinte(nom));
+      cart.setAttribute("aria-label", "Récupérer " + nom + " depuis ton cloud et jouer");
+      const etiquette = document.createElement("span");
+      etiquette.className = "etiquette"; etiquette.textContent = initiales(nom);
+      const titre = document.createElement("span");
+      titre.className = "nom"; titre.textContent = nom;
+      const nuage = document.createElement("span");
+      nuage.className = "nuage-ok"; nuage.textContent = "☁";
+      cart.append(etiquette, titre, nuage);
+      cart.addEventListener("click", () => recupererDuCloud(cart, d));
+      emplacement.append(cart, boutonRetirer(nom, () => supprimerDuCloud(d.id)));
+      grille.appendChild(emplacement);
+    }
+
+    const nbCartes = grille.querySelectorAll(".cart").length;
+    if (!nbCartes) {
       const vide = document.createElement("div");
       vide.className = "vide";
-      vide.innerHTML = "<p>Choisis un ou plusieurs fichiers <b>.nds</b> sur ton appareil. Ils restent chez toi, rien n'est envoyé.</p><p>Pas de jeu ? Va voir le Catalogue.</p>";
+      let connecte = false;
+      try { connecte = Boolean(salon.jeton); } catch (e) {}
+      vide.innerHTML = connecte
+        ? "<p>Choisis un ou plusieurs jeux sur ton appareil. Une copie va dans ton cloud, visible par toi seul.</p><p>Pas de jeu ? Va voir le Catalogue.</p>"
+        : "<p>Choisis un ou plusieurs fichiers <b>.nds</b> sur ton appareil. Ils restent chez toi.</p><p>Pas de jeu ? Va voir le Catalogue.</p>";
       grille.appendChild(vide);
-      $("compte").textContent = "";
-    } else {
-      $("compte").textContent = liste.length === 1 ? "1 jeu" : liste.length + " jeux";
     }
+    $("compte").textContent = nbCartes ? String(nbCartes) : "";
   }
+  // Bouton × : un premier appui arme le retrait, le second retire (de l'appareil et du cloud).
+  function boutonRetirer(nom, action) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "retirer";
+    b.textContent = "×";
+    b.setAttribute("aria-label", "Retirer " + nom);
+    let minuteur = null;
+    b.addEventListener("click", async e => {
+      e.stopPropagation();
+      if (!b.classList.contains("arme")) {
+        b.classList.add("arme"); b.textContent = "Retirer ?";
+        b.setAttribute("aria-label", "Confirmer le retrait de " + nom);
+        clearTimeout(minuteur);
+        minuteur = setTimeout(() => { b.classList.remove("arme"); b.textContent = "×"; b.setAttribute("aria-label", "Retirer " + nom); }, 3000);
+        return;
+      }
+      clearTimeout(minuteur);
+      await action();
+      afficherCartouches();
+    });
+    return b;
+  }
+
   afficherCartouches();
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
@@ -1380,6 +1436,7 @@
       // Plus de place sur l'appareil : on lance quand même, sans garder la cartouche.
     }
     await afficherCartouches();
+    synchroniserLudotheque();
     const cart = document.querySelector(`.cart[data-id="${CSS.escape(id)}"]`);
     inserer(cart, fichier, fichier.name, id);
   }
@@ -1402,6 +1459,7 @@
       } catch (e) { sansPlace++; }
     }
     await afficherCartouches();
+    synchroniserLudotheque();
     $("message-haut").textContent = ajoutes === 1 ? "1 jeu ajouté à tes cartouches." : ajoutes + " jeux ajoutés à tes cartouches.";
     const remarques = [];
     if (ignores) remarques.push(ignores === 1 ? "1 fichier ignoré (ce n'est pas un jeu DS)." : ignores + " fichiers ignorés (ce ne sont pas des jeux DS).");
@@ -1446,6 +1504,7 @@
     document.querySelectorAll(".vue-jeux").forEach(b => b.setAttribute("aria-selected", String(b.dataset.vue === vueJeux)));
     $("grille").hidden = vueJeux !== "perso";
     $("grille-catalogue").hidden = vueJeux !== "catalogue";
+    $("etat-ludo").hidden = vueJeux !== "perso" || !$("etat-ludo").textContent;
     $("erreur").textContent = "";
     if (!jeuActif && !salon.infos.hote) {
       $("message-haut").textContent = vueJeux === "catalogue" ? "Jeux partagés avec tout le salon. Touche une cartouche pour jouer." : MESSAGE_ACCUEIL;
@@ -1755,6 +1814,7 @@
       salon.moi = { id: auth.user.id, nom: auth.user.global_name || auth.user.username };
       ouvrirSalle();
       if (jeuDemarre) restaurerSram();
+      synchroniserLudotheque();
     } catch (e) {
       salon.etat = "indisponible";
       salon.erreur = (e && e.message) || "Connexion impossible.";
@@ -2067,6 +2127,132 @@
       cloud.erreur = true;
       if (!cloud.attente) { cloud.attente = a; clearTimeout(cloud.minuteur); cloud.minuteur = setTimeout(viderCloud, 30000); }
     }
+  }
+
+  // ---------- Ludothèque privée : une copie de tes jeux dans ton cloud, pour toi seul ----------
+  const TAILLE_MORCEAU = 1_900_000;
+  const ludo = { distants: new Map(), cles: new Map(), file: [], actif: false, plein: false, charge: false };
+
+  async function cleLudo(idLocal) {
+    if (!ludo.cles.has(idLocal)) ludo.cles.set(idLocal, await cleJeu("ludo:" + idLocal));
+    return ludo.cles.get(idLocal);
+  }
+  // Appelées dès le premier affichage, avant que le salon soit prêt : on reste prudent.
+  function ludoContient(idLocal) {
+    try {
+      const cle = ludo.cles.get(idLocal);
+      const d = cle && ludo.distants.get(cle);
+      return Boolean(d && d.recus === d.morceaux);
+    } catch (e) { return false; }
+  }
+  async function jeuxSeulementDansLeCloud(locaux) {
+    try { if (!salon.jeton || !ludo.charge) return []; } catch (e) { return []; }
+    const clesLocales = new Set();
+    for (const c of locaux) clesLocales.add(await cleLudo(c.id));
+    return [...ludo.distants.values()].filter(d => d.recus === d.morceaux && !clesLocales.has(d.id));
+  }
+  async function appelLudo(chemin, options = {}) {
+    return fetch(API + "/ludotheque" + chemin, { ...options, headers: { Authorization: "Bearer " + salon.jeton, ...(options.headers || {}) } });
+  }
+  function majEtatLudo(texte) {
+    const el = $("etat-ludo");
+    el.textContent = texte || "";
+    el.hidden = !texte || vueJeux !== "perso";
+  }
+
+  async function chargerListeLudo() {
+    const r = await appelLudo("");
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    ludo.distants = new Map(d.jeux.map(j => [j.id, j]));
+    ludo.plein = d.utilise >= d.quota * 0.98;
+    ludo.charge = true;
+  }
+
+  async function synchroniserLudotheque() {
+    if (!salon.jeton || ludo.actif) return;
+    ludo.actif = true;
+    try {
+      await chargerListeLudo();
+      const locaux = await listerCartouches();
+      for (const c of locaux) await cleLudo(c.id);
+      await afficherCartouches();
+      const aEnvoyer = locaux.filter(c => c.blob && !ludoContient(c.id));
+      for (let i = 0; i < aEnvoyer.length; i++) {
+        const c = aEnvoyer[i];
+        const ok = await envoyerAuCloud(c, i + 1, aEnvoyer.length);
+        if (!ok) break;
+      }
+      await chargerListeLudo();
+      await afficherCartouches();
+      const n = locaux.filter(c => ludoContient(c.id)).length;
+      if (ludo.plein) majEtatLudo("Ton cloud est plein (1 Go). Retire des jeux pour en sauvegarder d'autres.");
+      else majEtatLudo(n ? (n === 1 ? "Ce jeu est aussi dans ton cloud, rien que pour toi." : "Tes " + n + " jeux sont aussi dans ton cloud, rien que pour toi.") : "");
+    } catch (e) {
+      majEtatLudo("Ton cloud ne répond pas. Tes jeux restent sur cet appareil.");
+    } finally {
+      ludo.actif = false;
+    }
+  }
+
+  async function envoyerAuCloud(c, rang, total) {
+    const cle = await cleLudo(c.id);
+    const blob = c.blob;
+    const n = Math.ceil(blob.size / TAILLE_MORCEAU);
+    const etiquette = total > 1 ? " (" + rang + "/" + total + ")" : "";
+    for (let i = 0; i < n; i++) {
+      majEtatLudo("Copie dans ton cloud" + etiquette + " : " + nomLisible(c.nom) + "… " + Math.round(i / n * 100) + " %");
+      const morceau = blob.slice(i * TAILLE_MORCEAU, (i + 1) * TAILLE_MORCEAU);
+      let r;
+      try {
+        r = await appelLudo("/" + cle + "/" + i, {
+          method: "PUT",
+          headers: { "X-Nom": encodeURIComponent(c.nom), "X-Taille": String(blob.size), "X-Morceaux": String(n) },
+          body: morceau,
+        });
+      } catch (e) { return false; }
+      if (r.status === 507) { ludo.plein = true; return false; }
+      if (!r.ok) return false;
+    }
+    return true;
+  }
+
+  async function recupererDuCloud(cart, d) {
+    if (jeuActif || spectateur || telechargement) return;
+    telechargement = true;
+    $("erreur").textContent = "";
+    document.body.classList.add("chargement");
+    const nom = nomLisible(d.nom);
+    try {
+      const morceaux = [];
+      for (let i = 0; i < d.morceaux; i++) {
+        $("message-haut").textContent = "Récupération de " + nom + " depuis ton cloud… " + Math.round(i / d.morceaux * 100) + " %";
+        const r = await appelLudo("/" + d.id + "/" + i);
+        if (!r.ok) throw new Error(r.status);
+        morceaux.push(new Uint8Array(await r.arrayBuffer()));
+      }
+      const blob = new Blob(morceaux);
+      const idLocal = d.nom + "|" + d.taille;
+      ludo.cles.set(idLocal, d.id);
+      await ecrireDans("cartouches", { id: idLocal, nom: d.nom, taille: d.taille, ajoute: Date.now(), joue: Date.now(), blob }).catch(() => {});
+      telechargement = false;
+      inserer(cart, blob, d.nom, idLocal);
+    } catch (e) {
+      telechargement = false;
+      document.body.classList.remove("chargement");
+      $("message-haut").textContent = MESSAGE_ACCUEIL;
+      $("erreur").textContent = "Le jeu n'a pas pu être récupéré depuis ton cloud. Réessaie dans un instant.";
+    }
+  }
+
+  async function retirerDuCloud(idLocal) {
+    if (!salon.jeton) return;
+    const cle = await cleLudo(idLocal);
+    if (ludo.distants.has(cle)) await supprimerDuCloud(cle);
+  }
+  async function supprimerDuCloud(cle) {
+    try { await appelLudo("/" + cle, { method: "DELETE" }); } catch (e) {}
+    ludo.distants.delete(cle);
   }
 
   if (DANS_DISCORD) connecterDiscord(); else majSalon();
