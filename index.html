@@ -1472,25 +1472,30 @@
     document.body.classList.add("chargement");
     $("message-haut").textContent = "Téléchargement de " + jeu.nom + "…";
     try {
-      const r = await fetch("catalogue/" + encodeURIComponent(jeu.fichier));
-      if (!r.ok) throw new Error(r.status);
-      const total = Number(r.headers.get("Content-Length")) || 0;
-      let blob;
-      if (r.body && total) {
-        const lecteur = r.body.getReader();
-        const morceaux = [];
-        let recu = 0;
-        for (;;) {
-          const { done, value } = await lecteur.read();
-          if (done) break;
-          morceaux.push(value);
-          recu += value.length;
-          $("message-haut").textContent = "Téléchargement de " + jeu.nom + "… " + Math.round(recu / total * 100) + " %";
+      // Un gros jeu peut être découpé en morceaux (Jeu.7z.001, .002…) : on les recolle dans l'ordre.
+      const fichiers = Array.isArray(jeu.parties) && jeu.parties.length ? jeu.parties : [jeu.fichier];
+      const morceaux = [];
+      for (let i = 0; i < fichiers.length; i++) {
+        const etape = fichiers.length > 1 ? " (partie " + (i + 1) + "/" + fichiers.length + ")" : "";
+        const r = await fetch("catalogue/" + encodeURIComponent(fichiers[i]));
+        if (!r.ok) throw new Error(r.status);
+        const total = Number(r.headers.get("Content-Length")) || 0;
+        if (r.body && total) {
+          const lecteur = r.body.getReader();
+          let recu = 0;
+          for (;;) {
+            const { done, value } = await lecteur.read();
+            if (done) break;
+            morceaux.push(value);
+            recu += value.length;
+            $("message-haut").textContent = "Téléchargement de " + jeu.nom + etape + "… " + Math.round(recu / total * 100) + " %";
+          }
+        } else {
+          $("message-haut").textContent = "Téléchargement de " + jeu.nom + etape + "…";
+          morceaux.push(new Uint8Array(await r.arrayBuffer()));
         }
-        blob = new Blob(morceaux);
-      } else {
-        blob = await r.blob();
       }
+      const blob = new Blob(morceaux);
       telechargement = false;
       const extension = (jeu.fichier.match(/\.[^.]+$/) || [".nds"])[0];
       inserer(cart, blob, jeu.nom + extension, "catalogue:" + jeu.fichier);
