@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Émulateur DS</title>
+<script src="config.js"></script>
+<script src="discord-sdk.js"></script>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -83,18 +85,148 @@
   #jeu-conteneur {
     display: none;
     width: 100%;
-    max-width: 720px;
+    max-width: 900px;
     padding: 0 16px 16px;
   }
   #ecran {
-    width: 100%;
-    aspect-ratio: 3 / 4;
-    max-height: calc(100vh - 140px);
+    --h: min(calc(100vh - 150px), 820px, calc((100vw - 32px) * 448 / 512));
+    --w: calc(var(--h) * 256 / 448);
+    --cote: calc(var(--w) * 0.5);
+    --coque: #e9ebf0;
+    --coque-ombre: #c7cad3;
+    --charniere: #b8bcc6;
+    position: relative;
+    width: calc(var(--w) + 2 * var(--cote));
     margin: 0 auto;
-    background: #000;
-    border-radius: 12px;
-    overflow: hidden;
+    padding: calc(var(--w) * 0.06) 0;
+    display: grid;
+    grid-template-columns: var(--cote) var(--w) var(--cote);
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
   }
+  #ecran::before, #ecran::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0;
+    background: var(--coque);
+    box-shadow: inset 0 -3px 0 var(--coque-ombre), 0 10px 30px rgba(0,0,0,.35);
+    z-index: 0;
+  }
+  #ecran::before { top: 0; height: calc(50% - 2px); border-radius: 22px 22px 10px 10px; }
+  #ecran::after { bottom: 0; height: calc(50% - 2px); border-radius: 10px 10px 28px 28px; }
+  .zone-ecrans {
+    position: relative;
+    grid-column: 2;
+    width: var(--w);
+    height: var(--h);
+    z-index: 1;
+  }
+  .zone-ecrans::before {
+    content: "";
+    position: absolute;
+    inset: calc(var(--w) * -0.035);
+    border-radius: 10px;
+    background: #1b1c20;
+    z-index: -1;
+  }
+  #game { position: absolute; inset: 0; background: #000; }
+  .charniere {
+    position: absolute;
+    left: calc(var(--w) * -0.5 - 1px);
+    right: calc(var(--w) * -0.5 - 1px);
+    top: calc(50% - var(--h) * 64 / 448 / 2);
+    height: calc(var(--h) * 64 / 448);
+    background: var(--charniere);
+    box-shadow: inset 0 3px 4px rgba(255,255,255,.35), inset 0 -3px 5px rgba(0,0,0,.2);
+    z-index: 2;
+    pointer-events: none;
+  }
+  .charniere::before, .charniere::after {
+    content: "";
+    position: absolute;
+    top: 18%; bottom: 18%;
+    width: 14%;
+    border-radius: 99px;
+    background: #a5a9b4;
+  }
+  .charniere::before { left: 4%; }
+  .charniere::after { right: 4%; }
+  .cote {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    align-items: center;
+    justify-items: center;
+    height: var(--h);
+  }
+  .haut-parleur {
+    display: grid;
+    grid-template-columns: repeat(3, 6px);
+    gap: 6px;
+    align-self: center;
+  }
+  .haut-parleur i { width: 6px; height: 6px; border-radius: 50%; background: #9da1ab; }
+  .bas-cote { display: flex; flex-direction: column; align-items: center; gap: calc(var(--w) * 0.08); }
+  .croix {
+    position: relative;
+    width: calc(var(--cote) * 0.62);
+    height: calc(var(--cote) * 0.62);
+  }
+  .croix button, .abxy button, .petits button, .epaule {
+    position: absolute;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font: 600 12px/1 system-ui, sans-serif;
+    color: #e9ebf0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .croix button { background: #2a2c31; width: 34%; height: 34%; }
+  .croix .h { left: 33%; top: 0; border-radius: 5px 5px 0 0; }
+  .croix .b { left: 33%; bottom: 0; border-radius: 0 0 5px 5px; }
+  .croix .g { left: 0; top: 33%; border-radius: 5px 0 0 5px; }
+  .croix .d { right: 0; top: 33%; border-radius: 0 5px 5px 0; }
+  .croix .centre { position: absolute; left: 33%; top: 33%; width: 34%; height: 34%; background: #2a2c31; }
+  .abxy { position: relative; width: calc(var(--cote) * 0.66); height: calc(var(--cote) * 0.66); }
+  .abxy button {
+    width: 34%; height: 34%;
+    border-radius: 50%;
+    background: #2a2c31;
+    box-shadow: 0 2px 0 #111;
+  }
+  .abxy .x { left: 33%; top: 0; }
+  .abxy .b { left: 33%; bottom: 0; }
+  .abxy .y { left: 0; top: 33%; }
+  .abxy .a { right: 0; top: 33%; }
+  .petits { position: relative; width: calc(var(--cote) * 0.5); height: 26px; }
+  .petits button {
+    width: 46%; height: 14px; top: 0;
+    border-radius: 99px;
+    background: #9da1ab;
+    font-size: 0;
+  }
+  .petits .select { left: 0; }
+  .petits .start { right: 0; }
+  .petits span { position: absolute; top: 16px; font-size: 10px; color: #7d818b; width: 46%; text-align: center; }
+  .petits .ls { left: 0; } .petits .lst { right: 0; }
+  .epaule {
+    top: calc(50% + 2px);
+    width: 22%;
+    height: 10px;
+    background: #9da1ab;
+    z-index: 3;
+    font-size: 0;
+  }
+  .epaule.l { left: 4%; border-radius: 10px 4px 0 0; transform: translateY(-100%); }
+  .epaule.r { right: 4%; border-radius: 4px 10px 0 0; transform: translateY(-100%); }
+  #ecran button.appuye { filter: brightness(1.6); transform: translateY(1px); }
+  .epaule.appuye { transform: translateY(-80%) !important; }
+  #ecran:fullscreen { background: #111216; width: 100vw; height: 100vh; place-content: center; padding: 0; }
+  #ecran:fullscreen { --h: min(calc(100vh - 60px), calc((100vw - 32px) * 448 / 512)); }
+  #ecran:fullscreen::before { top: calc(50vh - var(--h) / 2 - 28px); bottom: 50%; height: auto; left: calc(50vw - var(--w) / 2 - var(--cote)); right: calc(50vw - var(--w) / 2 - var(--cote)); }
+  #ecran:fullscreen::after { bottom: calc(50vh - var(--h) / 2 - 28px); top: 50%; height: auto; left: calc(50vw - var(--w) / 2 - var(--cote)); right: calc(50vw - var(--w) / 2 - var(--cote)); }
   .barre {
     display: flex;
     gap: 8px;
@@ -130,8 +262,6 @@
   .legende div { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
   #legende-jeu { background: #2b2d31; border-radius: 12px; padding: 12px 14px; margin-top: 12px; }
   .note { margin-top: 12px !important; font-size: 13px !important; }
-  #ecran:fullscreen { max-height: none; aspect-ratio: auto; border-radius: 0; width: 100vw; height: 100vh; }
-  #ecran:fullscreen #game { width: 100%; height: 100%; }
   #game:focus { outline: none; }
 </style>
 </head>
@@ -169,7 +299,42 @@
 </main>
 
 <section id="jeu-conteneur">
-  <div id="ecran"><div id="game"></div></div>
+  <div id="ecran">
+    <button class="epaule l" data-bouton="10" type="button" aria-label="L"></button>
+    <button class="epaule r" data-bouton="11" type="button" aria-label="R"></button>
+    <div class="cote">
+      <div class="haut-parleur" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="bas-cote">
+        <div class="croix">
+          <button class="h" data-bouton="4" type="button" aria-label="Haut"></button>
+          <button class="g" data-bouton="6" type="button" aria-label="Gauche"></button>
+          <span class="centre"></span>
+          <button class="d" data-bouton="7" type="button" aria-label="Droite"></button>
+          <button class="b" data-bouton="5" type="button" aria-label="Bas"></button>
+        </div>
+      </div>
+    </div>
+    <div class="zone-ecrans">
+      <div id="game"></div>
+      <div class="charniere" aria-hidden="true"></div>
+    </div>
+    <div class="cote">
+      <div class="haut-parleur" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="bas-cote">
+        <div class="abxy">
+          <button class="x" data-bouton="9" type="button">X</button>
+          <button class="y" data-bouton="1" type="button">Y</button>
+          <button class="a" data-bouton="8" type="button">A</button>
+          <button class="b" data-bouton="0" type="button">B</button>
+        </div>
+        <div class="petits">
+          <button class="select" data-bouton="2" type="button" aria-label="Select"></button>
+          <button class="start" data-bouton="3" type="button" aria-label="Start"></button>
+          <span class="ls">SELECT</span><span class="lst">START</span>
+        </div>
+      </div>
+    </div>
+  </div>
   <p id="nom-jeu"></p>
   <div class="legende" id="legende-jeu"></div>
   <div class="barre">
@@ -179,7 +344,23 @@
 </section>
 
 <script>
-  const CDN = "https://cdn.emulatorjs.org/stable/data/";
+  const CONFIG = window.DS_RETRO_CONFIG || {};
+  const DANS_DISCORD = new URLSearchParams(location.search).has("frame_id");
+  const CDN = DANS_DISCORD ? "/.proxy/emulatorjs/stable/data/" : "https://cdn.emulatorjs.org/stable/data/";
+  let discordPret = Promise.resolve();
+
+  if (DANS_DISCORD) {
+    document.querySelector("header .badge").textContent = "Dans Discord";
+    if (window.DiscordEmbedded && CONFIG.discordApplicationId) {
+      DiscordEmbedded.patchUrlMappings(
+        [{ prefix: "/emulatorjs", target: "cdn.emulatorjs.org" }],
+        { patchFetch: true, patchXhr: true, patchWebSocket: true, patchSrcAttributes: true }
+      );
+      const sdk = new DiscordEmbedded.DiscordSDK(CONFIG.discordApplicationId);
+      window.discordSdk = sdk;
+      discordPret = sdk.ready().catch(() => {});
+    }
+  }
   const EXTENSIONS = [".nds", ".zip", ".7z"];
 
   const BOUTONS = [
@@ -315,6 +496,42 @@
   document.addEventListener("fullscreenchange", () => setTimeout(focusJeu, 50));
   window.addEventListener("focus", () => { if (jeuActif) setTimeout(focusJeu, 50); });
 
+  function envoyerTouche(type, idBouton) {
+    const nomTouche = PRESETS[presetChoisi].touches[idBouton];
+    if (!nomTouche) return;
+    const code = NOMS_VERS_CODES[nomTouche] || nomTouche.toUpperCase().charCodeAt(0);
+    const g = document.getElementById("game");
+    const ev = new KeyboardEvent(type, { bubbles: true, cancelable: true });
+    Object.defineProperty(ev, "keyCode", { get: () => code });
+    Object.defineProperty(ev, "which", { get: () => code });
+    g.dispatchEvent(ev);
+  }
+
+  document.querySelectorAll("#ecran [data-bouton]").forEach(btn => {
+    const id = Number(btn.dataset.bouton);
+    let actif = false;
+    const appuyer = e => {
+      e.preventDefault();
+      if (actif) return;
+      actif = true;
+      btn.classList.add("appuye");
+      try { btn.setPointerCapture(e.pointerId); } catch (err) {}
+      envoyerTouche("keydown", id);
+    };
+    const relacher = () => {
+      if (!actif) return;
+      actif = false;
+      btn.classList.remove("appuye");
+      envoyerTouche("keyup", id);
+      focusJeu();
+    };
+    btn.addEventListener("pointerdown", appuyer);
+    btn.addEventListener("pointerup", relacher);
+    btn.addEventListener("pointercancel", relacher);
+    btn.addEventListener("lostpointercapture", relacher);
+    btn.addEventListener("contextmenu", e => e.preventDefault());
+  });
+
   document.getElementById("bouton-plein-ecran").addEventListener("click", () => {
     const ecran = document.getElementById("ecran");
     const p = ecran.requestFullscreen ? ecran.requestFullscreen() : ecran.webkitRequestFullscreen && ecran.webkitRequestFullscreen();
@@ -363,6 +580,7 @@
     window.EJS_startOnLoaded = true;
     window.EJS_color = "#5865f2";
     window.EJS_defaultControls = construireControles();
+    window.EJS_defaultOptions = { desmume_screens_gap: "64", desmume_screens_layout: "top/bottom" };
     window.EJS_gameID = PRESETS[presetChoisi].gameId;
     afficherLegende("legende-jeu");
     codesJeu = codesDuPreset();
@@ -377,7 +595,7 @@
       document.getElementById("accueil").style.display = "block";
       erreur.textContent = "Impossible de charger l'émulateur. Vérifie ta connexion internet et que la page est ouverte via http://localhost.";
     };
-    document.body.appendChild(script);
+    discordPret.then(() => document.body.appendChild(script));
   }
 </script>
 </body>
