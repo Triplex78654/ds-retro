@@ -11,6 +11,14 @@ const tests = [];
 // reessai : les scénarios dans le navigateur ont droit à un second essai (lenteurs passagères).
 const test = (nom, fn, options = {}) => tests.push({ nom, fn, ...options });
 const attendre = ms => new Promise(r => setTimeout(r, ms));
+// Couleur d'un point de l'écran que voit le spectateur (vidéo directe si elle tourne, sinon images relayées).
+const pixelVu = () => {
+  const v = document.getElementById("video-distante");
+  let source = document.getElementById("ecran-distant");
+  if (!v.hidden && v.videoWidth) { const t = document.createElement("canvas"); t.width = 256; t.height = 448; t.getContext("2d").drawImage(v, 0, 0, 256, 448); source = t; }
+  return [...source.getContext("2d").getImageData(10, 10, 1, 1).data].slice(0, 3);
+};
+const estRouge = ([r, , b]) => r > 200 && b < 60, estBleu = ([r, , b]) => b > 200 && r < 60;
 // Attend qu'une fonction asynchrone de la page renvoie vrai (waitForFunction n'attend pas les promesses).
 async function attendreQue(p, fn, arg, delai = 15_000, message = "délai dépassé") {
   const fin = Date.now() + delai;
@@ -25,7 +33,9 @@ export async function lancerScenarios({ site }) {
   const API = site + "/.proxy/api";
   const navigateur = await chromium.launch({
     executablePath: process.env.CHROME_PATH || undefined,
-    args: ["--no-sandbox", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required"],
+    // WebRtcHideLocalIpsWithMdns : sans ça, les consoles d'une même machine ne se trouvent pas en direct.
+    args: ["--no-sandbox", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required",
+      "--disable-features=WebRtcHideLocalIpsWithMdns"],
   });
   const captures = path.join(path.dirname(new URL(import.meta.url).pathname), "captures");
   fs.mkdirSync(captures, { recursive: true });
@@ -33,10 +43,11 @@ export async function lancerScenarios({ site }) {
   const appel = (chemin, jeton, options = {}) => fetch(API + chemin, { ...options, headers: { Authorization: "Bearer " + jeton, ...(options.headers || {}) } });
 
   // Un joueur : une page de la console « dans Discord ».
-  async function joueur(id, nom, serveur, { mobile = false, emulateur = false, instance = "i-tests" } = {}) {
+  async function joueur(id, nom, serveur, { mobile = false, emulateur = false, instance = "i-tests", sansDirect = false } = {}) {
     const ctx = await navigateur.newContext(mobile
       ? { viewport: { width: 390, height: 780 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
       : { viewport: { width: 1100, height: 650 } });
+    if (sansDirect) await ctx.addInitScript(() => { delete window.RTCPeerConnection; });
     const p = await ctx.newPage();
     p.erreurs = [];
     // Ignorées : la vérification de mise à jour d'EmulatorJS (hors ligne ici) et la demande d'écran
@@ -163,17 +174,22 @@ export async function lancerScenarios({ site }) {
     await p.context().close();
   }, { reessai: true });
 
+  // Fausse partie : un écran d'une seule couleur à la place de l'émulateur.
+  const lancerFaussePartie = (p, couleur, jeu) => p.evaluate(([couleur, jeu]) => {
+    const c = document.createElement("canvas"); c.width = 256; c.height = 448; document.getElementById("game").appendChild(c);
+    const g = c.getContext("2d"); setInterval(() => { g.fillStyle = couleur; g.fillRect(0, 0, 256, 448); }, 100);
+    window.touchesRecues = [];
+    const avant = envoyerTouche; envoyerTouche = (t, b) => { touchesRecues.push(t + ":" + b); avant(t, b); };
+    jeuActif = true; jeuDemarre = true; nomJeu = jeu; cartoucheId = jeu + "|1";
+    document.getElementById("menu").style.display = "none"; majOnglets(); annoncerJeu();
+  }, [couleur, jeu]);
+  const attendreEcran = async (p, test, message) => {
+    const fin = Date.now() + 8_000;
+    while (Date.now() < fin) { if (test(await p.evaluate(pixelVu))) return; await attendre(250); }
+    throw new Error(message);
+  };
+
   test("Salon : deux parties en même temps, on regarde l'une puis l'autre", async () => {
-    // Fausse partie : un écran d'une seule couleur à la place de l'émulateur.
-    const lancerFaussePartie = (p, couleur, jeu) => p.evaluate(([couleur, jeu]) => {
-      const c = document.createElement("canvas"); c.width = 256; c.height = 448; document.getElementById("game").appendChild(c);
-      const g = c.getContext("2d"); setInterval(() => { g.fillStyle = couleur; g.fillRect(0, 0, 256, 448); }, 100);
-      window.touchesRecues = [];
-      const avant = envoyerTouche; envoyerTouche = (t, b) => { touchesRecues.push(t + ":" + b); avant(t, b); };
-      jeuActif = true; jeuDemarre = true; nomJeu = jeu; cartoucheId = jeu + "|1";
-      document.getElementById("menu").style.display = "none"; majOnglets(); annoncerJeu();
-    }, [couleur, jeu]);
-    const pixel = p => p.evaluate(() => [...document.getElementById("ecran-distant").getContext("2d").getImageData(10, 10, 1, 1).data].slice(0, 3));
     const raiden = await joueur("111", "Raiden", "100000000000000001", { instance: "i-multi" });
     const kenji = await joueur("222", "Kenji", "100000000000000001", { instance: "i-multi" });
     const zoe = await joueur("444", "Zoe", "100000000000000001", { mobile: true, instance: "i-multi" });
@@ -181,13 +197,13 @@ export async function lancerScenarios({ site }) {
     await lancerFaussePartie(kenji, "#0000ff", "Jeu Bleu");
     await attendreQue(zoe, () => salon.infos.parties.length === 2, null, 5_000, "les deux parties n'apparaissent pas");
     await zoe.evaluate(() => regarder("111"));
-    await attendreQue(zoe, () => { const d = document.getElementById("ecran-distant").getContext("2d").getImageData(10, 10, 1, 1).data; return d[0] > 200 && d[2] < 60; }, null, 6_000, "l'écran rouge n'arrive pas");
+    await attendreEcran(zoe, estRouge, "l'écran rouge n'arrive pas");
     assert.equal(await kenji.evaluate(() => salon.infos.spectateurs.length), 0, "personne ne regarde Kenji");
     // Zoé passe sur la partie de Kenji depuis l'onglet Salon
     await zoe.evaluate(() => { ouvrirPause(); afficherOnglet("salon"); });
     await zoe.screenshot({ path: path.join(captures, "deux-parties-salon.png") });
     await zoe.locator("#liste-joueurs button", { hasText: "Regarder" }).first().click();
-    await attendreQue(zoe, () => { const d = document.getElementById("ecran-distant").getContext("2d").getImageData(10, 10, 1, 1).data; return d[2] > 200 && d[0] < 60; }, null, 6_000, "l'écran bleu n'arrive pas");
+    await attendreEcran(zoe, estBleu, "l'écran bleu n'arrive pas");
     await zoe.evaluate(() => fermerPause());
     assert.equal(await raiden.evaluate(() => salon.infos.spectateurs.length), 0, "Raiden n'a plus de spectateur");
     // Manette de la partie de Kenji pour Zoé : ses touches vont chez Kenji, pas chez Raiden
@@ -197,6 +213,25 @@ export async function lancerScenarios({ site }) {
     await attendreQue(kenji, () => touchesRecues.length >= 2, null, 5_000, "Kenji ne reçoit pas les touches");
     assert.deepEqual(await raiden.evaluate(() => touchesRecues), [], "Raiden ne reçoit rien");
     await zoe.screenshot({ path: path.join(captures, "deux-parties.png") });
+    for (const p of [raiden, kenji, zoe]) { assert.deepEqual(p.erreurs, []); await p.context().close(); }
+  }, { reessai: true });
+
+  test("Diffusion directe : vidéo en direct sans relais, et secours si le direct est impossible", async () => {
+    const raiden = await joueur("111", "Raiden", "100000000000000001", { instance: "i-direct" });
+    const kenji = await joueur("222", "Kenji", "100000000000000001", { mobile: true, instance: "i-direct" });
+    const zoe = await joueur("444", "Zoe", "100000000000000001", { mobile: true, instance: "i-direct", sansDirect: true });
+    await lancerFaussePartie(raiden, "#ff0000", "Jeu Rouge");
+    await attendreQue(kenji, () => salon.infos.parties.length === 1, null, 5_000, "la partie n'apparaît pas");
+    await kenji.evaluate(() => regarder("111"));
+    await attendreQue(kenji, () => !document.getElementById("video-distante").hidden && document.getElementById("video-distante").videoWidth > 0, null, 10_000, "la vidéo directe n'arrive pas");
+    await attendreEcran(kenji, estRouge, "la vidéo directe n'est pas rouge");
+    await attendreQue(raiden, () => salon.infos.spectateurs.length === 1 && salon.infos.relais.length === 0, null, 5_000, "le serveur relaie encore des images à Kenji");
+    // Zoé n'a pas la connexion directe : elle reçoit les images relayées
+    await zoe.evaluate(() => regarder("111"));
+    await attendreEcran(zoe, estRouge, "les images relayées n'arrivent pas chez Zoé");
+    assert.deepEqual(await raiden.evaluate(() => salon.infos.relais), ["444"]);
+    assert.equal(await zoe.evaluate(() => document.getElementById("video-distante").hidden), true);
+    await kenji.screenshot({ path: path.join(captures, "direct.png") });
     for (const p of [raiden, kenji, zoe]) { assert.deepEqual(p.erreurs, []); await p.context().close(); }
   }, { reessai: true });
 

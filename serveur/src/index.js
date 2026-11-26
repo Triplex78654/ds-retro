@@ -280,6 +280,8 @@ export default {
 // Chaque joueur peut diffuser sa propre partie. Les autres choisissent laquelle regarder :
 // le serveur n'envoie les images d'une partie qu'à ceux qui la regardent. Le joueur qui a
 // la manette d'une partie envoie ses touches, relayées à l'hôte de cette partie seulement.
+// Diffusion directe (WebRTC) : le salon ne fait que présenter l'hôte et le spectateur (messages « rtc ») ;
+// quand la connexion directe marche (« direct »), on arrête de relayer les images à ce spectateur.
 export class Salle extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
@@ -325,19 +327,22 @@ export class Salle extends DurableObject {
     }
     const [client, serveur] = Object.values(new WebSocketPair());
     this.ctx.acceptWebSocket(serveur, [joueur.id]);
-    serveur.serializeAttachment({ id: joueur.id, nom: joueur.nom, regarde: null });
+    serveur.serializeAttachment({ id: joueur.id, nom: joueur.nom, regarde: null, direct: false });
     await this.diffuserEtat();
     return new Response(null, { status: 101, webSocket: client });
   }
 
   async diffuserEtat() {
     const e = await this.charger();
-    const presents = new Map(), spectateurs = {};
+    const presents = new Map(), spectateurs = {}, relais = {};
     for (const ws of this.ouverts()) {
       const j = ws.deserializeAttachment();
       if (!j) continue;
       presents.set(j.id, { id: j.id, nom: j.nom });
-      if (j.regarde) (spectateurs[j.regarde] = spectateurs[j.regarde] || []).push(j.id);
+      if (j.regarde) {
+        (spectateurs[j.regarde] = spectateurs[j.regarde] || []).push(j.id);
+        if (!j.direct) (relais[j.regarde] = relais[j.regarde] || []).push(j.id);
+      }
     }
     let change = false;
     for (const [hote, p] of Object.entries(e.parties)) {
@@ -346,7 +351,7 @@ export class Salle extends DurableObject {
     }
     if (change) await this.enregistrer();
     const parties = Object.entries(e.parties)
-      .map(([hote, p]) => ({ hote, jeu: p.jeu, manette: p.manette, pause: p.pause, debut: p.debut, spectateurs: spectateurs[hote] || [] }))
+      .map(([hote, p]) => ({ hote, jeu: p.jeu, manette: p.manette, pause: p.pause, debut: p.debut, spectateurs: spectateurs[hote] || [], relais: relais[hote] || [] }))
       .sort((a, b) => a.debut - b.debut);
     // hote/manette/jeu/pause : la partie la plus ancienne, pour les consoles pas encore à jour.
     const premiere = parties[0] || {};
@@ -389,7 +394,7 @@ export class Salle extends DurableObject {
       for (const autre of this.ouverts()) {
         if (autre === ws) continue;
         const a = autre.deserializeAttachment();
-        if (!a || a.regarde !== joueur.id) continue;
+        if (!a || a.regarde !== joueur.id || a.direct) continue;
         try { autre.send(message); } catch (err) {}
       }
       return;
@@ -405,7 +410,7 @@ export class Salle extends DurableObject {
       case "hote":
         this.liberer(e, joueur.id);
         e.parties[joueur.id] = { jeu: String(m.jeu || "").slice(0, 80), manette: joueur.id, pause: false, debut: (maPartie && maPartie.debut) || Date.now() };
-        if (joueur.regarde) ws.serializeAttachment({ ...joueur, regarde: null });
+        if (joueur.regarde) ws.serializeAttachment({ ...joueur, regarde: null, direct: false });
         await this.enregistrer();
         return this.diffuserEtat();
       case "fin":
@@ -436,8 +441,21 @@ export class Salle extends DurableObject {
       }
       case "regarder": {
         const hote = typeof m.hote === "string" && e.parties[m.hote] && m.hote !== joueur.id ? m.hote : null;
-        ws.serializeAttachment({ ...joueur, regarde: hote });
+        ws.serializeAttachment({ ...joueur, regarde: hote, direct: false });
         return this.diffuserEtat();
+      }
+      case "direct": {
+        if (!joueur.regarde || joueur.direct === Boolean(m.oui)) return;
+        ws.serializeAttachment({ ...joueur, direct: Boolean(m.oui) });
+        return this.diffuserEtat();
+      }
+      case "rtc": {
+        // Seulement entre un hôte et un de ses spectateurs.
+        if (typeof m.a !== "string" || !m.d || typeof m.d !== "object") return;
+        const versSpectateur = maPartie && this.ctx.getWebSockets(m.a).some(w => { const a = w.deserializeAttachment(); return a && a.regarde === joueur.id; });
+        const versHote = joueur.regarde === m.a && e.parties[m.a];
+        if (versSpectateur || versHote) this.envoyerA(m.a, { t: "rtc", de: joueur.id, d: m.d });
+        return;
       }
       case "demande": {
         const hote = typeof m.hote === "string" ? m.hote : Object.keys(e.parties)[0];

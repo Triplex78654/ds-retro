@@ -599,6 +599,11 @@
   body.nav-manette #menu button:focus { outline: calc(var(--u) * 2) solid var(--encre); outline-offset: calc(var(--u) * 1); }
 
   /* ---------- Salon ---------- */
+  #video-distante {
+    position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; object-fit: fill; pointer-events: none;
+    image-rendering: pixelated;
+    clip-path: polygon(0 0, 100% 0, 100% 42.857%, 0 42.857%, 0 57.143%, 100% 57.143%, 100% 100%, 0 100%);
+  }
   #ecran-distant {
     position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; background: #000;
     image-rendering: pixelated; touch-action: none;
@@ -751,6 +756,7 @@
     <div class="vitre-bas" aria-hidden="true"></div>
     <div id="game"></div>
     <canvas id="ecran-distant" width="256" height="448" hidden></canvas>
+    <video id="video-distante" playsinline hidden></video>
     <div class="pastilles-spectateur" id="pastilles-spectateur" hidden></div>
     <div class="bulle" id="bulle" role="status" hidden></div>
 
@@ -906,6 +912,19 @@
   // L'émulateur dessine en WebGL : on garde chaque image lisible pour pouvoir la diffuser au salon.
   (() => {
     const origine = HTMLCanvasElement.prototype.getContext;
+    const connecter = AudioNode.prototype.connect;
+    window.__sortiesAudio = [];
+    AudioNode.prototype.connect = function (cible, ...reste) {
+      const r = connecter.call(this, cible, ...reste);
+      try {
+        if (typeof AudioDestinationNode === "function" && cible instanceof AudioDestinationNode) {
+          const ctx = this.context;
+          if (!ctx.__sortieDirecte) { ctx.__sortieDirecte = ctx.createMediaStreamDestination(); window.__sortiesAudio.push(ctx.__sortieDirecte); }
+          connecter.call(this, ctx.__sortieDirecte);
+        }
+      } catch (e) {}
+      return r;
+    };
     HTMLCanvasElement.prototype.getContext = function (type, options) {
       if (type === "webgl" || type === "webgl2" || type === "experimental-webgl") options = Object.assign({}, options, { preserveDrawingBuffer: true });
       return origine.call(this, type, options);
@@ -2206,7 +2225,8 @@
     const parties = m.parties || (m.hote ? [{ hote: m.hote, jeu: m.jeu, manette: m.manette, pause: m.pause, spectateurs: [] }] : []);
     const p = parties.find(x => x.hote === moi) || parties.find(x => x.hote === salon.regarde)
       || parties.find(x => x.manette === moi) || parties[parties.length - 1] || null;
-    return { joueurs: m.joueurs || [], parties, hote: p ? p.hote : null, manette: p ? p.manette : null, jeu: p ? p.jeu : null, pause: p ? Boolean(p.pause) : false, spectateurs: (p && p.spectateurs) || [] };
+    return { joueurs: m.joueurs || [], parties, hote: p ? p.hote : null, manette: p ? p.manette : null, jeu: p ? p.jeu : null, pause: p ? Boolean(p.pause) : false,
+      spectateurs: (p && p.spectateurs) || [], relais: (p && (p.relais || p.spectateurs)) || [] };
   }
   const nomDe = id => { const j = salon.infos.joueurs.find(x => x.id === id); return j ? j.nom : "Quelqu'un"; };
 
@@ -2334,6 +2354,7 @@
       if (m.manette === moiId() && avant.manette !== m.manette && m.hote && m.hote !== moiId()) bulle("Tu as la manette !");
       if (m.manette !== moiId() && avant.manette === moiId() && m.hote && m.hote !== moiId()) bulle("La manette est repartie chez " + nomDe(m.manette) + ".");
       if (jeuDemarre && !m.parties.some(p => p.hote === moiId())) annoncerJeu();
+      majDirectHote();
       majSalon();
       afficherCatalogue();
     } else if (m.t === "demande") {
@@ -2355,6 +2376,8 @@
       bulle(m.de.nom + " te propose " + m.jeu.nom + ". MENU, puis Salon pour le lancer.");
       if (ongletActif !== "salon") $("point-salon").hidden = false;
       majSalon();
+    } else if (m.t === "rtc") {
+      recevoirRtc(m).catch(() => {});
     } else if (m.t === "refus") {
       bulle(m.raison + " Ta partie reste en solo.");
     }
@@ -2367,7 +2390,7 @@
   // Hôte : capture de l'écran du jeu, 20 images par seconde, seulement s'il y a du monde.
   let toileCapture = null, encodage = false;
   setInterval(() => {
-    if (!estHote() || !jeuDemarre || menuOuvert || encodage || !salon.infos.spectateurs.length) return;
+    if (!estHote() || !jeuDemarre || menuOuvert || encodage || !salon.infos.relais.length) return;
     if (!salon.ws || salon.ws.readyState !== 1 || salon.ws.bufferedAmount > 256 * 1024) return;
     const source = document.querySelector("#game canvas");
     if (!source || !source.width) return;
@@ -2397,6 +2420,112 @@
     const y = r.top + (256 + Math.min(1, Math.max(0, m.y)) * 192) / 448 * r.height;
     const type = m.e === "bas" ? "mousedown" : m.e === "haut" ? "mouseup" : "mousemove";
     c.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true, button: 0, buttons: m.e === "haut" ? 0 : 1, view: window }));
+  }
+
+  // ---------- Diffusion directe (WebRTC) : vidéo et son de l'hôte vers chaque spectateur ----------
+  // Le salon sert seulement à présenter les deux consoles. Si la connexion directe échoue
+  // (réseau, Discord), le spectateur reste sur les images relayées par le serveur, sans le son.
+  const ICE = [{ urls: "stun:stun.cloudflare.com:3478" }, { urls: "stun:stun.l.google.com:19302" }];
+  const pairs = new Map();          // chez l'hôte : spectateur → connexion
+  const echecsDirects = new Set();  // spectateurs pour qui le direct a échoué (on ne réessaie pas en boucle)
+  let fluxDirect = null, boucleDirecte = 0;
+  function fluxHote() {
+    if (fluxDirect) return fluxDirect;
+    const toile = document.createElement("canvas");
+    toile.width = 256; toile.height = 448;
+    const g = toile.getContext("2d");
+    const dessiner = () => {
+      const source = document.querySelector("#game canvas");
+      if (source && source.width && !menuOuvert) g.drawImage(source, 0, 0, 256, 448);
+      boucleDirecte = requestAnimationFrame(dessiner);
+    };
+    dessiner();
+    fluxDirect = toile.captureStream(30);
+    window.__sortiesAudio.forEach(d => d.stream.getAudioTracks().forEach(t => fluxDirect.addTrack(t)));
+    return fluxDirect;
+  }
+  function fermerPairs() {
+    pairs.forEach(pc => pc.close());
+    pairs.clear();
+    if (fluxDirect) { fluxDirect.getVideoTracks().forEach(t => t.stop()); fluxDirect = null; cancelAnimationFrame(boucleDirecte); }
+  }
+  function majDirectHote() {
+    if (!estHote() || typeof RTCPeerConnection !== "function") { if (pairs.size || fluxDirect) fermerPairs(); return; }
+    const voulus = new Set(salon.infos.spectateurs);
+    for (const [id, pc] of pairs) if (!voulus.has(id)) { pc.close(); pairs.delete(id); }
+    echecsDirects.forEach(id => { if (!voulus.has(id)) echecsDirects.delete(id); });
+    for (const id of voulus) if (!pairs.has(id) && !echecsDirects.has(id)) ouvrirPairHote(id).catch(() => {});
+    if (!pairs.size && fluxDirect) fermerPairs();
+  }
+  async function ouvrirPairHote(id) {
+    const pc = new RTCPeerConnection({ iceServers: ICE });
+    pairs.set(id, pc);
+    const flux = fluxHote();
+    flux.getTracks().forEach(t => pc.addTrack(t, flux));
+    pc.onicecandidate = e => { if (e.candidate) envoyerSalon({ t: "rtc", a: id, d: { candidate: e.candidate.toJSON() } }); };
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === "failed" && pairs.get(id) === pc) { echecsDirects.add(id); pc.close(); pairs.delete(id); }
+    };
+    await pc.setLocalDescription(await pc.createOffer());
+    envoyerSalon({ t: "rtc", a: id, d: { description: pc.localDescription.toJSON() } });
+  }
+
+  let pairSpectateur = null, sonCoupe = false;
+  async function recevoirRtc(m) {
+    const d = m.d || {};
+    if (estHote()) {
+      const pc = pairs.get(m.de);
+      if (!pc) return;
+      if (d.description && d.description.type === "answer") await pc.setRemoteDescription(d.description);
+      else if (d.candidate) await pc.addIceCandidate(d.candidate).catch(() => {});
+      return;
+    }
+    if (!spectateur || m.de !== salon.regarde || typeof RTCPeerConnection !== "function") return;
+    if (d.description && d.description.type === "offer") {
+      fermerPairSpectateur();
+      const pc = pairSpectateur = new RTCPeerConnection({ iceServers: ICE });
+      const hote = m.de;
+      pc.onicecandidate = e => { if (e.candidate) envoyerSalon({ t: "rtc", a: hote, d: { candidate: e.candidate.toJSON() } }); };
+      pc.ontrack = e => afficherVideo(e.streams[0]);
+      pc.onconnectionstatechange = () => {
+        if (pc !== pairSpectateur) return;
+        if (pc.connectionState === "connected") envoyerSalon({ t: "direct", oui: true });
+        if (["failed", "disconnected", "closed"].includes(pc.connectionState)) { envoyerSalon({ t: "direct", oui: false }); cacherVideo(); }
+      };
+      await pc.setRemoteDescription(d.description);
+      await pc.setLocalDescription(await pc.createAnswer());
+      envoyerSalon({ t: "rtc", a: hote, d: { description: pc.localDescription.toJSON() } });
+    } else if (d.candidate && pairSpectateur) {
+      await pairSpectateur.addIceCandidate(d.candidate).catch(() => {});
+    }
+  }
+  function afficherVideo(flux) {
+    const v = $("video-distante");
+    if (v.srcObject !== flux) v.srcObject = flux;
+    v.hidden = false;
+    v.muted = false;
+    v.play().then(() => { sonCoupe = false; majSalon(); }).catch(() => {
+      // Le navigateur refuse le son sans appui : on lance sans le son, un appui sur l'écran le remet.
+      v.muted = true; sonCoupe = true;
+      v.play().catch(() => {});
+      majSalon();
+    });
+  }
+  function remettreLeSon() {
+    if (!sonCoupe) return;
+    const v = $("video-distante");
+    v.muted = false;
+    v.play().then(() => { sonCoupe = false; majSalon(); }).catch(() => {});
+  }
+  function cacherVideo() {
+    const v = $("video-distante");
+    v.hidden = true;
+    v.srcObject = null;
+    sonCoupe = false;
+  }
+  function fermerPairSpectateur() {
+    if (pairSpectateur) { const pc = pairSpectateur; pairSpectateur = null; pc.close(); }
+    cacherVideo();
   }
 
   // Spectateur : affichage de l'écran de l'hôte.
@@ -2441,6 +2570,7 @@
     return { x: (e.clientX - r.left) / r.width, y: ((e.clientY - r.top) / r.height * 448 - 256) / 192 };
   }
   ecranDistant.addEventListener("pointerdown", e => {
+    remettreLeSon();
     const p = positionTactile(e);
     if (p.y < 0 || p.y > 1) return;
     if (salon.infos.manette !== moiId()) { bulle("Pour jouer, demande la manette : MENU, puis Salon."); return; }
@@ -2466,6 +2596,7 @@
     if (!hote || hote === moiId() || jeuActif) return;
     if (spectateur && salon.regarde === hote) return;
     if (spectateur) { relacherToutSpectateur(); if (salon.infos.manette === moiId()) envoyerSalon({ t: "rendre" }); }
+    fermerPairSpectateur();
     salon.regarde = hote;
     envoyerSalon({ t: "regarder", hote });
     salon.infos = projeter(salon.infos);
@@ -2484,6 +2615,7 @@
     if (!spectateur) return;
     relacherToutSpectateur();
     if (salon.infos.manette === moiId()) envoyerSalon({ t: "rendre" });
+    fermerPairSpectateur();
     salon.regarde = null;
     envoyerSalon({ t: "regarder", hote: null });
     salon.infos = projeter(salon.infos);
@@ -2609,6 +2741,7 @@
     const pastille = (texte, vif) => { const p = document.createElement("span"); p.textContent = texte; if (vif) p.className = "vif"; pastilles.appendChild(p); };
     if (spectateur) {
       pastille("Écran de " + nomDe(i.hote));
+      if (pairSpectateur && pairSpectateur.connectionState === "connected") pastille(sonCoupe ? "Touche l'écran pour le son" : "En direct, avec le son", sonCoupe);
       if (i.manette === moi) pastille("Tu as la manette", true);
       if (i.pause) pastille("En pause");
     } else if (estHote() && nb > 1) {
@@ -2744,8 +2877,11 @@
   }
 
   async function synchroniserLudotheque() {
-    if (!salon.jeton || ludo.actif) return;
+    if (!salon.jeton) return;
+    // Déjà en cours : on refera un tour à la fin, pour ne pas oublier un jeu ajouté entre-temps.
+    if (ludo.actif) { ludo.encore = true; return; }
     ludo.actif = true;
+    ludo.encore = false;
     ludo.plein = false; ludo.raison = "";
     try {
       await chargerListeLudo();
@@ -2771,6 +2907,7 @@
       majEtatLudo("Ton cloud ne répond pas. Tes jeux restent sur cet appareil.");
     } finally {
       ludo.actif = false;
+      if (ludo.encore) setTimeout(synchroniserLudotheque, 0);
     }
   }
 
