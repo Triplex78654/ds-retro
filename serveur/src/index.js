@@ -3,11 +3,17 @@
 // Discord fait passer les requêtes de l'Activité par /.proxy/api/… vers ce Worker
 // (mapping d'URL « /api » dans le portail développeur).
 //
+// Accès : le jeton doit venir de l'appli Discord de ds-retro, et le joueur doit être le propriétaire
+// de l'appli ou membre d'un serveur Discord où le propriétaire a ouvert l'Activité.
+//
 //   POST /token                 échange le code OAuth de Discord contre un jeton (secret côté serveur)
-//   GET  /salle/:instance       WebSocket du salon : écran de l'hôte, manette partagée
+//   POST /ticket                ticket d'une minute pour entrer dans un salon (corps : { instance, guilde })
+//   GET  /salle/:instance       WebSocket du salon (?ticket=…) : écran de l'hôte, manette partagée
 //   GET  /sauvegardes           liste des sauvegardes du joueur
 //   GET  /sauvegardes/:jeu      télécharge une sauvegarde
-//   PUT  /sauvegardes/:jeu      envoie une sauvegarde (en-tête X-Maj = date en ms)
+//   PUT  /sauvegardes/:jeu      envoie une sauvegarde (en-tête X-Maj = date en ms) ; l'ancienne va dans l'historique
+//   GET  /sauvegardes/:jeu/versions        anciennes versions d'une sauvegarde
+//   GET  /sauvegardes/:jeu/versions/:maj   télécharge une ancienne version
 //   GET  /ludotheque            jeux personnels du joueur (privés, seulement pour lui ; fichiers dans R2)
 //   GET  /ludotheque/:id/:n     télécharge le morceau n d'un jeu
 //   PUT  /ludotheque/:id/:n     envoie le morceau n (en-têtes X-Nom, X-Taille, X-Morceaux)
@@ -24,6 +30,9 @@ const CORS = {
   "Access-Control-Expose-Headers": "X-Maj",
 };
 const TAILLE_MAX_SAUVEGARDE = 2_000_000;
+const QUOTA_SAUVEGARDES = 300_000_000;     // sauvegardes + historique, par joueur
+const VERSIONS_GARDEES = 12;               // anciennes versions par jeu, espacées d'au moins 10 min
+const ESPACEMENT_VERSIONS = 10 * 60 * 1000;
 const TAILLE_MORCEAU = 1_900_000;          // taille d'un morceau de jeu envoyé par la console
 const PLAFOND_R2 = 9_500_000_000;          // R2 offre 10 Go par mois : on s'arrête avant pour ne jamais payer
 const QUOTA_POTE = 1_000_000_000;          // 1 Go par pote ; le propriétaire de l'app a tout le reste
@@ -32,23 +41,97 @@ function json(objet, statut = 200) {
   return new Response(JSON.stringify(objet), { status: statut, headers: { ...CORS, "Content-Type": "application/json" } });
 }
 
-// Jeton Discord → joueur. Petit cache pour ne pas interroger Discord à chaque requête.
+// Garde-fou : au plus 60 vérifications de nouveaux jetons ou codes par minute et par instance du
+// serveur, pour qu'une avalanche de faux jetons ne fasse pas bloquer le serveur par Discord.
+let appelsRecents = [];
+function appelDiscordPermis() {
+  const maintenant = Date.now();
+  appelsRecents = appelsRecents.filter(t => t > maintenant - 60_000);
+  if (appelsRecents.length >= 60) return false;
+  appelsRecents.push(maintenant);
+  return true;
+}
+
+// Jeton Discord → joueur. Le jeton doit avoir été créé pour CETTE appli (et non une autre appli Discord).
 const cacheJoueurs = new Map();
-async function joueurDepuisJeton(jeton, env) {
-  if (!jeton) return null;
-  if (env.DEV_SANS_AUTH === "1" && jeton.startsWith("dev:")) {
-    const id = jeton.slice(4);
-    return { id, nom: "Joueur " + id };
+async function joueurDepuisJeton(jeton, env, local) {
+  if (!jeton || jeton.length > 200) return null;
+  if (env.DEV_SANS_AUTH === "1" && local && jeton.startsWith("dev:")) {
+    const [, id, guilde] = jeton.split(":");
+    return { id, nom: "Joueur " + id, guildes: [guilde || "g-test"] };
   }
   const memo = cacheJoueurs.get(jeton);
   if (memo && memo.expire > Date.now()) return memo.joueur;
-  const r = await fetch(DISCORD + "/users/@me", { headers: { Authorization: "Bearer " + jeton } });
-  if (!r.ok) return null;
-  const u = await r.json();
-  const joueur = { id: u.id, nom: (u.global_name || u.username || "Joueur").slice(0, 32) };
+  if (!appelDiscordPermis()) return null;
+  const auth = { headers: { Authorization: "Bearer " + jeton } };
+  let joueur = null;
+  try {
+    const r = await fetch(DISCORD + "/oauth2/@me", auth);
+    const d = r.ok ? await r.json() : null;
+    if (d && d.application && d.application.id === env.DISCORD_CLIENT_ID && d.user) {
+      let guildes = [];
+      if ((d.scopes || []).includes("guilds")) {
+        const g = await fetch(DISCORD + "/users/@me/guilds", auth);
+        if (g.ok) guildes = (await g.json()).map(x => x.id);
+      }
+      joueur = { id: d.user.id, nom: (d.user.global_name || d.user.username || "Joueur").slice(0, 32), guildes };
+    }
+  } catch (e) {}
   if (cacheJoueurs.size > 1000) cacheJoueurs.clear();
-  cacheJoueurs.set(jeton, { joueur, expire: Date.now() + 10 * 60 * 1000 });
+  cacheJoueurs.set(jeton, { joueur, expire: Date.now() + (joueur ? 10 : 1) * 60 * 1000 });
   return joueur;
+}
+
+// Serveurs Discord autorisés : ceux où le propriétaire a ouvert l'Activité.
+const memoGuildes = { liste: null, expire: 0 };
+function registre(env) {
+  return env.REGISTRE.get(env.REGISTRE.idFromName("global"));
+}
+async function guildesAutorisees(env) {
+  if (memoGuildes.liste && memoGuildes.expire > Date.now()) return memoGuildes.liste;
+  memoGuildes.liste = await registre(env).guildes();
+  memoGuildes.expire = Date.now() + 60_000;
+  return memoGuildes.liste;
+}
+async function estAutorise(joueur, env) {
+  if (joueur.id === await idProprietaire(env)) return true;
+  const ok = await guildesAutorisees(env);
+  return joueur.guildes.some(g => ok.includes(g));
+}
+
+// Joueur connecté et autorisé, ou réponse d'erreur.
+async function joueurAutorise(req, env, url) {
+  const jeton = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  const joueur = await joueurDepuisJeton(jeton, env, estLocal(url));
+  if (!joueur) return { refus: json({ erreur: "Non connecté." }, 401) };
+  if (!await estAutorise(joueur, env)) return { refus: json({ erreur: "Réservé aux membres du serveur Discord." }, 403) };
+  return { joueur };
+}
+const estLocal = url => ["localhost", "127.0.0.1"].includes(url.hostname);
+
+// Ticket signé (HMAC) valable une minute pour un salon : le jeton Discord ne passe jamais dans une adresse.
+const b64 = octets => btoa(String.fromCharCode(...new Uint8Array(octets))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+async function cleTickets(env) {
+  return crypto.subtle.importKey("raw", new TextEncoder().encode("tickets:" + env.DISCORD_CLIENT_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+}
+async function creerTicket(joueur, instance, env) {
+  const corps = b64(new TextEncoder().encode(JSON.stringify({ id: joueur.id, nom: joueur.nom, i: instance, exp: Date.now() + 60_000 })));
+  const signature = await crypto.subtle.sign("HMAC", await cleTickets(env), new TextEncoder().encode(corps));
+  return corps + "." + b64(signature);
+}
+async function lireTicket(ticket, instance, env) {
+  const [corps, signature] = String(ticket || "").split(".");
+  if (!corps || !signature) return null;
+  const attendue = b64(await crypto.subtle.sign("HMAC", await cleTickets(env), new TextEncoder().encode(corps)));
+  if (attendue.length !== signature.length) return null;
+  let difference = 0;
+  for (let i = 0; i < attendue.length; i++) difference |= attendue.charCodeAt(i) ^ signature.charCodeAt(i);
+  if (difference) return null;
+  try {
+    const d = JSON.parse(atob(corps.replace(/-/g, "+").replace(/_/g, "/")));
+    if (d.i !== instance || !(d.exp > Date.now())) return null;
+    return { id: d.id, nom: d.nom };
+  } catch (e) { return null; }
 }
 
 // Le propriétaire de l'application Discord (toi) a le gros quota.
@@ -85,13 +168,14 @@ export default {
     const chemin = url.pathname.replace(/^\/api(?=\/|$)/, "").replace(/\/+$/, "") || "/";
 
     if (chemin === "/" || chemin === "/etat") {
-      return json({ ok: true, connexionDiscord: Boolean(env.DISCORD_CLIENT_SECRET) });
+      return json({ ok: true, connexionDiscord: Boolean(env.DISCORD_CLIENT_SECRET), proprietaireReconnu: Boolean(await idProprietaire(env)) });
     }
 
     if (chemin === "/token" && req.method === "POST") {
       if (!env.DISCORD_CLIENT_SECRET) return json({ erreur: "Le secret Discord n'est pas encore configuré." }, 503);
       const { code } = await req.json().catch(() => ({}));
-      if (!code) return json({ erreur: "Code manquant." }, 400);
+      if (!code || typeof code !== "string" || code.length > 100) return json({ erreur: "Code manquant." }, 400);
+      if (!appelDiscordPermis()) return json({ erreur: "Trop de connexions, réessaie dans une minute." }, 429);
       const r = await fetch(DISCORD + "/oauth2/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -107,24 +191,39 @@ export default {
       return json({ access_token: d.access_token });
     }
 
+    if (chemin === "/ticket" && req.method === "POST") {
+      const jeton = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+      const joueur = await joueurDepuisJeton(jeton, env, estLocal(url));
+      if (!joueur) return json({ erreur: "Non connecté." }, 401);
+      const { instance, guilde } = await req.json().catch(() => ({}));
+      if (typeof instance !== "string" || !/^[\w-]{1,100}$/.test(instance)) return json({ erreur: "Salon inconnu." }, 400);
+      // Le propriétaire ouvre l'Activité dans un de ses serveurs : ses membres y ont accès.
+      if (typeof guilde === "string" && /^\d{5,25}$|^g-test$/.test(guilde) && joueur.guildes.includes(guilde) && joueur.id === await idProprietaire(env)) {
+        await registre(env).ajouterGuilde(guilde);
+        memoGuildes.expire = 0;
+      }
+      if (!await estAutorise(joueur, env)) return json({ erreur: "Réservé aux membres du serveur Discord." }, 403);
+      return json({ ticket: await creerTicket(joueur, instance, env) });
+    }
+
     let m = chemin.match(/^\/salle\/([\w-]{1,100})$/);
     if (m) {
       if (req.headers.get("Upgrade") !== "websocket") return json({ erreur: "WebSocket attendu." }, 426);
-      const joueur = await joueurDepuisJeton(url.searchParams.get("jeton"), env);
-      if (!joueur) return json({ erreur: "Non connecté." }, 401);
+      const joueur = await lireTicket(url.searchParams.get("ticket"), m[1], env);
+      if (!joueur) return json({ erreur: "Ticket invalide ou expiré." }, 401);
       const salle = env.SALLES.get(env.SALLES.idFromName(m[1]));
       const entetes = new Headers(req.headers);
       entetes.set("X-Joueur", JSON.stringify(joueur));
       return salle.fetch(new Request(req, { headers: entetes }));
     }
 
-    m = chemin.match(/^\/sauvegardes(?:\/([a-f0-9]{8,64}))?$/);
+    m = chemin.match(/^\/sauvegardes(?:\/([a-f0-9]{8,64})(?:\/versions(?:\/(\d{1,16}))?)?)?$/);
     if (m) {
-      const jeton = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-      const joueur = await joueurDepuisJeton(jeton, env);
-      if (!joueur) return json({ erreur: "Non connecté." }, 401);
+      const { joueur, refus } = await joueurAutorise(req, env, url);
+      if (refus) return refus;
       const coffre = env.COFFRES.get(env.COFFRES.idFromName(joueur.id));
-      const r = await coffre.fetch(new Request("https://coffre/" + (m[1] || ""), {
+      const suite = m[1] ? m[1] + (chemin.includes("/versions") ? "/versions" + (m[2] ? "/" + m[2] : "") : "") : "";
+      const r = await coffre.fetch(new Request("https://coffre/" + suite, {
         method: req.method,
         headers: req.headers,
         body: req.method === "PUT" ? req.body : null,
@@ -136,9 +235,8 @@ export default {
 
     m = chemin.match(/^\/ludotheque(?:\/([a-f0-9]{16,64})(?:\/(\d{1,5}))?)?$/);
     if (m) {
-      const jeton = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-      const joueur = await joueurDepuisJeton(jeton, env);
-      if (!joueur) return json({ erreur: "Non connecté." }, 401);
+      const { joueur, refus } = await joueurAutorise(req, env, url);
+      if (refus) return refus;
       const coffre = env.COFFRES.get(env.COFFRES.idFromName(joueur.id));
       const entetes = new Headers(req.headers);
       entetes.set("X-Joueur-Id", joueur.id);
@@ -164,6 +262,21 @@ export class Salle extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.etat = null;
+    this.compteurs = new Map();   // limite de messages par joueur (remis à zéro au réveil, c'est voulu)
+  }
+
+  // Au plus 40 messages texte par seconde, et une demande ou proposition toutes les 2 secondes.
+  permis(id, type) {
+    const maintenant = Date.now();
+    let c = this.compteurs.get(id);
+    if (!c) { c = { debut: maintenant, n: 0, dernier: 0 }; this.compteurs.set(id, c); }
+    if (maintenant - c.debut > 1000) { c.debut = maintenant; c.n = 0; }
+    if (++c.n > 40) return false;
+    if (type === "demande" || type === "propose") {
+      if (maintenant - c.dernier < 2000) return false;
+      c.dernier = maintenant;
+    }
+    return true;
   }
 
   async charger() {
@@ -229,7 +342,7 @@ export class Salle extends DurableObject {
 
     // Message binaire = une image de l'écran de l'hôte.
     if (typeof message !== "string") {
-      if (e.hote !== joueur.id) return;
+      if (e.hote !== joueur.id || message.byteLength > 400_000) return;
       for (const autre of this.ouverts()) {
         if (autre === ws) continue;
         try { autre.send(message); } catch (err) {}
@@ -237,8 +350,10 @@ export class Salle extends DurableObject {
       return;
     }
 
+    if (message.length > 60_000) return;
     let m;
     try { m = JSON.parse(message); } catch (err) { return; }
+    if (!m || typeof m.t !== "string" || !this.permis(joueur.id, m.t)) return;
     const estHote = e.hote === joueur.id;
 
     switch (m.t) {
@@ -270,10 +385,16 @@ export class Salle extends DurableObject {
       case "demande":
         if (e.hote && !estHote) this.envoyerA(e.hote, { t: "demande", de: joueur });
         return;
-      case "touche":
-      case "tactile":
-        if (e.hote && !estHote && e.manette === joueur.id) this.envoyerA(e.hote, { ...m, de: joueur.id });
-        return;
+      case "touche": {
+        if (!e.hote || estHote || e.manette !== joueur.id) return;
+        if (!Number.isInteger(m.b) || m.b < 0 || m.b > 11) return;
+        return this.envoyerA(e.hote, { t: "touche", b: m.b, e: m.e ? 1 : 0, de: joueur.id });
+      }
+      case "tactile": {
+        if (!e.hote || estHote || e.manette !== joueur.id) return;
+        if (!Number.isFinite(m.x) || !Number.isFinite(m.y) || !["bas", "haut", "bouge"].includes(m.e)) return;
+        return this.envoyerA(e.hote, { t: "tactile", x: Math.min(1, Math.max(0, m.x)), y: Math.min(1, Math.max(0, m.y)), e: m.e, de: joueur.id });
+      }
       case "liste": {
         // Liste des jeux d'un joueur (noms seulement, jamais les fichiers), montrée aux autres.
         const jeux = Array.isArray(m.jeux)
@@ -306,6 +427,8 @@ export class Coffre extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS sauvegardes (jeu TEXT PRIMARY KEY, maj INTEGER NOT NULL, donnees BLOB NOT NULL)");
+    // Anciennes versions : pour revenir en arrière si une mauvaise sauvegarde écrase la bonne.
+    ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS historique (jeu TEXT NOT NULL, maj INTEGER NOT NULL, donnees BLOB NOT NULL, PRIMARY KEY (jeu, maj))");
     ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS cartouches (id TEXT PRIMARY KEY, nom TEXT NOT NULL, taille INTEGER NOT NULL, morceaux INTEGER NOT NULL, ajoute INTEGER NOT NULL)");
     // Anciens morceaux gardés dans le Durable Object : déplacés peu à peu vers R2.
     ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS morceaux (id TEXT NOT NULL, n INTEGER NOT NULL, donnees BLOB NOT NULL, PRIMARY KEY (id, n))");
@@ -352,6 +475,18 @@ export class Coffre extends DurableObject {
 
     if (!id) {
       if (req.method !== "GET") return new Response(null, { status: 405 });
+      // Envois interrompus depuis plus d'un jour : invisibles, mais ils prennent de la place. On les retire.
+      const inacheves = [...sql.exec(
+        "SELECT c.id FROM cartouches c WHERE c.ajoute < ? AND (SELECT COUNT(*) FROM pieces p WHERE p.id = c.id) + (SELECT COUNT(*) FROM morceaux m WHERE m.id = c.id) < c.morceaux",
+        Date.now() - 24 * 60 * 60 * 1000
+      )].map(r => r.id);
+      for (const jeu of inacheves) {
+        const ns = [...sql.exec("SELECT n FROM pieces WHERE id = ?", jeu)].map(r => cle(jeu, r.n));
+        if (ns.length) await this.env.JEUX.delete(ns);
+        sql.exec("DELETE FROM pieces WHERE id = ?", jeu);
+        sql.exec("DELETE FROM morceaux WHERE id = ?", jeu);
+        sql.exec("DELETE FROM cartouches WHERE id = ?", jeu);
+      }
       const jeux = [...sql.exec(
         "SELECT c.id, c.nom, c.taille, c.morceaux, c.ajoute, c.catalogue, c.catalogue_maj, " +
         "(SELECT COUNT(*) FROM pieces p WHERE p.id = c.id) + (SELECT COUNT(*) FROM morceaux m WHERE m.id = c.id) AS recus " +
@@ -425,26 +560,61 @@ export class Coffre extends DurableObject {
     const ludo = chemin.match(/^\/ludo\/?([a-f0-9]*)(?:\/(\d+))?$/);
     if (ludo) return this.ludotheque(req, ludo[1] || null, ludo[2] !== undefined ? Number(ludo[2]) : null);
 
-    const jeu = chemin.slice(1);
     const sql = this.ctx.storage.sql;
+    const ligne = requete => [...requete][0];
+    const sv = chemin.match(/^\/([a-f0-9]{8,64})?(\/versions(?:\/(\d+))?)?$/);
+    if (!sv) return new Response(null, { status: 404 });
+    const jeu = sv[1] || "";
 
     if (!jeu) {
       if (req.method !== "GET") return new Response(null, { status: 405 });
       const lignes = [...sql.exec("SELECT jeu, maj, length(donnees) AS taille FROM sauvegardes ORDER BY maj DESC")];
       return Response.json(lignes);
     }
-    if (req.method === "GET") {
-      const ligne = [...sql.exec("SELECT maj, donnees FROM sauvegardes WHERE jeu = ?", jeu)][0];
-      if (!ligne) return new Response(null, { status: 404 });
-      return new Response(ligne.donnees, { headers: { "Content-Type": "application/octet-stream", "X-Maj": String(ligne.maj) } });
+
+    if (sv[2]) {
+      if (req.method !== "GET") return new Response(null, { status: 405 });
+      if (sv[3]) {
+        const v = ligne(sql.exec("SELECT donnees FROM historique WHERE jeu = ? AND maj = ?", jeu, Number(sv[3])))
+          || ligne(sql.exec("SELECT donnees FROM sauvegardes WHERE jeu = ? AND maj = ?", jeu, Number(sv[3])));
+        if (!v) return new Response(null, { status: 404 });
+        return new Response(v.donnees, { headers: { "Content-Type": "application/octet-stream" } });
+      }
+      const actuelle = [...sql.exec("SELECT maj, length(donnees) AS taille, 1 AS actuelle FROM sauvegardes WHERE jeu = ?", jeu)];
+      const anciennes = [...sql.exec("SELECT maj, length(donnees) AS taille, 0 AS actuelle FROM historique WHERE jeu = ? ORDER BY maj DESC", jeu)];
+      return Response.json(actuelle.concat(anciennes));
     }
+
+    if (req.method === "GET") {
+      const l = ligne(sql.exec("SELECT maj, donnees FROM sauvegardes WHERE jeu = ?", jeu));
+      if (!l) return new Response(null, { status: 404 });
+      return new Response(l.donnees, { headers: { "Content-Type": "application/octet-stream", "X-Maj": String(l.maj) } });
+    }
+
     if (req.method === "PUT") {
       const donnees = await req.arrayBuffer();
       if (!donnees.byteLength) return new Response("Sauvegarde vide.", { status: 400 });
       if (donnees.byteLength > TAILLE_MAX_SAUVEGARDE) return new Response("Sauvegarde trop grosse.", { status: 413 });
       const maj = Number(req.headers.get("X-Maj")) || Date.now();
-      const actuelle = [...sql.exec("SELECT maj FROM sauvegardes WHERE jeu = ?", jeu)][0];
+      const actuelle = ligne(sql.exec("SELECT maj, donnees FROM sauvegardes WHERE jeu = ?", jeu));
       if (actuelle && actuelle.maj > maj) return Response.json({ ok: false, raison: "plus-recente", maj: actuelle.maj }, { status: 409 });
+
+      // La version remplacée part dans l'historique (si elle est différente).
+      if (actuelle && actuelle.maj !== maj) {
+        sql.exec("INSERT OR REPLACE INTO historique (jeu, maj, donnees) VALUES (?, ?, ?)", jeu, actuelle.maj, actuelle.donnees);
+        this.elaguer(jeu);
+      }
+      // Place : au besoin on retire les plus vieilles versions de l'historique, jamais une sauvegarde actuelle.
+      const totalApres = () => {
+        const a = ligne(sql.exec("SELECT COALESCE(SUM(length(donnees)), 0) AS t FROM sauvegardes WHERE jeu != ?", jeu)).t;
+        const b = ligne(sql.exec("SELECT COALESCE(SUM(length(donnees)), 0) AS t FROM historique")).t;
+        return a + b + donnees.byteLength;
+      };
+      while (totalApres() > QUOTA_SAUVEGARDES) {
+        const vieille = ligne(sql.exec("SELECT jeu, maj FROM historique ORDER BY maj ASC LIMIT 1"));
+        if (!vieille) return Response.json({ ok: false, raison: "quota" }, { status: 507 });
+        sql.exec("DELETE FROM historique WHERE jeu = ? AND maj = ?", vieille.jeu, vieille.maj);
+      }
       sql.exec(
         "INSERT INTO sauvegardes (jeu, maj, donnees) VALUES (?, ?, ?) ON CONFLICT(jeu) DO UPDATE SET maj = excluded.maj, donnees = excluded.donnees",
         jeu, maj, donnees
@@ -453,6 +623,17 @@ export class Coffre extends DurableObject {
     }
     return new Response(null, { status: 405 });
   }
+
+  // Garde la version la plus récente de l'historique, puis des versions espacées d'au moins 10 min.
+  elaguer(jeu) {
+    const sql = this.ctx.storage.sql;
+    const versions = [...sql.exec("SELECT maj FROM historique WHERE jeu = ? ORDER BY maj DESC", jeu)].map(r => r.maj);
+    const gardees = [];
+    for (const v of versions) {
+      if (!gardees.length || (gardees[gardees.length - 1] - v >= ESPACEMENT_VERSIONS && gardees.length < VERSIONS_GARDEES)) gardees.push(v);
+      else sql.exec("DELETE FROM historique WHERE jeu = ? AND maj = ?", jeu, v);
+    }
+  }
 }
 
 // ---------- Registre : place utilisée par chaque joueur dans R2, pour rester sous les 10 Go gratuits ----------
@@ -460,6 +641,15 @@ export class Registre extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS place (joueur TEXT PRIMARY KEY, octets INTEGER NOT NULL)");
+    ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS guildes (id TEXT PRIMARY KEY, ajoute INTEGER NOT NULL)");
+  }
+
+  // Serveurs Discord où le propriétaire a ouvert l'Activité : leurs membres ont accès.
+  guildes() {
+    return [...this.ctx.storage.sql.exec("SELECT id FROM guildes")].map(r => r.id);
+  }
+  ajouterGuilde(id) {
+    this.ctx.storage.sql.exec("INSERT OR IGNORE INTO guildes (id, ajoute) VALUES (?, ?)", id, Date.now());
   }
 
   total() {

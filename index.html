@@ -421,6 +421,7 @@
   }
   .cart.nuage { opacity: .62; }
   .cart.nuage .etiquette { filter: grayscale(.4); }
+  #game .ejs_menu_bar, #game .ejs_context_menu { display: none !important; }
   .retirer.arme { opacity: 1; background: #b3261e; color: #fff; width: auto; padding: 0 calc(var(--u) * 5); border-radius: 99px; font-size: max(10px, calc(var(--u) * 7)); }
 
   /* Au catalogue : le bouton sur une cartouche, le bandeau après un ajout, les rubriques du catalogue */
@@ -825,7 +826,9 @@
             <button class="choix centre" type="button" id="charger-etat" disabled>Charger l'état</button>
             <button class="choix centre" type="button" id="plein-ecran">Plein écran</button>
             <button class="choix centre danger" type="button" id="quitter">Quitter le jeu</button>
+            <button class="choix centre large" type="button" id="anciennes">Anciennes sauvegardes</button>
           </div>
+          <div class="choix-liste serre" id="versions" hidden></div>
         </div>
 
         <div class="panneau" data-p="salon" hidden>
@@ -910,16 +913,13 @@
   })();
   const CONFIG = window.DS_RETRO_CONFIG || {};
   const DANS_DISCORD = new URLSearchParams(location.search).has("frame_id");
-  const CDN = DANS_DISCORD ? "/.proxy/emulatorjs/stable/data/" : "https://cdn.emulatorjs.org/stable/data/";
+  // EmulatorJS 4.2.3 est hébergé avec la console (dossier emulateur/) : version figée, rien chargé d'ailleurs.
+  const CDN = "emulateur/";
   let discordPret = Promise.resolve();
 
   if (DANS_DISCORD) {
     document.getElementById("lieu").textContent = "Discord";
     if (window.DiscordEmbedded && CONFIG.discordApplicationId) {
-      DiscordEmbedded.patchUrlMappings(
-        [{ prefix: "/emulatorjs", target: "cdn.emulatorjs.org" }],
-        { patchFetch: true, patchXhr: true, patchWebSocket: true, patchSrcAttributes: true }
-      );
       const sdk = new DiscordEmbedded.DiscordSDK(CONFIG.discordApplicationId);
       window.discordSdk = sdk;
       discordPret = sdk.ready().catch(() => {});
@@ -1119,8 +1119,10 @@
 
   function envoyerTouche(type, idBouton) {
     if (menuOuvert) return;
-    const nomTouche = PRESETS[presetChoisi].touches[idBouton];
-    if (!nomTouche) return;
+    const touches = PRESETS[presetChoisi].touches;
+    if (!Object.prototype.hasOwnProperty.call(touches, idBouton)) return;
+    const nomTouche = touches[idBouton];
+    if (typeof nomTouche !== "string") return;
     const code = NOMS_VERS_CODES[nomTouche] || nomTouche.toUpperCase().charCodeAt(0);
     const g = $("game");
     const ev = new KeyboardEvent(type, { bubbles: true, cancelable: true });
@@ -1194,6 +1196,7 @@
   });
 
   function ouvrirPause() {
+    fermerVersions();
     if (menuOuvert || (!jeuDemarre && !spectateur)) return;
     menuOuvert = true;
     document.body.classList.add("menu-ouvert");
@@ -1841,7 +1844,7 @@
   let derniereCopie = 0;
   function empreinte(octets) {
     let h = 2166136261;
-    for (let i = 0; i < octets.length; i += 7) h = Math.imul(h ^ octets[i], 16777619);
+    for (let i = 0; i < octets.length; i++) h = Math.imul(h ^ octets[i], 16777619);
     return octets.length + ":" + (h >>> 0);
   }
   async function sauverSram(urgent) {
@@ -1864,12 +1867,23 @@
     } catch (err) {}
   }
   // Au lancement : on prend la sauvegarde la plus récente entre cet appareil et le cloud.
+  // Dans Discord, on attend la connexion au cloud (8 s au plus) pour ne pas démarrer sur une vieille sauvegarde.
+  let sauvegardeDeDepart = "";
+  async function attendreCloud() {
+    const fin = Date.now() + 8000;
+    while (DANS_DISCORD && !salon.jeton && salon.etat === "connexion" && Date.now() < fin) {
+      await new Promise(r => setTimeout(r, 250));
+    }
+  }
   async function restaurerSram() {
     if (!cartoucheId) return;
     try {
       const id = cartoucheId;
+      await attendreCloud();
+      if (id !== cartoucheId) return;
       const locale = await lireDans("sauvegardes", id).catch(() => null);
       const distante = await lireCloud(id);
+      if (distante !== undefined) cloudVerifiePour = id;
       let choisie = locale;
       if (distante && (!locale || distante.maj > (locale.maj || 0))) {
         choisie = distante;
@@ -1878,11 +1892,40 @@
       } else if (locale && (!distante || (locale.maj || 0) > distante.maj)) {
         programmerCloud(id, locale.donnees, locale.maj || Date.now(), true);
       }
-      if (!choisie || !choisie.donnees) return;
+      if (!choisie || !choisie.donnees) { sauvegardeDeDepart = "vide"; derniereEmpreinte = ""; return; }
       const gm = window.EJS_emulator.gameManager;
       gm.FS.writeFile(gm.getSaveFilePath(), choisie.donnees);
       gm.loadSaveFiles();
       derniereEmpreinte = empreinte(choisie.donnees);
+      sauvegardeDeDepart = derniereEmpreinte;
+    } catch (err) {}
+  }
+
+  // La connexion au cloud arrive alors que le jeu tourne déjà. Si le cloud a plus récent et que tu
+  // n'as pas encore sauvegardé depuis le lancement, le jeu redémarre sur la sauvegarde du cloud.
+  // Sinon on garde ta partie : l'ancienne version du cloud reste dans « Anciennes sauvegardes ».
+  async function verifierCloudEnCours() {
+    if (!cartoucheId || !jeuDemarre) return;
+    try {
+      const id = cartoucheId;
+      const locale = await lireDans("sauvegardes", id).catch(() => null);
+      const distante = await lireCloud(id);
+      if (distante === undefined || id !== cartoucheId) return;
+      cloudVerifiePour = id;
+      if (!distante) { if (locale) programmerCloud(id, locale.donnees, locale.maj || Date.now(), true); return; }
+      // Lancé sans sauvegarde sur cet appareil, ou rien sauvegardé depuis : le cloud gagne.
+      const rienDepuis = sauvegardeDeDepart === "vide" || derniereEmpreinte === sauvegardeDeDepart;
+      if (distante.maj > ((locale && locale.maj) || 0) && rienDepuis) {
+        await ecrireDans("sauvegardes", { id, donnees: distante.donnees, maj: distante.maj }).catch(() => {});
+        const gm = window.EJS_emulator.gameManager;
+        gm.FS.writeFile(gm.getSaveFilePath(), distante.donnees);
+        gm.loadSaveFiles();
+        derniereEmpreinte = sauvegardeDeDepart = empreinte(distante.donnees);
+        gm.restart();
+        bulle("Sauvegarde plus récente trouvée dans ton cloud : le jeu redémarre dessus.");
+      } else if (locale && locale.maj > distante.maj) {
+        programmerCloud(id, locale.donnees, locale.maj, true);
+      }
     } catch (err) {}
   }
   setInterval(sauverSram, 20000);
@@ -1909,6 +1952,82 @@
       : cloud.derniereSync ? "à jour " + ilYA(cloud.derniereSync)
       : "en attente";
   }
+  // ---------- Anciennes sauvegardes : l'historique gardé dans le cloud ----------
+  function fermerVersions() {
+    $("versions").hidden = true;
+    $("versions").innerHTML = "";
+    document.querySelector('.panneau[data-p="partie"] .choix-grille').hidden = false;
+  }
+  const dateVersion = t => new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(t);
+  async function afficherVersions() {
+    const liste = $("versions");
+    document.querySelector('.panneau[data-p="partie"] .choix-grille').hidden = true;
+    liste.hidden = false;
+    liste.innerHTML = "";
+    const bouton = (titre, detail, action, classe) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "choix " + (classe || "");
+      const fort = document.createElement("strong"); fort.textContent = titre;
+      b.appendChild(fort);
+      if (detail) { const petit = document.createElement("span"); petit.textContent = detail; b.appendChild(petit); }
+      if (action) b.addEventListener("click", () => action(b, fort));
+      liste.appendChild(b);
+      return b;
+    };
+    const note = texte => { const p = document.createElement("p"); p.className = "note-lcd"; p.textContent = texte; liste.appendChild(p); };
+    const retour = bouton("Retour", "", () => fermerVersions(), "centre");
+    retour.focus();
+    if (!salon.jeton || !cartoucheId) { note("Les anciennes sauvegardes sont gardées dans ton cloud : ouvre la console dans Discord."); return; }
+    note("Chargement…");
+    let versions = [];
+    try {
+      const r = await fetch(API + "/sauvegardes/" + await cleJeu(cartoucheId) + "/versions", { headers: { Authorization: "Bearer " + salon.jeton } });
+      if (!r.ok) throw new Error(r.status);
+      versions = await r.json();
+    } catch (e) {
+      liste.lastChild.textContent = "Ton cloud ne répond pas. Réessaie dans un instant.";
+      return;
+    }
+    liste.lastChild.remove();
+    if (versions.length <= 1) { note("Pas encore d'ancienne version. Le cloud en garde jusqu'à 12, espacées d'au moins 10 minutes."); }
+    versions.forEach(v => {
+      if (v.actuelle) return bouton(dateVersion(v.maj), "Sauvegarde actuelle", null);
+      let arme = false;
+      bouton(dateVersion(v.maj), "Touche pour revenir à cette version", (b, fort) => {
+        if (!arme) {
+          arme = true; b.classList.add("danger", "arme"); fort.textContent = "Revenir à celle-ci ? Touche encore";
+          setTimeout(() => { arme = false; b.classList.remove("danger", "arme"); fort.textContent = dateVersion(v.maj); }, 3000);
+          return;
+        }
+        restaurerVersion(v.maj);
+      });
+    });
+    note("Revenir en arrière ne supprime rien : ta sauvegarde actuelle rejoint cette liste.");
+  }
+  async function restaurerVersion(maj) {
+    try {
+      const id = cartoucheId;
+      const r = await fetch(API + "/sauvegardes/" + await cleJeu(id) + "/versions/" + maj, { headers: { Authorization: "Bearer " + salon.jeton } });
+      if (!r.ok) throw new Error(r.status);
+      const donnees = new Uint8Array(await r.arrayBuffer());
+      const maintenant = Date.now();
+      await ecrireDans("sauvegardes", { id, donnees, maj: maintenant });
+      const gm = window.EJS_emulator.gameManager;
+      gm.FS.writeFile(gm.getSaveFilePath(), donnees);
+      gm.loadSaveFiles();
+      derniereEmpreinte = sauvegardeDeDepart = empreinte(donnees);
+      cloudVerifiePour = id;
+      programmerCloud(id, donnees, maintenant, true);
+      fermerVersions();
+      fermerPause();
+      gm.restart();
+      bulle("Sauvegarde du " + dateVersion(maj) + " remise en place : le jeu redémarre.");
+    } catch (e) {
+      bulle("Cette version n'a pas pu être récupérée. Réessaie dans un instant.");
+    }
+  }
+  $("anciennes").addEventListener("click", afficherVersions);
+
   $("sauver-etat").addEventListener("click", async () => {
     const b = $("sauver-etat");
     try {
@@ -1941,6 +2060,7 @@
     masquerApresAjout();
     jeuActif = true;
     cartoucheId = id || null;
+    derniereEmpreinte = ""; sauvegardeDeDepart = ""; cloudVerifiePour = null;
     nomJeu = nomLisible(nomFichier);
     afficherOnglet("jeux");
     $("message-haut").textContent = "Lancement de " + nomJeu + "…";
@@ -1975,6 +2095,10 @@
       setTimeout(() => { if (!menuOuvert) { $("menu").style.display = "none"; focusJeu(); } }, 350);
     };
 
+    if (!$("game").dataset.sansMenu) {
+      $("game").dataset.sansMenu = "1";
+      $("game").addEventListener("contextmenu", e => { e.preventDefault(); e.stopPropagation(); }, true);
+    }
     window.EJS_player = "#game";
     window.EJS_core = "desmume";
     window.EJS_gameName = nomLisible(nomFichier);
@@ -1986,6 +2110,10 @@
     window.EJS_gameID = PRESETS[presetChoisi].gameId;
     window.EJS_ready = () => setTimeout(reveler, 150);
     window.EJS_onGameStart = () => { reveler(); restaurerSram(); setTimeout(focusJeu, 100); };
+    // Tout se règle depuis la console : on masque les boutons et le menu clic droit d'EmulatorJS.
+    window.EJS_Buttons = Object.fromEntries(["playPause", "restart", "mute", "settings", "fullscreen", "saveState", "loadState",
+      "screenRecord", "gamepad", "cheat", "volumeSlider", "saveSavFiles", "loadSavFiles", "quickSave", "quickLoad", "screenshot",
+      "cacheManager", "exitEmulation", "netplay", "diskButton"].map(b => [b, false]));
     codesJeu = codesDuPreset();
     // Si l'émulateur attend un clic (son bloqué), on montre son écran quand même.
     setTimeout(reveler, 12000);
@@ -2046,17 +2174,20 @@
       const serveur = await fetch(API + "/etat").then(r => (r.ok ? r.json() : null)).catch(() => null);
       if (!serveur) throw new Error("Le serveur du salon n'est pas encore en ligne.");
       if (!serveur.connexionDiscord) throw new Error("Le serveur attend encore le secret Discord.");
-      const { code } = await discordSdk.commands.authorize({
-        client_id: CONFIG.discordApplicationId, response_type: "code", state: "", prompt: "none", scope: ["identify"],
-      });
+      // « guilds » permet au serveur de vérifier que tu es bien membre du serveur Discord de la console.
+      const demande = { client_id: CONFIG.discordApplicationId, response_type: "code", state: "", scope: ["identify", "guilds"] };
+      let code;
+      try { ({ code } = await discordSdk.commands.authorize({ ...demande, prompt: "none" })); }
+      catch (e) { ({ code } = await discordSdk.commands.authorize(demande)); }
       const r = await fetch(API + "/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
       const d = await r.json().catch(() => ({}));
       if (!d.access_token) throw new Error(d.erreur || "Discord a refusé la connexion.");
       const auth = await discordSdk.commands.authenticate({ access_token: d.access_token });
       salon.jeton = d.access_token;
       salon.moi = { id: auth.user.id, nom: auth.user.global_name || auth.user.username };
-      ouvrirSalle();
-      if (jeuDemarre) restaurerSram();
+      await ouvrirSalle();
+      if (salon.etat === "refuse") { salon.jeton = null; return; }
+      if (jeuDemarre) verifierCloudEnCours();
       synchroniserLudotheque();
     } catch (e) {
       salon.etat = "indisponible";
@@ -2065,9 +2196,32 @@
     }
   }
 
-  function ouvrirSalle() {
+  // Un ticket d'une minute, demandé avec le jeton : le jeton ne passe jamais dans l'adresse du salon.
+  async function ouvrirSalle() {
+    let ticket = null;
+    try {
+      const r = await fetch(API + "/ticket", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + salon.jeton, "Content-Type": "application/json" },
+        body: JSON.stringify({ instance: discordSdk.instanceId, guilde: discordSdk.guildId || null }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.status === 403) {
+        salon.etat = "refuse";
+        salon.erreur = d.erreur || "Réservé aux membres du serveur Discord.";
+        majSalon();
+        return;
+      }
+      ticket = d.ticket || null;
+    } catch (e) {}
+    if (!ticket) {
+      salon.etat = "deconnecte";
+      majSalon();
+      setTimeout(ouvrirSalle, Math.min(15000, 1000 * 2 ** salon.tentative++));
+      return;
+    }
     const url = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + API + "/salle/"
-      + encodeURIComponent(discordSdk.instanceId) + "?jeton=" + encodeURIComponent(salon.jeton);
+      + encodeURIComponent(discordSdk.instanceId) + "?ticket=" + encodeURIComponent(ticket);
     const ws = new WebSocket(url);
     ws.binaryType = "arraybuffer";
     salon.ws = ws;
@@ -2168,7 +2322,7 @@
   // Hôte : touches et tactile envoyés par le joueur qui a la manette.
   const touchesDistantes = new Set();
   function toucheDistante(b, enfonce) {
-    if (menuOuvert) return;
+    if (menuOuvert || !Number.isInteger(b) || b < 0 || b > 11) return;
     if (enfonce) touchesDistantes.add(b); else touchesDistantes.delete(b);
     envoyerTouche(enfonce ? "keydown" : "keyup", b);
   }
@@ -2177,7 +2331,7 @@
     touchesDistantes.clear();
   }
   function tactileDistant(m) {
-    if (menuOuvert) return;
+    if (menuOuvert || !Number.isFinite(m.x) || !Number.isFinite(m.y)) return;
     const c = document.querySelector("#game canvas");
     if (!c) return;
     const r = c.getBoundingClientRect();
@@ -2284,6 +2438,7 @@
     if (salon.etat === "hors-discord") { titre = "Hors de Discord"; message = "Lance l'Activité dans un salon vocal pour jouer à plusieurs."; }
     else if (salon.etat === "connexion") { titre = "Connexion…"; message = "Connexion au salon vocal en cours."; }
     else if (salon.etat === "indisponible") { titre = "Indisponible"; message = salon.erreur + " Tu peux jouer en solo en attendant."; }
+    else if (salon.etat === "refuse") { titre = "Accès réservé"; message = salon.erreur + " Tu peux jouer en solo, sans cloud ni salon."; }
     else if (salon.etat === "deconnecte") { titre = "Reconnexion…"; message = "La connexion au salon a coupé. Nouvel essai en cours."; }
     else if (!i.hote) { sous = nb > 1 ? "Personne ne joue" : "Tu es seul ici"; titre = "Salon libre"; message = "Lance un jeu : les autres pourront regarder et prendre la manette."; }
     else if (i.hote === moi) { sous = "Tu diffuses"; titre = i.jeu || nomJeu; message = i.manette === moi ? "Tu as la manette. Tu peux la donner à un pote en dessous." : "Manette : " + nomDe(i.manette) + "."; }
@@ -2435,16 +2590,20 @@
     const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(id));
     return [...new Uint8Array(h)].slice(0, 16).map(b => b.toString(16).padStart(2, "0")).join("");
   }
+  // null = aucune sauvegarde dans le cloud ; undefined = cloud injoignable.
   async function lireCloud(id) {
-    if (!salon.jeton) return null;
+    if (!salon.jeton) return undefined;
     try {
       const r = await fetch(API + "/sauvegardes/" + await cleJeu(id), { headers: { Authorization: "Bearer " + salon.jeton } });
-      if (!r.ok) return null;
+      if (r.status === 404) return null;
+      if (!r.ok) return undefined;
       return { donnees: new Uint8Array(await r.arrayBuffer()), maj: Number(r.headers.get("X-Maj")) || 0 };
-    } catch (e) { return null; }
+    } catch (e) { return undefined; }
   }
+  // On n'envoie rien au cloud tant qu'on ne l'a pas comparé avec la sauvegarde de cet appareil.
+  let cloudVerifiePour = null;
   function programmerCloud(id, donnees, maj, urgent) {
-    if (!salon.jeton) return;
+    if (!salon.jeton || cloudVerifiePour !== id) return;
     cloud.attente = { id, donnees, maj };
     clearTimeout(cloud.minuteur);
     const delai = urgent ? 0 : Math.max(0, 60000 - (Date.now() - cloud.derniereSync));
