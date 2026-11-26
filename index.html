@@ -168,7 +168,7 @@
     align-self: center;
   }
   .haut-parleur i { width: 6px; height: 6px; border-radius: 50%; background: #9da1ab; }
-  .bas-cote { display: flex; flex-direction: column; align-items: center; gap: calc(var(--w) * 0.08); padding-top: calc(var(--h) * 0.06); }
+  .bas-cote { display: flex; flex-direction: column; align-items: center; gap: calc(var(--w) * 0.08); padding-top: calc(var(--h) * 0.04); }
   .croix {
     position: relative;
     width: calc(var(--cote) * 0.62);
@@ -212,17 +212,17 @@
   .petits span { position: absolute; top: 16px; font-size: 10px; color: #7d818b; width: 46%; text-align: center; }
   .petits .ls { left: 0; } .petits .lst { right: 0; }
   .epaule {
-    top: calc(50% + var(--h) * 32 / 448 + 8px);
-    width: 18%;
-    height: 20px;
-    background: #9da1ab;
-    color: #2a2c31;
+    top: calc(50% + var(--h) * 32 / 448 - 2px);
+    width: 24%;
+    height: calc(var(--h) * 0.035 + 8px);
+    background: #c4c8d0;
+    color: #5b5f69;
     z-index: 3;
     font-size: 11px;
-    border-radius: 99px;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.15);
   }
-  .epaule.l { left: 5%; }
-  .epaule.r { right: 5%; }
+  .epaule.l { left: -6px; border-radius: 18px 6px 6px 2px; padding-left: 10px; text-align: left; }
+  .epaule.r { right: -6px; border-radius: 6px 18px 2px 6px; padding-right: 10px; text-align: right; }
   #ecran button.appuye { filter: brightness(1.6); transform: translateY(1px); }
   #ecran:fullscreen { background: #111216; width: 100vw; height: 100vh; place-content: center; padding: 0; }
   #ecran:fullscreen { --h: min(calc(100vh - 60px), calc((100vw - 32px) * 448 / 512)); }
