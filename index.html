@@ -89,7 +89,7 @@
     padding: 0 16px 16px;
   }
   #ecran {
-    --h: min(calc(100vh - 150px), 820px, calc((100vw - 32px) * 448 / 512));
+    --h: min(calc(100vh - 150px), 820px, calc((100vw - 64px) * 448 / 512));
     --w: calc(var(--h) * 256 / 448);
     --cote: calc(var(--w) * 0.5);
     --coque: #e9ebf0;
@@ -212,17 +212,18 @@
   .petits span { position: absolute; top: 16px; font-size: 10px; color: #7d818b; width: 46%; text-align: center; }
   .petits .ls { left: 0; } .petits .lst { right: 0; }
   .epaule {
-    top: calc(50% + 2px);
-    width: 22%;
-    height: 10px;
+    top: calc(50% + var(--h) * 32 / 448 + 8px);
+    width: 18%;
+    height: 20px;
     background: #9da1ab;
+    color: #2a2c31;
     z-index: 3;
-    font-size: 0;
+    font-size: 11px;
+    border-radius: 99px;
   }
-  .epaule.l { left: 4%; border-radius: 10px 4px 0 0; transform: translateY(-100%); }
-  .epaule.r { right: 4%; border-radius: 4px 10px 0 0; transform: translateY(-100%); }
+  .epaule.l { left: 5%; }
+  .epaule.r { right: 5%; }
   #ecran button.appuye { filter: brightness(1.6); transform: translateY(1px); }
-  .epaule.appuye { transform: translateY(-80%) !important; }
   #ecran:fullscreen { background: #111216; width: 100vw; height: 100vh; place-content: center; padding: 0; }
   #ecran:fullscreen { --h: min(calc(100vh - 60px), calc((100vw - 32px) * 448 / 512)); }
   #ecran:fullscreen::before { top: calc(50vh - var(--h) / 2 - 28px); bottom: 50%; height: auto; left: calc(50vw - var(--w) / 2 - var(--cote)); right: calc(50vw - var(--w) / 2 - var(--cote)); }
@@ -300,8 +301,8 @@
 
 <section id="jeu-conteneur">
   <div id="ecran">
-    <button class="epaule l" data-bouton="10" type="button" aria-label="L"></button>
-    <button class="epaule r" data-bouton="11" type="button" aria-label="R"></button>
+    <button class="epaule l" data-bouton="10" type="button" aria-label="L">L</button>
+    <button class="epaule r" data-bouton="11" type="button" aria-label="R">R</button>
     <div class="cote">
       <div class="haut-parleur" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
       <div class="bas-cote">
