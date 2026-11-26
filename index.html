@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Émulateur DS</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: #1e1f22;
+    color: #f2f3f5;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  header {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px;
+  }
+  header h1 { font-size: 18px; font-weight: 600; margin: 0; }
+  header .badge {
+    margin-left: auto;
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #2b2d31;
+    color: #b5bac1;
+  }
+  #accueil {
+    width: 100%;
+    max-width: 720px;
+    padding: 0 16px 24px;
+  }
+  .carte {
+    background: #2b2d31;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .carte h2 { font-size: 16px; margin: 0 0 8px; }
+  .carte p { color: #b5bac1; font-size: 14px; line-height: 1.6; margin: 0 0 12px; }
+  .bouton {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #5865f2;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 18px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .bouton:hover { background: #4752c4; }
+  .zone-depot {
+    border: 2px dashed #4e5058;
+    border-radius: 12px;
+    padding: 28px;
+    text-align: center;
+    color: #b5bac1;
+    font-size: 14px;
+    transition: border-color .15s, background .15s;
+  }
+  .zone-depot.survol { border-color: #5865f2; background: #2f3136; }
+  .erreur { color: #f23f43; font-size: 14px; margin-top: 10px; min-height: 20px; }
+  ul.touches { margin: 0; padding-left: 18px; color: #b5bac1; font-size: 14px; line-height: 1.8; }
+  kbd {
+    background: #1e1f22;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: inherit;
+    font-size: 13px;
+    color: #f2f3f5;
+  }
+  #jeu-conteneur {
+    display: none;
+    width: 100%;
+    max-width: 720px;
+    padding: 0 16px 16px;
+  }
+  #ecran {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    max-height: calc(100vh - 140px);
+    margin: 0 auto;
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .barre {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .bouton.secondaire { background: #4e5058; }
+  .bouton.secondaire:hover { background: #6d6f78; }
+  #nom-jeu { text-align: center; color: #b5bac1; font-size: 13px; margin: 8px 0 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Émulateur DS</h1>
+  <span class="badge">Étape 1 · solo</span>
+</header>
+
+<main id="accueil">
+  <section class="carte">
+    <h2>Charger un jeu</h2>
+    <p>Choisis un fichier <code>.nds</code> sur ton PC. Il reste sur ton appareil : rien n'est envoyé sur un serveur.</p>
+    <div class="zone-depot" id="zone-depot">
+      <p style="margin:0 0 12px;">Glisse ton fichier ici, ou</p>
+      <button class="bouton" id="bouton-fichier" type="button">Choisir un fichier</button>
+      <input type="file" id="fichier" accept=".nds,.zip,.7z" hidden>
+    </div>
+    <div class="erreur" id="erreur" role="alert"></div>
+  </section>
+
+  <section class="carte">
+    <h2>Commandes par défaut</h2>
+    <ul class="touches">
+      <li>Croix directionnelle : <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></li>
+      <li>A / B / X / Y : <kbd>X</kbd> <kbd>Z</kbd> <kbd>S</kbd> <kbd>A</kbd></li>
+      <li>Start / Select : <kbd>Entrée</kbd> <kbd>Maj</kbd></li>
+      <li>Écran tactile : clic de souris sur l'écran du bas</li>
+      <li>Les touches et la manette se règlent dans le menu de l'émulateur (icône manette).</li>
+    </ul>
+  </section>
+
+  <section class="carte">
+    <h2>Des jeux à tester légalement</h2>
+    <p>Utilise des jeux homebrew gratuits (beaucoup sur itch.io en cherchant « Nintendo DS homebrew ») ou une copie de ta propre cartouche que tu as extraite toi-même.</p>
+  </section>
+</main>
+
+<section id="jeu-conteneur">
+  <div id="ecran"><div id="game"></div></div>
+  <p id="nom-jeu"></p>
+  <div class="barre">
+    <button class="bouton secondaire" id="bouton-changer" type="button">Changer de jeu</button>
+  </div>
+</section>
+
+<script>
+  const CDN = "https://cdn.emulatorjs.org/stable/data/";
+  const EXTENSIONS = [".nds", ".zip", ".7z"];
+
+  const zone = document.getElementById("zone-depot");
+  const champ = document.getElementById("fichier");
+  const erreur = document.getElementById("erreur");
+
+  document.getElementById("bouton-fichier").addEventListener("click", () => champ.click());
+  champ.addEventListener("change", () => {
+    if (champ.files.length) lancer(champ.files[0]);
+  });
+
+  ["dragenter", "dragover"].forEach(ev =>
+    zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add("survol"); })
+  );
+  ["dragleave", "drop"].forEach(ev =>
+    zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove("survol"); })
+  );
+  zone.addEventListener("drop", e => {
+    if (e.dataTransfer.files.length) lancer(e.dataTransfer.files[0]);
+  });
+
+  document.getElementById("bouton-changer").addEventListener("click", () => location.reload());
+
+  function lancer(fichier) {
+    erreur.textContent = "";
+    const nom = fichier.name.toLowerCase();
+    if (!EXTENSIONS.some(ext => nom.endsWith(ext))) {
+      erreur.textContent = "Ce fichier n'est pas un jeu DS. Choisis un fichier .nds (ou .zip / .7z qui en contient un).";
+      return;
+    }
+
+    document.getElementById("accueil").style.display = "none";
+    document.getElementById("jeu-conteneur").style.display = "block";
+    document.getElementById("nom-jeu").textContent = fichier.name;
+
+    window.EJS_player = "#game";
+    window.EJS_core = "desmume";
+    window.EJS_gameName = fichier.name.replace(/\.[^.]+$/, "");
+    window.EJS_gameUrl = URL.createObjectURL(fichier);
+    window.EJS_pathtodata = CDN;
+    window.EJS_startOnLoaded = true;
+    window.EJS_color = "#5865f2";
+
+    const script = document.createElement("script");
+    script.src = CDN + "loader.js";
+    script.onerror = () => {
+      document.getElementById("jeu-conteneur").style.display = "none";
+      document.getElementById("accueil").style.display = "block";
+      erreur.textContent = "Impossible de charger l'émulateur. Vérifie ta connexion internet et que la page est ouverte via http://localhost.";
+    };
+    document.body.appendChild(script);
+  }
+</script>
+</body>
+</html>
