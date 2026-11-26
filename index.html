@@ -394,6 +394,26 @@
   .erreur { padding: 0 calc(var(--u) * 9); color: #b3261e; font-size: max(11px, calc(var(--u) * 8)); }
   .erreur:not(:empty) { padding-bottom: calc(var(--u) * 5); }
 
+  /* Deux vues dans l'onglet Jeux : tes cartouches / le catalogue */
+  .vues-jeux {
+    flex: none; display: flex; margin: calc(var(--u) * 6) calc(var(--u) * 9) calc(var(--u) * 5);
+    border: calc(var(--u) * 1) solid rgba(31,43,51,.3); border-radius: calc(var(--u) * 4); overflow: hidden;
+  }
+  .vue-jeux {
+    flex: 1; border: 0; background: rgba(255,255,255,.4); cursor: pointer;
+    padding: calc(var(--u) * 3) 0;
+    font: 600 max(11px, calc(var(--u) * 8.5))/1.2 "Pixelify", system-ui, sans-serif; color: var(--encre-2);
+    display: flex; align-items: baseline; justify-content: center; gap: calc(var(--u) * 4);
+  }
+  .vue-jeux + .vue-jeux { border-left: calc(var(--u) * 1) solid rgba(31,43,51,.3); }
+  .vue-jeux small { font-weight: 400; font-size: max(10px, calc(var(--u) * 7)); opacity: .8; }
+  .vue-jeux[aria-selected="true"] { background: var(--encre); color: var(--lcd); }
+  .cart .partage {
+    position: absolute; right: calc(var(--u) * 4); top: calc(var(--u) * 7);
+    width: calc(var(--u) * 7); height: calc(var(--u) * 7); border-radius: 50%;
+    background: #fff; box-shadow: 0 0 0 calc(var(--u) * 1) rgba(0,0,0,.25);
+  }
+
   /* Cartouches */
   .emplacement { position: relative; }
   .cart, .ajouter {
@@ -739,8 +759,12 @@
 
       <section class="lcd bas" aria-label="Écran du bas">
         <div class="panneau" data-p="jeux">
-          <div class="titre-lcd"><span>Tes cartouches</span><small id="compte"></small></div>
+          <div class="vues-jeux" role="tablist" aria-label="Jeux">
+            <button type="button" class="vue-jeux" role="tab" data-vue="perso" aria-selected="true">Tes cartouches<small id="compte"></small></button>
+            <button type="button" class="vue-jeux" role="tab" data-vue="catalogue" aria-selected="false">Catalogue<small id="compte-catalogue"></small></button>
+          </div>
           <div class="grille" id="grille"></div>
+          <div class="grille" id="grille-catalogue" hidden></div>
           <div class="erreur" id="erreur" role="alert"></div>
         </div>
 
@@ -1374,6 +1398,109 @@
     if (!jeuActif && e.dataTransfer.files.length) ajouterFichier(e.dataTransfer.files[0]);
   });
 
+  // ---------- Catalogue : jeux partagés, dans le dossier catalogue/ du dépôt ----------
+  let vueJeux = lire("ds-retro-vue-jeux", "perso");
+  let catalogue = null;
+  let telechargement = false;
+  const MESSAGE_ACCUEIL = "Choisis une cartouche sur l'écran du bas.";
+
+  function ficheJeu(jeu) {
+    const details = [jeu.genre, jeu.joueurs].filter(Boolean).join(", ");
+    const credit = jeu.auteur ? "Par " + jeu.auteur + (jeu.licence ? ", licence " + jeu.licence : "") + "." : "";
+    return jeu.nom + (details ? " : " + details + "." : ".") + (credit ? " " + credit : "");
+  }
+
+  function afficherVueJeux(vue) {
+    vueJeux = vue === "catalogue" ? "catalogue" : "perso";
+    ecrire("ds-retro-vue-jeux", vueJeux);
+    document.querySelectorAll(".vue-jeux").forEach(b => b.setAttribute("aria-selected", String(b.dataset.vue === vueJeux)));
+    $("grille").hidden = vueJeux !== "perso";
+    $("grille-catalogue").hidden = vueJeux !== "catalogue";
+    $("erreur").textContent = "";
+    if (!jeuActif && !salon.infos.hote) {
+      $("message-haut").textContent = vueJeux === "catalogue" ? "Jeux partagés avec tout le salon. Touche une cartouche pour jouer." : MESSAGE_ACCUEIL;
+    }
+    if (vueJeux === "catalogue" && !catalogue) chargerCatalogue();
+  }
+  document.querySelectorAll(".vue-jeux").forEach(b => b.addEventListener("click", () => afficherVueJeux(b.dataset.vue)));
+
+  async function chargerCatalogue() {
+    const grille = $("grille-catalogue");
+    grille.innerHTML = '<div class="vide"><p>Chargement du catalogue…</p></div>';
+    try {
+      const r = await fetch("catalogue/jeux.json", { cache: "no-cache" });
+      if (!r.ok) throw new Error(r.status);
+      catalogue = (await r.json()).jeux || [];
+    } catch (e) {
+      catalogue = null;
+      grille.innerHTML = '<div class="vide"><p>Le catalogue ne répond pas. Réessaie dans un instant.</p></div>';
+      return;
+    }
+    grille.innerHTML = "";
+    $("compte-catalogue").textContent = catalogue.length ? String(catalogue.length) : "";
+    if (!catalogue.length) {
+      grille.innerHTML = '<div class="vide"><p>Le catalogue est vide. Les jeux ajoutés au dossier <b>catalogue</b> du dépôt apparaîtront ici.</p></div>';
+      return;
+    }
+    catalogue.forEach(jeu => {
+      const emplacement = document.createElement("div");
+      emplacement.className = "emplacement";
+      const cart = document.createElement("button");
+      cart.type = "button"; cart.className = "cart";
+      cart.style.setProperty("--teinte", Number.isFinite(jeu.teinte) ? jeu.teinte : teinte(jeu.nom));
+      cart.setAttribute("aria-label", "Jouer à " + jeu.nom);
+      const etiquette = document.createElement("span");
+      etiquette.className = "etiquette"; etiquette.textContent = initiales(jeu.nom);
+      const titre = document.createElement("span");
+      titre.className = "nom"; titre.textContent = jeu.nom;
+      const pastille = document.createElement("i");
+      pastille.className = "partage"; pastille.title = "Jeu du catalogue";
+      cart.append(etiquette, titre, pastille);
+      const montrerFiche = () => { if (!jeuActif && !telechargement) $("message-haut").textContent = ficheJeu(jeu); };
+      cart.addEventListener("mouseenter", montrerFiche);
+      cart.addEventListener("focus", montrerFiche);
+      cart.addEventListener("click", () => lancerDuCatalogue(cart, jeu));
+      emplacement.appendChild(cart);
+      grille.appendChild(emplacement);
+    });
+  }
+
+  async function lancerDuCatalogue(cart, jeu) {
+    if (jeuActif || spectateur || telechargement) return;
+    telechargement = true;
+    $("erreur").textContent = "";
+    document.body.classList.add("chargement");
+    $("message-haut").textContent = "Téléchargement de " + jeu.nom + "…";
+    try {
+      const r = await fetch("catalogue/" + encodeURIComponent(jeu.fichier));
+      if (!r.ok) throw new Error(r.status);
+      const total = Number(r.headers.get("Content-Length")) || 0;
+      let blob;
+      if (r.body && total) {
+        const lecteur = r.body.getReader();
+        const morceaux = [];
+        let recu = 0;
+        for (;;) {
+          const { done, value } = await lecteur.read();
+          if (done) break;
+          morceaux.push(value);
+          recu += value.length;
+          $("message-haut").textContent = "Téléchargement de " + jeu.nom + "… " + Math.round(recu / total * 100) + " %";
+        }
+        blob = new Blob(morceaux);
+      } else {
+        blob = await r.blob();
+      }
+      telechargement = false;
+      const extension = (jeu.fichier.match(/\.[^.]+$/) || [".nds"])[0];
+      inserer(cart, blob, jeu.nom + extension, "catalogue:" + jeu.fichier);
+    } catch (e) {
+      telechargement = false;
+      document.body.classList.remove("chargement");
+      $("message-haut").textContent = MESSAGE_ACCUEIL;
+      $("erreur").textContent = "Le jeu n'a pas pu être téléchargé. Vérifie ta connexion, puis réessaie.";
+    }
+  }
   // ---------- Sauvegardes ----------
   // 1) La sauvegarde faite dans le jeu (comme sur une vraie DS) : copiée ici toutes les 20 s,
   //    à chaque pause et en quittant, puis remise en place au prochain lancement.
@@ -1908,6 +2035,7 @@
   }
 
   if (DANS_DISCORD) connecterDiscord(); else majSalon();
+  afficherVueJeux(vueJeux);
 
   // ---------- Navigation dans le menu (manette, croix de la console) ----------
   function elementsNavigables() {

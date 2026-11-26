@@ -1,0 +1,14 @@
+{
+  "jeux": [
+    {
+      "fichier": "SpaceImpaktoDS.nds",
+      "nom": "Space Impakto DS",
+      "genre": "Shoot'em up",
+      "joueurs": "1 joueur",
+      "auteur": "Relminator",
+      "licence": "MIT",
+      "source": "https://github.com/relminator/SpaceImpakto-DS",
+      "teinte": 265
+    }
+  ]
+}
