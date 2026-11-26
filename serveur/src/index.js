@@ -11,6 +11,7 @@
 //   GET  /ludotheque            jeux personnels du joueur (privés, seulement pour lui)
 //   GET  /ludotheque/:id/:n     télécharge le morceau n d'un jeu
 //   PUT  /ludotheque/:id/:n     envoie le morceau n (en-têtes X-Nom, X-Taille, X-Morceaux)
+//   POST /ludotheque/:id        met le jeu au catalogue du salon ou l'en retire (en-têtes X-Catalogue = 1 ou 0, X-Maj)
 //   DELETE /ludotheque/:id      retire un jeu
 
 import { DurableObject } from "cloudflare:workers";
@@ -18,7 +19,7 @@ import { DurableObject } from "cloudflare:workers";
 const DISCORD = "https://discord.com/api";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Maj, X-Nom, X-Taille, X-Morceaux",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Maj, X-Nom, X-Taille, X-Morceaux, X-Catalogue",
   "Access-Control-Allow-Methods": "GET, PUT, POST, DELETE, OPTIONS",
   "Access-Control-Expose-Headers": "X-Maj",
 };
@@ -276,6 +277,10 @@ export class Coffre extends DurableObject {
     ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS sauvegardes (jeu TEXT PRIMARY KEY, maj INTEGER NOT NULL, donnees BLOB NOT NULL)");
     ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS cartouches (id TEXT PRIMARY KEY, nom TEXT NOT NULL, taille INTEGER NOT NULL, morceaux INTEGER NOT NULL, ajoute INTEGER NOT NULL)");
     ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS morceaux (id TEXT NOT NULL, n INTEGER NOT NULL, donnees BLOB NOT NULL, PRIMARY KEY (id, n))");
+    // « Au catalogue » : le nom du jeu est montré aux potes du salon (jamais le fichier).
+    const colonnes = new Set([...ctx.storage.sql.exec("PRAGMA table_info(cartouches)")].map(c => c.name));
+    if (!colonnes.has("catalogue")) ctx.storage.sql.exec("ALTER TABLE cartouches ADD COLUMN catalogue INTEGER NOT NULL DEFAULT 0");
+    if (!colonnes.has("catalogue_maj")) ctx.storage.sql.exec("ALTER TABLE cartouches ADD COLUMN catalogue_maj INTEGER NOT NULL DEFAULT 0");
   }
 
   // Ludothèque : les jeux personnels du joueur, découpés en morceaux.
@@ -286,7 +291,7 @@ export class Coffre extends DurableObject {
     if (!id) {
       if (req.method !== "GET") return new Response(null, { status: 405 });
       const jeux = [...sql.exec(
-        "SELECT c.id, c.nom, c.taille, c.morceaux, c.ajoute, (SELECT COUNT(*) FROM morceaux m WHERE m.id = c.id) AS recus FROM cartouches c ORDER BY c.ajoute DESC"
+        "SELECT c.id, c.nom, c.taille, c.morceaux, c.ajoute, c.catalogue, c.catalogue_maj, (SELECT COUNT(*) FROM morceaux m WHERE m.id = c.id) AS recus FROM cartouches c ORDER BY c.ajoute DESC"
       )];
       const utilise = ligne(sql.exec("SELECT COALESCE(SUM(length(donnees)), 0) AS t FROM morceaux")).t;
       return Response.json({ jeux, utilise, quota: QUOTA_LUDOTHEQUE });
@@ -296,6 +301,16 @@ export class Coffre extends DurableObject {
       sql.exec("DELETE FROM morceaux WHERE id = ?", id);
       sql.exec("DELETE FROM cartouches WHERE id = ?", id);
       return Response.json({ ok: true });
+    }
+
+    if (req.method === "POST" && n === null) {
+      const existe = ligne(sql.exec("SELECT catalogue_maj FROM cartouches WHERE id = ?", id));
+      if (!existe) return new Response(null, { status: 404 });
+      const maj = Number(req.headers.get("X-Maj")) || Date.now();
+      if (existe.catalogue_maj > maj) return Response.json({ ok: false, raison: "plus-recent" }, { status: 409 });
+      const oui = req.headers.get("X-Catalogue") === "1" ? 1 : 0;
+      sql.exec("UPDATE cartouches SET catalogue = ?, catalogue_maj = ? WHERE id = ?", oui, maj, id);
+      return Response.json({ ok: true, catalogue: oui, catalogue_maj: maj });
     }
 
     if (n === null) return new Response(null, { status: 404 });

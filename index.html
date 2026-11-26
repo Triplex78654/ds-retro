@@ -423,6 +423,46 @@
   .cart.nuage .etiquette { filter: grayscale(.4); }
   .retirer.arme { opacity: 1; background: #b3261e; color: #fff; width: auto; padding: 0 calc(var(--u) * 5); border-radius: 99px; font-size: max(10px, calc(var(--u) * 7)); }
 
+  /* Au catalogue : l'étoile sur une cartouche, le bandeau après un ajout, les rubriques du catalogue */
+  .au-catalogue {
+    position: absolute; bottom: calc(var(--u) * -3); right: calc(var(--u) * -3);
+    width: max(20px, calc(var(--u) * 14)); height: max(20px, calc(var(--u) * 14));
+    border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+    background: var(--encre); color: var(--lcd);
+    font: 400 13px/1 system-ui, sans-serif;
+    display: grid; place-items: center;
+    opacity: 0; transition: opacity .12s; z-index: 2;
+  }
+  .emplacement:hover .au-catalogue, .au-catalogue:focus-visible { opacity: 1; }
+  @media (hover: none) { .au-catalogue { opacity: .85; } }
+  .au-catalogue[aria-pressed="true"] { opacity: 1; background: var(--accent); color: var(--sur-accent); }
+  .apres-ajout {
+    flex: none; margin: 0 calc(var(--u) * 9) calc(var(--u) * 5);
+    padding: calc(var(--u) * 4) calc(var(--u) * 5);
+    border-radius: calc(var(--u) * 4); border: calc(var(--u) * 1) solid rgba(31,43,51,.2);
+    background: rgba(255,255,255,.6);
+    display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--u) * 4);
+    font-size: max(11px, calc(var(--u) * 8));
+  }
+  .apres-ajout p { grid-column: 1 / -1; margin: 0 calc(var(--u) * 1); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .apres-ajout .choix { padding: calc(var(--u) * 3) calc(var(--u) * 4); text-align: center; font-weight: 600; font-size: max(11px, calc(var(--u) * 8.5)); white-space: nowrap; }
+  .apres-ajout .choix[aria-pressed="true"] { box-shadow: none; background: var(--accent); color: var(--sur-accent); border-color: transparent; }
+  .titre-grille {
+    grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: calc(var(--u) * 6);
+    margin: calc(var(--u) * 3) 0 calc(var(--u) * -3);
+    font-weight: 600; font-size: max(11px, calc(var(--u) * 8.5)); color: var(--encre);
+  }
+  .titre-grille:first-child { margin-top: 0; }
+  .titre-grille small { font-weight: 400; font-size: max(10px, calc(var(--u) * 7)); color: var(--encre-2); text-align: right; }
+  .cart .chez {
+    position: absolute; right: calc(var(--u) * 4); top: calc(var(--u) * 9);
+    width: calc(var(--u) * 10); height: calc(var(--u) * 10); border-radius: 50%;
+    display: grid; place-items: center;
+    background: hsl(var(--teinte-pote) 55% 42%); color: #fff;
+    font: 600 calc(var(--u) * 6.5)/1 "Pixelify", system-ui, sans-serif;
+    box-shadow: 0 0 0 calc(var(--u) * 1) rgba(255,255,255,.75);
+  }
+
   /* Cartouches */
   .emplacement { position: relative; }
   .cart, .ajouter {
@@ -772,6 +812,7 @@
             <button type="button" class="vue-jeux" role="tab" data-vue="perso" aria-selected="true">Tes cartouches<small id="compte"></small></button>
             <button type="button" class="vue-jeux" role="tab" data-vue="catalogue" aria-selected="false">Catalogue<small id="compte-catalogue"></small></button>
           </div>
+          <div class="apres-ajout" id="apres-ajout" role="status" hidden></div>
           <div class="grille" id="grille"></div>
           <div class="grille" id="grille-catalogue" hidden></div>
           <div class="etat-ludo" id="etat-ludo" hidden></div>
@@ -1338,17 +1379,7 @@
       const titre = document.createElement("span");
       titre.className = "nom"; titre.textContent = nom;
       cart.append(etiquette, titre);
-      cart.addEventListener("click", async () => {
-        try {
-          const complet = await lireDans("cartouches", c.id);
-          if (!complet || !complet.blob) throw new Error("absent");
-          complet.joue = Date.now();
-          ecrireDans("cartouches", complet).catch(() => {});
-          inserer(cart, complet.blob, c.nom, c.id);
-        } catch (e) {
-          $("erreur").textContent = "Cette cartouche n'est plus sur l'appareil. Ajoute à nouveau le fichier.";
-        }
-      });
+      cart.addEventListener("click", () => jouerCartouche(cart, c.id));
       if (ludoContient(c.id)) {
         const nuage = document.createElement("span");
         nuage.className = "nuage-ok"; nuage.textContent = "☁"; nuage.title = "Aussi dans ton cloud";
@@ -1357,7 +1388,7 @@
       emplacement.append(cart, boutonRetirer(nom, async () => {
         await retirerCartouche(c.id).catch(() => {});
         await retirerDuCloud(c.id);
-      }));
+      }), boutonCatalogue(nom, Boolean(c.catalogue), oui => basculerCatalogue({ id: c.id }, oui)));
       grille.appendChild(emplacement);
     });
 
@@ -1378,7 +1409,7 @@
       nuage.className = "nuage-ok"; nuage.textContent = "☁";
       cart.append(etiquette, titre, nuage);
       cart.addEventListener("click", () => recupererDuCloud(cart, d));
-      emplacement.append(cart, boutonRetirer(nom, () => supprimerDuCloud(d.id)));
+      emplacement.append(cart, boutonRetirer(nom, () => supprimerDuCloud(d.id)), boutonCatalogue(nom, Boolean(d.catalogue), oui => basculerCatalogue({ cle: d.id }, oui)));
       grille.appendChild(emplacement);
     }
 
@@ -1395,6 +1426,112 @@
     }
     $("compte").textContent = nbCartes ? String(nbCartes) : "";
     try { envoyerMaListe(false); } catch (e) {}
+    afficherCatalogue();
+  }
+
+  async function jouerCartouche(cart, id) {
+    try {
+      const complet = await lireDans("cartouches", id);
+      if (!complet || !complet.blob) throw new Error("absent");
+      complet.joue = Date.now();
+      ecrireDans("cartouches", complet).catch(() => {});
+      inserer(cart, complet.blob, complet.nom, id);
+    } catch (e) {
+      $("erreur").textContent = "Cette cartouche n'est plus sur l'appareil. Ajoute à nouveau le fichier.";
+    }
+  }
+
+  // Étoile : met le jeu au catalogue du salon. Tes potes voient son nom et peuvent te demander
+  // d'y jouer ; le jeu tourne sur ta console et ils jouent à distance. Le fichier reste chez toi.
+  function boutonCatalogue(nom, oui, action) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "au-catalogue";
+    const maj = () => {
+      b.textContent = oui ? "★" : "☆";
+      b.setAttribute("aria-pressed", String(oui));
+      b.setAttribute("aria-label", (oui ? "Retirer du catalogue : " : "Mettre au catalogue : ") + nom);
+      b.title = oui ? "Au catalogue" : "Mettre au catalogue";
+    };
+    const expliquer = () => {
+      if (jeuActif || spectateur) return;
+      $("message-haut").textContent = oui
+        ? nom + " est au catalogue : tes potes du salon voient son nom et peuvent te demander d'y jouer."
+        : "Étoile : mets " + nom + " au catalogue du salon. Le fichier reste chez toi.";
+    };
+    maj();
+    b.addEventListener("mouseenter", expliquer);
+    b.addEventListener("focus", expliquer);
+    b.addEventListener("click", async e => {
+      e.stopPropagation();
+      oui = !oui; maj(); expliquer();
+      await action(oui);
+    });
+    return b;
+  }
+
+  async function basculerCatalogue(cible, oui) {
+    const maj = Date.now();
+    let cle = cible.cle || null;
+    if (cible.id) {
+      const c = await lireDans("cartouches", cible.id).catch(() => null);
+      if (c) { c.catalogue = oui; c.catalogueMaj = maj; await ecrireDans("cartouches", c).catch(() => {}); }
+      if (salon.jeton) cle = await cleLudo(cible.id);
+    }
+    const d = cle && ludo.distants.get(cle);
+    if (d && salon.jeton) {
+      d.catalogue = oui ? 1 : 0; d.catalogue_maj = maj;
+      appelLudo("/" + cle, { method: "POST", headers: { "X-Catalogue": oui ? "1" : "0", "X-Maj": String(maj) } }).catch(() => {});
+    }
+    envoyerMaListe(false);
+    afficherCatalogue();
+  }
+
+  // Bandeau sous les onglets après un ajout : mettre au catalogue, jouer.
+  function masquerApresAjout() {
+    const zone = $("apres-ajout");
+    zone.hidden = true; zone.innerHTML = "";
+  }
+  async function afficherApresAjout(ids) {
+    const zone = $("apres-ajout");
+    const cartouches = (await Promise.all(ids.map(id => lireDans("cartouches", id).catch(() => null)))).filter(Boolean);
+    zone.innerHTML = "";
+    zone.hidden = !cartouches.length;
+    if (!cartouches.length) return;
+    const seul = cartouches.length === 1;
+    const nom = seul ? nomLisible(cartouches[0].nom) : "";
+    const texte = document.createElement("p");
+    texte.textContent = seul ? "Ajouté : " + nom : cartouches.length + " jeux ajoutés à tes cartouches";
+    texte.title = texte.textContent;
+    const bouton = (libelle, classe, action) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "choix " + classe; b.textContent = libelle;
+      b.addEventListener("click", action);
+      return b;
+    };
+    let tous = cartouches.every(c => c.catalogue);
+    const bCatalogue = bouton("", "", async () => {
+      tous = !tous; majCatalogue();
+      for (const c of cartouches) await basculerCatalogue({ id: c.id }, tous);
+      await afficherCartouches();
+      $("message-haut").textContent = !tous ? "Retiré du catalogue."
+        : seul ? nom + " est au catalogue : tes potes du salon le voient et peuvent te demander d'y jouer."
+        : "Ces jeux sont au catalogue : tes potes du salon les voient et peuvent te demander d'y jouer.";
+    });
+    const majCatalogue = () => {
+      bCatalogue.textContent = tous ? "★ Au catalogue" : seul ? "☆ Mettre au catalogue" : "☆ Tout mettre au catalogue";
+      bCatalogue.setAttribute("aria-pressed", String(tous));
+    };
+    majCatalogue();
+    zone.append(texte, bCatalogue);
+    if (seul) {
+      const id = cartouches[0].id;
+      zone.append(bouton("Jouer", "principal", () => {
+        masquerApresAjout();
+        jouerCartouche(document.querySelector(`.cart[data-id="${CSS.escape(id)}"]`), id);
+      }));
+    } else {
+      zone.append(bouton("OK", "", () => { masquerApresAjout(); $("message-haut").textContent = MESSAGE_ACCUEIL; }));
+    }
   }
   // Bouton × : un premier appui arme le retrait, le second retire (de l'appareil et du cloud).
   function boutonRetirer(nom, action) {
@@ -1430,16 +1567,19 @@
       return;
     }
     const id = fichier.name + "|" + fichier.size;
+    afficherVueJeux("perso");
     try {
       const ancien = await lireDans("cartouches", id).catch(() => null);
-      await ecrireDans("cartouches", { id, nom: fichier.name, taille: fichier.size, ajoute: ancien ? ancien.ajoute : Date.now(), joue: Date.now(), blob: fichier });
+      await ecrireDans("cartouches", { ...(ancien || {}), id, nom: fichier.name, taille: fichier.size, ajoute: ancien ? ancien.ajoute : Date.now(), joue: Date.now(), blob: fichier });
     } catch (e) {
       // Plus de place sur l'appareil : on lance quand même, sans garder la cartouche.
+      const cart = document.querySelector(`.cart[data-id="${CSS.escape(id)}"]`);
+      return inserer(cart, fichier, fichier.name, id);
     }
     await afficherCartouches();
     synchroniserLudotheque();
-    const cart = document.querySelector(`.cart[data-id="${CSS.escape(id)}"]`);
-    inserer(cart, fichier, fichier.name, id);
+    await afficherApresAjout([id]);
+    $("message-haut").textContent = nomLisible(fichier.name) + " est prêt. Touche Jouer, ou mets-le au catalogue pour tes potes.";
   }
 
   // Plusieurs jeux d'un coup : ils rejoignent tous « Tes cartouches », sans lancer de partie.
@@ -1449,18 +1589,21 @@
     $("erreur").textContent = "";
     afficherVueJeux("perso");
     let ajoutes = 0, sansPlace = 0;
+    const nouveaux = [];
     for (let i = 0; i < jeux.length; i++) {
       const f = jeux[i];
       $("message-haut").textContent = "Ajout des jeux… " + (i + 1) + " / " + jeux.length;
       const id = f.name + "|" + f.size;
       try {
         const ancien = await lireDans("cartouches", id).catch(() => null);
-        await ecrireDans("cartouches", { id, nom: f.name, taille: f.size, ajoute: ancien ? ancien.ajoute : Date.now(), joue: ancien ? ancien.joue : 0, blob: f });
+        await ecrireDans("cartouches", { ...(ancien || {}), id, nom: f.name, taille: f.size, ajoute: ancien ? ancien.ajoute : Date.now(), joue: ancien ? ancien.joue : 0, blob: f });
         ajoutes++;
+        nouveaux.push(id);
       } catch (e) { sansPlace++; }
     }
     await afficherCartouches();
     synchroniserLudotheque();
+    await afficherApresAjout(nouveaux);
     $("message-haut").textContent = ajoutes === 1 ? "1 jeu ajouté à tes cartouches." : ajoutes + " jeux ajoutés à tes cartouches.";
     const remarques = [];
     if (ignores) remarques.push(ignores === 1 ? "1 fichier ignoré (ce n'est pas un jeu DS)." : ignores + " fichiers ignorés (ce ne sont pas des jeux DS).");
@@ -1507,52 +1650,147 @@
     $("grille-catalogue").hidden = vueJeux !== "catalogue";
     $("etat-ludo").hidden = vueJeux !== "perso" || !$("etat-ludo").textContent;
     $("erreur").textContent = "";
+    if (vueJeux !== "perso") masquerApresAjout();
     if (!jeuActif && !salon.infos.hote) {
-      $("message-haut").textContent = vueJeux === "catalogue" ? "Jeux partagés avec tout le salon. Touche une cartouche pour jouer." : MESSAGE_ACCUEIL;
+      $("message-haut").textContent = vueJeux === "catalogue" ? "Le catalogue du salon : tes jeux étoilés, ceux de tes potes et des jeux libres." : MESSAGE_ACCUEIL;
     }
-    if (vueJeux === "catalogue" && !catalogue) chargerCatalogue();
+    if (vueJeux === "catalogue") { if (!catalogue && !chargementCatalogue) chargerCatalogue(); else afficherCatalogue(true); }
   }
   document.querySelectorAll(".vue-jeux").forEach(b => b.addEventListener("click", () => afficherVueJeux(b.dataset.vue)));
 
+  let chargementCatalogue = false, catalogueEnPanne = false, signatureCatalogue = "";
   async function chargerCatalogue() {
-    const grille = $("grille-catalogue");
-    grille.innerHTML = '<div class="vide"><p>Chargement du catalogue…</p></div>';
+    chargementCatalogue = true;
     try {
       const r = await fetch("catalogue/jeux.json", { cache: "no-cache" });
       if (!r.ok) throw new Error(r.status);
       catalogue = (await r.json()).jeux || [];
+      catalogueEnPanne = false;
     } catch (e) {
       catalogue = null;
-      grille.innerHTML = '<div class="vide"><p>Le catalogue ne répond pas. Réessaie dans un instant.</p></div>';
-      return;
+      catalogueEnPanne = true;
     }
+    chargementCatalogue = false;
+    afficherCatalogue(true);
+  }
+
+  function nouvelleCart(nom, label, valeurTeinte) {
+    const cart = document.createElement("button");
+    cart.type = "button"; cart.className = "cart";
+    cart.style.setProperty("--teinte", valeurTeinte);
+    cart.setAttribute("aria-label", label);
+    const etiquette = document.createElement("span");
+    etiquette.className = "etiquette"; etiquette.textContent = initiales(nom);
+    const titre = document.createElement("span");
+    titre.className = "nom"; titre.textContent = nom;
+    cart.append(etiquette, titre);
+    return cart;
+  }
+
+  // Trois rubriques : tes jeux étoilés, les jeux de tes potes présents dans le salon, les jeux libres.
+  function afficherCatalogue(forcer) {
+    return dessinerCatalogue(forcer).catch(e => console.warn("catalogue", e));
+  }
+  async function dessinerCatalogue(forcer) {
+    const grille = $("grille-catalogue");
+    const locaux = await listerCartouches();
+    const miens = locaux.filter(c => c.catalogue).map(c => ({ id: c.id, nom: nomLisible(c.nom) }));
+    for (const d of await jeuxSeulementDansLeCloud(locaux)) if (d.catalogue) miens.push({ id: "nuage:" + d.id, nom: nomLisible(d.nom), d });
+    miens.sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+    const potes = [];
+    if (salon.etat === "connecte") {
+      for (const [id, jeux] of salon.listes) {
+        if (id !== moiId() && jeux.length && salon.infos.joueurs.some(j => j.id === id)) potes.push({ id, nom: nomDe(id), jeux });
+      }
+    }
+    const libres = catalogue || [];
+    const signature = JSON.stringify([chargementCatalogue, catalogueEnPanne, libres.map(j => j.fichier), miens.map(j => j.id), potes.map(p => [p.id, p.nom, p.jeux])]);
+    if (!forcer && signature === signatureCatalogue) return;
+    signatureCatalogue = signature;
+
+    const total = miens.length + libres.length + potes.reduce((n, p) => n + p.jeux.length, 0);
+    $("compte-catalogue").textContent = total ? String(total) : "";
     grille.innerHTML = "";
-    $("compte-catalogue").textContent = catalogue.length ? String(catalogue.length) : "";
-    if (!catalogue.length) {
-      grille.innerHTML = '<div class="vide"><p>Le catalogue est vide. Les jeux ajoutés au dossier <b>catalogue</b> du dépôt apparaîtront ici.</p></div>';
-      return;
+    const rubrique = (titre, detail) => {
+      const t = document.createElement("div");
+      t.className = "titre-grille";
+      const b = document.createElement("span"); b.textContent = titre;
+      const p = document.createElement("small"); p.textContent = detail;
+      t.append(b, p);
+      grille.appendChild(t);
+    };
+    const fiche = (cart, texte) => {
+      const montrer = () => { if (!jeuActif && !spectateur && !telechargement) $("message-haut").textContent = texte; };
+      cart.addEventListener("mouseenter", montrer);
+      cart.addEventListener("focus", montrer);
+    };
+
+    if (miens.length) {
+      rubrique("Tes jeux", "tes potes voient leur nom");
+      miens.forEach(j => {
+        const emplacement = document.createElement("div");
+        emplacement.className = "emplacement";
+        const cart = nouvelleCart(j.nom, "Jouer à " + j.nom, teinte(j.nom));
+        fiche(cart, j.nom + ", ton jeu au catalogue. Touche pour jouer : tes potes pourront regarder et prendre la manette.");
+        cart.addEventListener("click", () => j.d ? recupererDuCloud(cart, j.d) : jouerCartouche(cart, j.id));
+        emplacement.append(cart, boutonCatalogue(j.nom, true, oui => basculerCatalogue(j.d ? { cle: j.d.id } : { id: j.id }, oui)));
+        grille.appendChild(emplacement);
+      });
     }
-    catalogue.forEach(jeu => {
-      const emplacement = document.createElement("div");
-      emplacement.className = "emplacement";
-      const cart = document.createElement("button");
-      cart.type = "button"; cart.className = "cart";
-      cart.style.setProperty("--teinte", Number.isFinite(jeu.teinte) ? jeu.teinte : teinte(jeu.nom));
-      cart.setAttribute("aria-label", "Jouer à " + jeu.nom);
-      const etiquette = document.createElement("span");
-      etiquette.className = "etiquette"; etiquette.textContent = initiales(jeu.nom);
-      const titre = document.createElement("span");
-      titre.className = "nom"; titre.textContent = jeu.nom;
-      const pastille = document.createElement("i");
-      pastille.className = "partage"; pastille.title = "Jeu du catalogue";
-      cart.append(etiquette, titre, pastille);
-      const montrerFiche = () => { if (!jeuActif && !telechargement) $("message-haut").textContent = ficheJeu(jeu); };
-      cart.addEventListener("mouseenter", montrerFiche);
-      cart.addEventListener("focus", montrerFiche);
-      cart.addEventListener("click", () => lancerDuCatalogue(cart, jeu));
-      emplacement.appendChild(cart);
-      grille.appendChild(emplacement);
+
+    potes.forEach(p => {
+      rubrique("Chez " + p.nom, "il lance, tu joues");
+      p.jeux.forEach(jeu => {
+        const emplacement = document.createElement("div");
+        emplacement.className = "emplacement";
+        const cart = nouvelleCart(jeu.nom, "Demander à " + p.nom + " de lancer " + jeu.nom, teinte(jeu.nom));
+        const badge = document.createElement("i");
+        badge.className = "chez"; badge.textContent = (p.nom[0] || "?").toUpperCase();
+        badge.style.setProperty("--teinte-pote", teinte(p.nom));
+        cart.appendChild(badge);
+        fiche(cart, jeu.nom + ", chez " + p.nom + ". Touche pour lui demander de le lancer : tu verras son écran et tu auras la manette.");
+        cart.addEventListener("click", () => proposerA(p.id, jeu));
+        emplacement.appendChild(cart);
+        grille.appendChild(emplacement);
+      });
     });
+
+    if (libres.length) {
+      rubrique("Jeux libres", "pour tout le monde");
+      libres.forEach(jeu => {
+        const emplacement = document.createElement("div");
+        emplacement.className = "emplacement";
+        const cart = nouvelleCart(jeu.nom, "Jouer à " + jeu.nom, Number.isFinite(jeu.teinte) ? jeu.teinte : teinte(jeu.nom));
+        const pastille = document.createElement("i");
+        pastille.className = "partage"; pastille.title = "Jeu libre";
+        cart.appendChild(pastille);
+        fiche(cart, ficheJeu(jeu));
+        cart.addEventListener("click", () => lancerDuCatalogue(cart, jeu));
+        emplacement.appendChild(cart);
+        grille.appendChild(emplacement);
+      });
+    }
+
+    if (!grille.children.length) {
+      const vide = document.createElement("div");
+      vide.className = "vide";
+      vide.innerHTML = chargementCatalogue ? "<p>Chargement du catalogue…</p>"
+        : "<p>Le catalogue est vide. Touche l'étoile ☆ d'une de tes cartouches pour l'y mettre.</p><p>Tes potes du salon verront son nom.</p>";
+      grille.appendChild(vide);
+    } else if (catalogueEnPanne) {
+      const vide = document.createElement("div");
+      vide.className = "vide";
+      vide.innerHTML = "<p>Les jeux libres ne répondent pas pour l'instant.</p>";
+      grille.appendChild(vide);
+    }
+  }
+
+  function proposerA(id, jeu) {
+    if (jeuActif) { $("erreur").textContent = "Quitte ton jeu pour jouer chez un pote."; return; }
+    envoyerSalon({ t: "propose", a: id, jeu });
+    salon.proposeA = { a: id, nom: jeu.nom };
+    bulle("Demande envoyée à " + nomDe(id) + ".");
+    $("message-haut").textContent = "Demande envoyée à " + nomDe(id) + ". Quand il lance " + jeu.nom + ", tu verras son écran et tu auras la manette.";
   }
 
   async function lancerDuCatalogue(cart, jeu) {
@@ -1701,6 +1939,7 @@
 
   function inserer(cart, blob, nomFichier, id) {
     if (jeuActif || spectateur) return;
+    masquerApresAjout();
     jeuActif = true;
     cartoucheId = id || null;
     nomJeu = nomLisible(nomFichier);
@@ -1885,6 +2124,7 @@
       if (m.manette !== moiId() && avant.manette === moiId() && m.hote && m.hote !== moiId()) bulle("La manette est repartie chez " + nomDe(m.manette) + ".");
       if (jeuDemarre && !m.hote) annoncerJeu();
       majSalon();
+      afficherCatalogue();
     } else if (m.t === "demande") {
       salon.demandes.add(m.de.id);
       bulle(m.de.nom + " demande la manette. MENU, puis Salon pour la lui donner.");
@@ -1897,6 +2137,7 @@
     } else if (m.t === "liste") {
       salon.listes.set(m.de, m.jeux || []);
       majSalon();
+      afficherCatalogue();
     } else if (m.t === "propose") {
       salon.propositions = salon.propositions.filter(p => !(p.de.id === m.de.id && p.jeu.id === m.jeu.id));
       salon.propositions.unshift(m);
@@ -2126,13 +2367,14 @@
         salon.propositions.forEach(p => ligneJeu(p.jeu.nom, p.de.nom, "Lancer", () => lancerProposition(p), true));
       }
       const autres = [...salon.listes].filter(([id, jeux]) => id !== moi && jeux.length && i.joueurs.some(j => j.id === id));
-      if (autres.length) {
+      if (autres.length && !jeuActif) {
+        const n = autres.reduce((t, [, jeux]) => t + jeux.length, 0);
         titreSection("Jeux de tes potes");
-        autres.forEach(([id, jeux]) => jeux.forEach(jeu => ligneJeu(jeu.nom, nomDe(id), "Proposer", () => {
-          envoyerSalon({ t: "propose", a: id, jeu });
-          salon.proposeA = { a: id, nom: jeu.nom };
-          bulle("Proposé à " + nomDe(id) + ". Dès qu'il lance " + jeu.nom + ", tu verras son écran.");
-        })));
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "choix centre";
+        b.textContent = (n === 1 ? "1 jeu" : n + " jeux") + " au catalogue";
+        b.addEventListener("click", () => { afficherOnglet("jeux"); afficherVueJeux("catalogue"); });
+        liste.appendChild(b);
       }
     }
 
@@ -2155,9 +2397,9 @@
   async function envoyerMaListe(forcer) {
     if (salon.etat !== "connecte") return;
     const locaux = await listerCartouches();
-    const jeux = locaux.map(c => ({ id: c.id, nom: nomLisible(c.nom) }));
+    const jeux = locaux.filter(c => c.catalogue).map(c => ({ id: c.id, nom: nomLisible(c.nom) }));
     try {
-      for (const d of await jeuxSeulementDansLeCloud(locaux)) jeux.push({ id: "nuage:" + d.id, nom: nomLisible(d.nom) });
+      for (const d of await jeuxSeulementDansLeCloud(locaux)) if (d.catalogue) jeux.push({ id: "nuage:" + d.id, nom: nomLisible(d.nom) });
     } catch (e) {}
     jeux.sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
     const texte = JSON.stringify(jeux);
@@ -2273,6 +2515,7 @@
       await chargerListeLudo();
       const locaux = await listerCartouches();
       for (const c of locaux) await cleLudo(c.id);
+      await accorderCatalogue(locaux);
       await afficherCartouches();
       const aEnvoyer = locaux.filter(c => c.blob && !ludoContient(c.id));
       for (let i = 0; i < aEnvoyer.length; i++) {
@@ -2281,6 +2524,7 @@
         if (!ok) break;
       }
       await chargerListeLudo();
+      await accorderCatalogue(await listerCartouches());
       await afficherCartouches();
       const n = locaux.filter(c => ludoContient(c.id)).length;
       if (ludo.plein) majEtatLudo("Ton cloud est plein (1 Go). Retire des jeux pour en sauvegarder d'autres.");
@@ -2289,6 +2533,24 @@
       majEtatLudo("Ton cloud ne répond pas. Tes jeux restent sur cet appareil.");
     } finally {
       ludo.actif = false;
+    }
+  }
+
+  // L'étoile suit le choix le plus récent, entre cet appareil et ton cloud.
+  async function accorderCatalogue(locaux) {
+    for (const c of locaux) {
+      const d = ludo.distants.get(await cleLudo(c.id));
+      if (!d) continue;
+      const ici = c.catalogueMaj || 0, la = d.catalogue_maj || 0;
+      if (la > ici) {
+        if (Boolean(d.catalogue) !== Boolean(c.catalogue)) {
+          c.catalogue = Boolean(d.catalogue); c.catalogueMaj = la;
+          await ecrireDans("cartouches", c).catch(() => {});
+        }
+      } else if (ici > la) {
+        d.catalogue = c.catalogue ? 1 : 0; d.catalogue_maj = ici;
+        await appelLudo("/" + d.id, { method: "POST", headers: { "X-Catalogue": c.catalogue ? "1" : "0", "X-Maj": String(ici) } }).catch(() => {});
+      }
     }
   }
 
@@ -2331,7 +2593,7 @@
       const blob = new Blob(morceaux);
       const idLocal = d.nom + "|" + d.taille;
       ludo.cles.set(idLocal, d.id);
-      await ecrireDans("cartouches", { id: idLocal, nom: d.nom, taille: d.taille, ajoute: Date.now(), joue: Date.now(), blob }).catch(() => {});
+      await ecrireDans("cartouches", { id: idLocal, nom: d.nom, taille: d.taille, ajoute: Date.now(), joue: Date.now(), catalogue: Boolean(d.catalogue), catalogueMaj: d.catalogue_maj || 0, blob }).catch(() => {});
       telechargement = false;
       inserer(cart, blob, d.nom, idLocal);
     } catch (e) {
@@ -2354,6 +2616,7 @@
 
   if (DANS_DISCORD) connecterDiscord(); else majSalon();
   afficherVueJeux(vueJeux);
+  if (!catalogue && !chargementCatalogue) chargerCatalogue();
 
   // ---------- Navigation dans le menu (manette, croix de la console) ----------
   function elementsNavigables() {
