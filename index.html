@@ -1940,12 +1940,47 @@
     if (m < 60) return "il y a " + m + " min";
     return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(t);
   }
+  // États de partie : aussi dans le cloud (compressés), pour les retrouver sur un autre appareil.
+  async function compresser(octets) {
+    if (typeof CompressionStream !== "function") return octets;
+    const gz = new Uint8Array(await new Response(new Blob([octets]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer());
+    const sortie = new Uint8Array(4 + gz.length);
+    sortie.set([68, 83, 90, 49]); sortie.set(gz, 4);   // « DSZ1 » : état compressé
+    return sortie;
+  }
+  async function decompresser(octets) {
+    if (!(octets[0] === 68 && octets[1] === 83 && octets[2] === 90 && octets[3] === 49)) return octets;
+    return new Uint8Array(await new Response(new Blob([octets.subarray(4)]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer());
+  }
+  const routeEtat = async id => API + "/etats/" + await cleJeu("etat:" + id);
+  async function envoyerEtatCloud(id, etat, maj) {
+    if (!salon.jeton) return false;
+    try {
+      const r = await fetch(await routeEtat(id), { method: "PUT", headers: { Authorization: "Bearer " + salon.jeton, "X-Maj": String(maj) }, body: await compresser(etat) });
+      return r.ok;
+    } catch (e) { return false; }
+  }
+  async function infoEtatCloud(id) {
+    if (!salon.jeton || !id) return null;
+    try {
+      const r = await fetch(await routeEtat(id) + "/info", { headers: { Authorization: "Bearer " + salon.jeton } });
+      return r.ok ? await r.json() : null;
+    } catch (e) { return null; }
+  }
+  async function lireEtatCloud(id) {
+    const r = await fetch(await routeEtat(id), { headers: { Authorization: "Bearer " + salon.jeton } });
+    if (!r.ok) throw new Error(r.status);
+    return { etat: await decompresser(new Uint8Array(await r.arrayBuffer())), maj: Number(r.headers.get("X-Maj")) || Date.now() };
+  }
+
   async function majInfosPartie() {
     $("titre-partie").textContent = nomJeu;
     $("info-sram").textContent = derniereCopie ? "copiée " + ilYA(derniereCopie) : "pas encore faite";
     const etat = cartoucheId ? await lireDans("etats", cartoucheId).catch(() => null) : null;
-    $("info-etat").textContent = etat ? ilYA(etat.maj) : "aucun";
-    $("charger-etat").disabled = !etat;
+    const distant = await infoEtatCloud(cartoucheId);
+    const plusRecent = Math.max((etat && etat.maj) || 0, (distant && distant.maj) || 0);
+    $("info-etat").textContent = plusRecent ? ilYA(plusRecent) + (distant && distant.maj >= plusRecent ? ", dans ton cloud" : "") : "aucun";
+    $("charger-etat").disabled = !plusRecent;
     $("info-cloud").textContent = !DANS_DISCORD ? "dans Discord seulement"
       : !salon.jeton ? "hors ligne"
       : cloud.erreur ? "échec, nouvel essai bientôt"
@@ -2031,9 +2066,11 @@
   $("sauver-etat").addEventListener("click", async () => {
     const b = $("sauver-etat");
     try {
-      const etat = window.EJS_emulator.gameManager.getState();
-      await ecrireDans("etats", { id: cartoucheId, etat: new Uint8Array(etat), maj: Date.now() });
+      const etat = new Uint8Array(window.EJS_emulator.gameManager.getState());
+      const maj = Date.now();
+      await ecrireDans("etats", { id: cartoucheId, etat, maj });
       b.textContent = "État sauvé";
+      if (salon.jeton) envoyerEtatCloud(cartoucheId, etat, maj).then(ok => { if (!ok) bulle("État sauvé sur cet appareil. Le cloud ne répond pas pour l'instant."); majInfosPartie(); });
     } catch (e) {
       b.textContent = "Échec, réessaie";
     }
@@ -2042,7 +2079,14 @@
   });
   $("charger-etat").addEventListener("click", async () => {
     try {
-      const e = await lireDans("etats", cartoucheId);
+      let e = await lireDans("etats", cartoucheId).catch(() => null);
+      const distant = await infoEtatCloud(cartoucheId);
+      if (distant && (!e || distant.maj > e.maj)) {
+        $("charger-etat").textContent = "Récupération…";
+        e = { id: cartoucheId, ...(await lireEtatCloud(cartoucheId)) };
+        ecrireDans("etats", e).catch(() => {});
+        $("charger-etat").textContent = "Charger l'état";
+      }
       if (!e) return;
       window.EJS_emulator.gameManager.loadState(e.etat);
       fermerPause();

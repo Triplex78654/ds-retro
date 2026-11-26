@@ -1,0 +1,42 @@
+# Tests de bout en bout : serveur en local (wrangler dev) + console dans Chromium.
+# Lancés à chaque modification de la console, et avant chaque publication du serveur.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["serveur/**", "catalogue/**", "**.md"]
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Installer le serveur
+        working-directory: serveur
+        run: npm ci
+      - name: Installer les tests et Chromium
+        working-directory: tests
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Lancer les scénarios
+        working-directory: tests
+        run: node lancer.mjs
+      - name: Garder les captures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: captures
+          path: tests/captures/
+          if-no-files-found: ignore

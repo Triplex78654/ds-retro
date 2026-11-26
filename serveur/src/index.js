@@ -14,6 +14,8 @@
 //   PUT  /sauvegardes/:jeu      envoie une sauvegarde (en-tête X-Maj = date en ms) ; l'ancienne va dans l'historique
 //   GET  /sauvegardes/:jeu/versions        anciennes versions d'une sauvegarde
 //   GET  /sauvegardes/:jeu/versions/:maj   télécharge une ancienne version
+//   GET  /etats/:jeu            état de partie (sauvegarde instantanée, compressée) ; /etats/:jeu/info = date et taille
+//   PUT  /etats/:jeu            envoie l'état (en-tête X-Maj), rangé dans R2
 //   GET  /ludotheque            jeux personnels du joueur (privés, seulement pour lui ; fichiers dans R2)
 //   GET  /ludotheque/:id/:n     télécharge le morceau n d'un jeu
 //   PUT  /ludotheque/:id/:n     envoie le morceau n (en-têtes X-Nom, X-Taille, X-Morceaux)
@@ -30,7 +32,8 @@ const CORS = {
   "Access-Control-Expose-Headers": "X-Maj",
 };
 const TAILLE_MAX_SAUVEGARDE = 2_000_000;
-const QUOTA_SAUVEGARDES = 300_000_000;     // sauvegardes + historique, par joueur
+const QUOTA_SAUVEGARDES = 300_000_000;
+const TAILLE_MAX_ETAT = 30_000_000;        // un état DS compressé pèse quelques Mo     // sauvegardes + historique, par joueur
 const VERSIONS_GARDEES = 12;               // anciennes versions par jeu, espacées d'au moins 10 min
 const ESPACEMENT_VERSIONS = 10 * 60 * 1000;
 const TAILLE_MORCEAU = 1_900_000;          // taille d'un morceau de jeu envoyé par la console
@@ -58,7 +61,7 @@ async function joueurDepuisJeton(jeton, env, local) {
   if (!jeton || jeton.length > 200) return null;
   if (env.DEV_SANS_AUTH === "1" && local && jeton.startsWith("dev:")) {
     const [, id, guilde] = jeton.split(":");
-    return { id, nom: "Joueur " + id, guildes: [guilde || "g-test"] };
+    return { id, nom: "Joueur " + id, guildes: [guilde || "100000000000000001"] };
   }
   const memo = cacheJoueurs.get(jeton);
   if (memo && memo.expire > Date.now()) return memo.joueur;
@@ -198,7 +201,7 @@ export default {
       const { instance, guilde } = await req.json().catch(() => ({}));
       if (typeof instance !== "string" || !/^[\w-]{1,100}$/.test(instance)) return json({ erreur: "Salon inconnu." }, 400);
       // Le propriétaire ouvre l'Activité dans un de ses serveurs : ses membres y ont accès.
-      if (typeof guilde === "string" && /^\d{5,25}$|^g-test$/.test(guilde) && joueur.guildes.includes(guilde) && joueur.id === await idProprietaire(env)) {
+      if (typeof guilde === "string" && /^\d{5,25}$/.test(guilde) && joueur.guildes.includes(guilde) && joueur.id === await idProprietaire(env)) {
         await registre(env).ajouterGuilde(guilde);
         memoGuildes.expire = 0;
       }
@@ -231,6 +234,24 @@ export default {
       const entetes = new Headers(r.headers);
       for (const [k, v] of Object.entries(CORS)) entetes.set(k, v);
       return new Response(r.body, { status: r.status, headers: entetes });
+    }
+
+    m = chemin.match(/^\/etats\/([a-f0-9]{8,64})(\/info)?$/);
+    if (m) {
+      const { joueur, refus } = await joueurAutorise(req, env, url);
+      if (refus) return refus;
+      const coffre = env.COFFRES.get(env.COFFRES.idFromName(joueur.id));
+      const entetes = new Headers(req.headers);
+      entetes.set("X-Joueur-Id", joueur.id);
+      entetes.set("X-Proprietaire", joueur.id === await idProprietaire(env) ? "1" : "0");
+      const r = await coffre.fetch(new Request("https://coffre/etat/" + m[1] + (m[2] || ""), {
+        method: req.method,
+        headers: entetes,
+        body: req.method === "PUT" ? req.body : null,
+      }));
+      const sortie = new Headers(r.headers);
+      for (const [k, v] of Object.entries(CORS)) sortie.set(k, v);
+      return new Response(r.body, { status: r.status, headers: sortie });
     }
 
     m = chemin.match(/^\/ludotheque(?:\/([a-f0-9]{16,64})(?:\/(\d{1,5}))?)?$/);
@@ -434,6 +455,8 @@ export class Coffre extends DurableObject {
     ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS morceaux (id TEXT NOT NULL, n INTEGER NOT NULL, donnees BLOB NOT NULL, PRIMARY KEY (id, n))");
     // Morceaux rangés dans R2 : ici seulement leur taille.
     ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS pieces (id TEXT NOT NULL, n INTEGER NOT NULL, octets INTEGER NOT NULL, PRIMARY KEY (id, n))");
+    // États de partie rangés dans R2 : ici seulement leur date et leur taille.
+    ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS etats (jeu TEXT PRIMARY KEY, maj INTEGER NOT NULL, octets INTEGER NOT NULL)");
     // « Au catalogue » : le nom du jeu est montré aux potes du salon (jamais le fichier).
     const colonnes = new Set([...ctx.storage.sql.exec("PRAGMA table_info(cartouches)")].map(c => c.name));
     if (!colonnes.has("catalogue")) ctx.storage.sql.exec("ALTER TABLE cartouches ADD COLUMN catalogue INTEGER NOT NULL DEFAULT 0");
@@ -446,7 +469,39 @@ export class Coffre extends DurableObject {
     const [id, n] = sauf || ["", -1];
     const a = [...sql.exec("SELECT COALESCE(SUM(octets), 0) AS t FROM pieces WHERE NOT (id = ? AND n = ?)", id, n)][0].t;
     const b = [...sql.exec("SELECT COALESCE(SUM(length(donnees)), 0) AS t FROM morceaux WHERE NOT (id = ? AND n = ?)", id, n)][0].t;
-    return a + b;
+    const c = [...sql.exec("SELECT COALESCE(SUM(octets), 0) AS t FROM etats WHERE jeu != ?", sauf && sauf[2] ? sauf[2] : "")][0].t;
+    return a + b + c;
+  }
+
+  // États de partie : un par jeu, dans R2, comptés dans la place du joueur.
+  async etat(req, jeu, info) {
+    const sql = this.ctx.storage.sql;
+    const joueur = req.headers.get("X-Joueur-Id");
+    if (!joueur) return new Response(null, { status: 400 });
+    const cle = "etats/" + joueur + "/" + jeu;
+    const meta = [...sql.exec("SELECT maj, octets FROM etats WHERE jeu = ?", jeu)][0];
+    if (req.method === "GET") {
+      if (!meta) return new Response(null, { status: 404 });
+      if (info) return Response.json(meta);
+      const objet = await this.env.JEUX.get(cle);
+      if (!objet) return new Response(null, { status: 404 });
+      return new Response(objet.body, { headers: { "Content-Type": "application/octet-stream", "X-Maj": String(meta.maj) } });
+    }
+    if (req.method === "PUT" && !info) {
+      const donnees = await req.arrayBuffer();
+      if (!donnees.byteLength || donnees.byteLength > TAILLE_MAX_ETAT) return new Response("État invalide.", { status: 400 });
+      const maj = Number(req.headers.get("X-Maj")) || Date.now();
+      if (meta && meta.maj > maj) return Response.json({ ok: false, raison: "plus-recent" }, { status: 409 });
+      const quota = req.headers.get("X-Proprietaire") === "1" ? PLAFOND_R2 : QUOTA_POTE;
+      const total = this.utilise(["", -1, jeu]) + donnees.byteLength;
+      if (total > quota) return Response.json({ ok: false, raison: "quota" }, { status: 507 });
+      const place = await this.registre().reserver(joueur, total, PLAFOND_R2);
+      if (!place.ok) return Response.json({ ok: false, raison: "serveur-plein" }, { status: 507 });
+      await this.env.JEUX.put(cle, donnees);
+      sql.exec("INSERT INTO etats (jeu, maj, octets) VALUES (?, ?, ?) ON CONFLICT(jeu) DO UPDATE SET maj = excluded.maj, octets = excluded.octets", jeu, maj, donnees.byteLength);
+      return Response.json({ ok: true, maj });
+    }
+    return new Response(null, { status: 405 });
   }
 
   registre() {
@@ -559,6 +614,8 @@ export class Coffre extends DurableObject {
     const chemin = new URL(req.url).pathname;
     const ludo = chemin.match(/^\/ludo\/?([a-f0-9]*)(?:\/(\d+))?$/);
     if (ludo) return this.ludotheque(req, ludo[1] || null, ludo[2] !== undefined ? Number(ludo[2]) : null);
+    const et = chemin.match(/^\/etat\/([a-f0-9]{8,64})(\/info)?$/);
+    if (et) return this.etat(req, et[1], Boolean(et[2]));
 
     const sql = this.ctx.storage.sql;
     const ligne = requete => [...requete][0];

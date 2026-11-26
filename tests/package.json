@@ -1,0 +1,11 @@
+{
+  "name": "ds-retro-tests",
+  "private": true,
+  "type": "module",
+  "description": "Tests de bout en bout : serveur local (wrangler dev) + console dans Chromium",
+  "scripts": { "test": "node lancer.mjs" },
+  "dependencies": {
+    "http-proxy": "1.18.1",
+    "playwright": "1.65.1"
+  }
+}

@@ -7,11 +7,15 @@ name: Publier le serveur
 on:
   push:
     branches: [main]
-    paths: ["serveur/**", ".github/workflows/serveur.yml"]
+    paths: ["serveur/**", ".github/workflows/serveur.yml", "tests/**", ".github/workflows/tests.yml"]
   workflow_dispatch:
 
 jobs:
+  tests:
+    uses: ./.github/workflows/tests.yml
+
   publier:
+    needs: tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
