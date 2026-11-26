@@ -1,0 +1,50 @@
+  /* ---------- Décors ---------- */
+  body { background: var(--decor, var(--fond)); background-attachment: fixed; }
+  body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: -1; }
+  html { --decor:
+      radial-gradient(ellipse 60% 45% at 50% 0%, rgba(120,140,190,.22), transparent 70%),
+      radial-gradient(ellipse 70% 30% at 50% 100%, rgba(0,0,0,.45), transparent 70%),
+      linear-gradient(#22262f, #15171c); }
+  html[data-theme="onyx"] { --decor:
+      radial-gradient(ellipse 55% 45% at 50% 8%, rgba(217,181,106,.16), transparent 70%),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.018) 0 2px, transparent 2px 7px),
+      linear-gradient(#17140f, #0b0a08); }
+  html[data-theme="cerise"] { --decor:
+      radial-gradient(ellipse 60% 50% at 50% 35%, rgba(226,71,91,.28), transparent 70%),
+      repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 18px, rgba(255,255,255,.02) 18px 36px),
+      linear-gradient(#3a0a14, #160307); }
+  html[data-theme="glacier"] { --decor:
+      radial-gradient(2px 2px at 20px 30px, rgba(255,255,255,.55), transparent) 0 0 / 90px 110px,
+      radial-gradient(1.5px 1.5px at 60px 80px, rgba(255,255,255,.4), transparent) 0 0 / 130px 150px,
+      radial-gradient(ellipse 60% 40% at 20% 0%, rgba(160,220,255,.25), transparent 70%),
+      linear-gradient(#123049, #07131f); }
+  html[data-theme="galaxie"] { --decor:
+      radial-gradient(1px 1px at 15px 25px, #fff, transparent) 0 0 / 97px 89px,
+      radial-gradient(1.5px 1.5px at 70px 60px, #cfe2ff, transparent) 0 0 / 151px 137px,
+      radial-gradient(1px 1px at 40px 100px, #ffe9a8, transparent) 0 0 / 211px 173px,
+      radial-gradient(ellipse 45% 35% at 22% 30%, rgba(122,69,208,.35), transparent 70%),
+      radial-gradient(ellipse 40% 35% at 80% 75%, rgba(31,79,160,.35), transparent 70%),
+      #070512; }
+  html[data-theme="sakura"] { --decor:
+      radial-gradient(5px 4px at 30px 40px, rgba(246,198,210,.55), transparent) 0 0 / 160px 190px,
+      radial-gradient(4px 3px at 110px 120px, rgba(246,198,210,.4), transparent) 0 0 / 210px 170px,
+      radial-gradient(ellipse 70% 50% at 50% 100%, rgba(217,101,133,.35), transparent 70%),
+      linear-gradient(#2f1b38, #1a1022); }
+  html[data-theme="or"] { --decor:
+      radial-gradient(ellipse 50% 40% at 50% 50%, rgba(212,178,100,.14), transparent 70%),
+      repeating-linear-gradient(45deg, rgba(212,178,100,.05) 0 1px, transparent 1px 22px),
+      repeating-linear-gradient(-45deg, rgba(212,178,100,.05) 0 1px, transparent 1px 22px),
+      #0b0a08; }
+  html[data-theme="neon"] { --decor:
+      radial-gradient(circle at 50% 58%, rgba(255,61,242,.55) 0, rgba(255,140,60,.25) 11%, transparent 26%),
+      linear-gradient(#0a0418 0%, #24093d 52%, #4a0d52 60%, #0a0418 60.2%); }
+  html[data-theme="neon"] body::before {
+    top: 60%; left: -60%; right: -60%; bottom: -20%;
+    background:
+      linear-gradient(rgba(0,229,255,.5) 2px, transparent 2px) 0 0 / 100% 46px,
+      linear-gradient(90deg, rgba(255,61,242,.45) 2px, transparent 2px) 0 0 / 46px 100%;
+    transform: perspective(260px) rotateX(58deg); transform-origin: top;
+    -webkit-mask-image: linear-gradient(#000, transparent 75%); mask-image: linear-gradient(#000, transparent 75%);
+  }
+  html.sans-decor { --decor: var(--fond) !important; }
+  html.sans-decor body::before { display: none; }

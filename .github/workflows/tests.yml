@@ -22,6 +22,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
+      - name: Vérifier que console.js est assemblé
+        run: node outils-depot/assembler.mjs --verifier
       - name: Installer le serveur
         working-directory: serveur
         run: npm ci

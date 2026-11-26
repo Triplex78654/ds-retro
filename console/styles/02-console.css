@@ -1,0 +1,161 @@
+  /* ---------- Page : rien d'autre que la console ---------- */
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    min-height: var(--vh);
+    color: var(--texte);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- Géométrie de la console ----------
+     Une unité --u = un pixel de l'écran DS (256 × 192 par écran).
+     --aile : largeur des côtés, --haut : bord au-dessus de l'écran du haut,
+     --bas : hauteur de la zone sous l'écran du bas. */
+  #console {
+    --aile: 140;
+    --haut: 26;
+    --u: min(calc((var(--vh) - 28px) / 508), calc((100vw - 24px) / 536), 2.1px);
+    --bas: calc(var(--u) * 34);
+    --lr: calc(var(--u) * 104);
+    --x0: calc(var(--u) * var(--aile));
+    --y0: calc(var(--u) * var(--haut));
+    --w: calc(var(--u) * 256);
+    --gy: calc(var(--y0) + var(--u) * 192);
+    --by: calc(var(--y0) + var(--u) * 448);
+    position: relative;
+    width: calc(var(--u) * (256 + 2 * var(--aile)));
+    height: calc(var(--by) + var(--bas));
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  #console::before, #console::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0;
+    background: var(--motif), var(--coque);
+    box-shadow: inset 0 -3px 0 var(--coque-ombre), inset 0 2px 0 rgba(255,255,255,.22), var(--lueur);
+    transition: background .4s, box-shadow .4s;
+  }
+  #console::before {
+    top: 0; height: calc(var(--gy) + var(--u) * 16);
+    border-radius: calc(var(--u) * 22) calc(var(--u) * 22) calc(var(--u) * 12) calc(var(--u) * 12);
+  }
+  #console::after {
+    top: calc(var(--gy) + var(--u) * 18); bottom: 0;
+    border-radius: calc(var(--u) * 10) calc(var(--u) * 10) calc(var(--u) * 26) calc(var(--u) * 26);
+  }
+
+  /* Écrans */
+  .zone-ecrans { position: absolute; left: var(--x0); top: var(--y0); width: var(--w); height: calc(var(--u) * 448); z-index: 1; }
+  .vitre-haut, .vitre-bas { position: absolute; background: var(--cadre); z-index: -1; }
+  .vitre-haut {
+    left: calc(var(--u) * -12); right: calc(var(--u) * -12);
+    top: calc(var(--u) * -10); height: calc(var(--u) * 210);
+    border-radius: calc(var(--u) * 7);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+  }
+  .vitre-haut::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: linear-gradient(120deg, rgba(255,255,255,.07), transparent 38%);
+  }
+  .vitre-bas {
+    left: calc(var(--u) * -5); right: calc(var(--u) * -5);
+    top: calc(var(--u) * 251); bottom: calc(var(--u) * -5);
+    border-radius: calc(var(--u) * 5);
+  }
+  /* Seuls les deux écrans du jeu sont visibles : l'espace entre eux laisse voir la coque. */
+  #game {
+    position: absolute; inset: 0; background: #000;
+    clip-path: polygon(0 0, 100% 0, 100% 42.857%, 0 42.857%, 0 57.143%, 100% 57.143%, 100% 100%, 0 100%);
+  }
+  #game:focus { outline: none; }
+
+  /* Charnière : bas de la moitié haute, fente, cylindre avec voyants, haut de la moitié basse */
+  .charniere {
+    position: absolute; left: 0; right: 0;
+    top: var(--gy); height: calc(var(--u) * 64);
+    display: grid;
+    grid-template-rows: calc(var(--u) * 16) calc(var(--u) * 2) calc(var(--u) * 32) 1fr;
+    z-index: 5; pointer-events: none;
+  }
+  .charniere .rangee { padding: calc(var(--u) * 3) calc(var(--lr) + var(--u) * 5); }
+  .charniere .fente { background: var(--fente); margin: 0 calc(var(--u) * 6); border-radius: 99px; transition: background .4s; }
+  .charniere > * { transition: background .4s; }
+  .cylindre {
+    position: relative; height: 100%; border-radius: 999px;
+    background: linear-gradient(rgba(255,255,255,.42), rgba(255,255,255,0) 45%, rgba(0,0,0,.24)), var(--charniere);
+    box-shadow: 0 1px 2px rgba(0,0,0,.2);
+  }
+  .voyants { position: absolute; right: 7%; top: 50%; transform: translateY(-50%); display: flex; gap: calc(var(--u) * 5); }
+  .voyants i { width: max(5px, calc(var(--u) * 4)); aspect-ratio: 1; border-radius: 50%; background: rgba(0,0,0,.25); }
+  .voyants i.on { background: #3be07a; box-shadow: 0 0 6px #3be07a; }
+  body.chargement .voyants i.on { animation: clignote .9s step-end infinite; }
+
+  /* Haut-parleurs */
+  .hp { position: absolute; top: calc(var(--y0) + var(--u) * 96); transform: translate(-50%, -50%); display: grid; grid-template-columns: repeat(3, auto); gap: calc(var(--u) * 4.5); z-index: 1; }
+  .hp i { width: max(4px, calc(var(--u) * 3.6)); aspect-ratio: 1; border-radius: 50%; background: var(--hp); box-shadow: inset 0 1px 1px rgba(0,0,0,.35); }
+  .hp.g { left: calc(var(--x0) / 2); }
+  .hp.d { left: calc(100% - var(--x0) / 2); }
+
+  /* Boutons physiques */
+  .croix, .abxy, .petits, .menu-phys, .gravure { position: absolute; z-index: 2; }
+  .croix { width: calc(var(--u) * 78); aspect-ratio: 1; left: calc(var(--x0) / 2); top: calc(var(--gy) + var(--u) * 134); transform: translate(-50%, -50%); }
+  .abxy { width: calc(var(--u) * 88); aspect-ratio: 1; left: calc(100% - var(--x0) / 2); top: calc(var(--gy) + var(--u) * 124); transform: translate(-50%, -50%); }
+  .petits { width: calc(var(--u) * 70); height: calc(var(--u) * 26); left: calc(100% - var(--x0) / 2); top: calc(var(--gy) + var(--u) * 186); transform: translateX(-50%); }
+  .menu-phys { left: calc(var(--x0) / 2); top: calc(var(--gy) + var(--u) * 196); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 3); }
+  .gravure { left: 50%; top: calc(var(--by) + var(--u) * 13); transform: translateX(-50%); font: 600 max(10px, calc(var(--u) * 10))/1 "Pixelify", system-ui, sans-serif; color: var(--grave); opacity: .8; letter-spacing: .5px; }
+
+  .croix button, .abxy button, .petits button, .epaule, .menu-phys button {
+    position: absolute; border: none; padding: 0; cursor: pointer;
+    font: 600 12px/1 system-ui, sans-serif; color: var(--bouton-texte);
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .05s, filter .05s;
+  }
+  .croix button, .croix .centre { background: var(--bouton); width: 34%; height: 34%; box-shadow: 0 2px 0 var(--bouton-ombre); }
+  .croix .h { left: 33%; top: 0; border-radius: 6px 6px 0 0; }
+  .croix .b { left: 33%; bottom: 0; border-radius: 0 0 6px 6px; }
+  .croix .g { left: 0; top: 33%; border-radius: 6px 0 0 6px; }
+  .croix .d { right: 0; top: 33%; border-radius: 0 6px 6px 0; }
+  .croix .centre { position: absolute; left: 33%; top: 33%; box-shadow: none; }
+  .croix .centre::after { content: ""; position: absolute; inset: 28%; border-radius: 50%; background: radial-gradient(circle at 50% 40%, rgba(0,0,0,.35), rgba(255,255,255,.06)); }
+  .croix button::after { content: ""; position: absolute; left: 50%; top: 50%; width: 0; height: 0; border: 5px solid transparent; opacity: .35; transform: translate(-50%, -50%); }
+  .croix .h::after { border-bottom-color: var(--bouton-texte); margin-top: -3px; }
+  .croix .b::after { border-top-color: var(--bouton-texte); margin-top: 3px; }
+  .croix .g::after { border-right-color: var(--bouton-texte); margin-left: -3px; }
+  .croix .d::after { border-left-color: var(--bouton-texte); margin-left: 3px; }
+  .abxy button {
+    width: 34%; height: 34%; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.18), transparent 55%), var(--bouton);
+    box-shadow: 0 3px 0 var(--bouton-ombre), 0 4px 8px rgba(0,0,0,.25);
+    font-size: max(11px, calc(var(--u) * 10));
+  }
+  .abxy .x { left: 33%; top: 0; } .abxy .b { left: 33%; bottom: 0; }
+  .abxy .y { left: 0; top: 33%; } .abxy .a { right: 0; top: 33%; }
+  .petits button { width: 44%; height: max(11px, calc(var(--u) * 9)); top: 0; border-radius: 99px; background: var(--petit); box-shadow: inset 0 -2px 0 rgba(0,0,0,.2); }
+  .petits .select { left: 0; } .petits .start { right: 0; }
+  .petits span, .menu-phys span { position: absolute; width: 44%; text-align: center; top: calc(max(11px, calc(var(--u) * 9)) + 4px); font: 600 max(8px, calc(var(--u) * 7))/1 system-ui, sans-serif; letter-spacing: .3px; color: var(--grave); }
+  .petits .ls { left: 0; } .petits .lst { right: 0; }
+  .menu-phys button {
+    position: relative; width: max(18px, calc(var(--u) * 14)); aspect-ratio: 1; border-radius: 50%;
+    background: var(--petit); box-shadow: inset 0 -2px 0 rgba(0,0,0,.22), 0 0 0 max(2px, calc(var(--u) * 2)) var(--coque-ombre);
+  }
+  .menu-phys span { position: static; width: auto; }
+  .epaule {
+    top: calc(var(--gy) + var(--u) * 18); height: calc(var(--u) * 32);
+    width: var(--lr);
+    background: var(--epaule); color: var(--epaule-texte);
+    z-index: 6; font-size: max(11px, calc(var(--u) * 9));
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.14), inset 0 2px 0 rgba(255,255,255,.25);
+  }
+  .epaule.l { left: 0; border-radius: calc(var(--u) * 12) calc(var(--u) * 6) calc(var(--u) * 4) 0; padding-left: calc(var(--u) * 12); text-align: left; }
+  .epaule.r { right: 0; border-radius: calc(var(--u) * 6) calc(var(--u) * 12) 0 calc(var(--u) * 4); padding-right: calc(var(--u) * 12); text-align: right; }
+  #console button.appuye { filter: brightness(1.45); transform: translateY(2px); }
+  .abxy button.appuye, .croix button.appuye { box-shadow: 0 0 0 var(--bouton-ombre); }
+  .croix button.appuye, .abxy button.appuye, .menu-phys button.appuye { transform: translateY(2px); }

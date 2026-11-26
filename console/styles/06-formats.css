@@ -1,0 +1,37 @@
+  /* ---------- Téléphone en portrait : même DS, ailes fines, boutons sous l'écran ---------- */
+  @media (orientation: portrait) and (max-width: 760px) {
+    #console {
+      --aile: 18;
+      --haut: 13;
+      --bas: 214px;
+      --u: min(calc((100vw - 12px) / 292), calc((var(--vh) - 12px - 214px) / 461));
+      --lr: 74px;
+    }
+    #console::after { border-radius: calc(var(--u) * 10) calc(var(--u) * 10) 30px 30px; }
+    .vitre-haut { left: calc(var(--u) * -7); right: calc(var(--u) * -7); top: calc(var(--u) * -7); }
+    .hp { grid-template-columns: repeat(2, auto); gap: 5px; }
+    .hp i:nth-child(n+9) { display: none; }
+    .epaule { height: calc(var(--u) * 32); font-size: 13px; }
+    .croix { width: 124px; left: 74px; top: calc(var(--by) + 104px); }
+    .abxy { width: 132px; left: calc(100% - 78px); top: calc(var(--by) + 98px); }
+    .petits { width: 66px; height: 70px; left: 50%; top: calc(var(--by) + 32px); }
+    .petits button { width: 100%; height: 13px; left: 0; right: auto; }
+    .petits .start { top: 34px; }
+    .petits span { width: 100%; left: 0; top: 17px; font-size: 9px; }
+    .petits .lst { top: 51px; }
+    .menu-phys { left: 50%; top: calc(var(--by) + 116px); }
+    .menu-phys button { width: 26px; }
+    .menu-phys span { font-size: 9px; }
+    .gravure { top: calc(var(--by) + 178px); font-size: 13px; }
+  }
+  /* Fenêtre minuscule (mode incrusté de Discord) */
+  @media (max-height: 300px) {
+    .hp, .gravure, .menu-phys { display: none; }
+  }
+
+  @keyframes clignote { 50% { opacity: 0; } }
+  @keyframes flash { 0% { opacity: .95; } 100% { opacity: 0; } }
+  @keyframes avance { 0% { transform: translateX(-110%); } 100% { transform: translateX(310%); } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }

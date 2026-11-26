@@ -1,0 +1,112 @@
+  /* ---------- Thèmes : une coque = une palette ---------- */
+  :root {
+    --fond: #1e1f22;
+    --surface: #2b2d31;
+    --surface-2: #313338;
+    --texte: #f2f3f5;
+    --texte-2: #b5bac1;
+    --texte-3: #80848e;
+    --lcd: #e4ebee;
+    --lcd-2: #d2dde2;
+    --encre: #1f2b33;
+    --encre-2: #5b6b75;
+    --vh: 100vh;
+
+    --accent: #5865f2;
+    --sur-accent: #ffffff;
+    --coque: linear-gradient(170deg, #f4f5f8, #e6e8ee 55%, #dcdfe6);
+    --coque-plat: #e2e5eb;
+    --coque-ombre: #c3c7d0;
+    --motif: linear-gradient(transparent, transparent);
+    --lueur: 0 18px 50px rgba(0,0,0,.45);
+    --charniere: linear-gradient(#d3d6de, #b9bdc7);
+    --fente: #a9adb8;
+    --cadre: #17181c;
+    --bouton: #2a2c31;
+    --bouton-texte: #e9ebf0;
+    --bouton-ombre: #0d0e10;
+    --petit: #9da1ab;
+    --grave: #7d818b;
+    --hp: #a3a7b1;
+    --epaule: #cdd0d8;
+    --epaule-texte: #5b5f69;
+  }
+  @supports (height: 100dvh) { :root { --vh: 100dvh; } }
+
+  [data-theme="onyx"] {
+    --accent: #d9b56a; --sur-accent: #1a1408;
+    --coque: linear-gradient(160deg, #2c2d33, #141519 60%, #1d1e23);
+    --coque-plat: #18191d; --coque-ombre: #000; --charniere: linear-gradient(#2a2b31, #131417); --fente: #000;
+    --cadre: #050506; --bouton: #3a3b42; --bouton-texte: #d9b56a; --bouton-ombre: #000;
+    --petit: #3a3b42; --grave: #8c7a52; --hp: #3a3b42; --epaule: #26272c; --epaule-texte: #d9b56a;
+    --lueur: 0 0 0 1px rgba(217,181,106,.25), 0 18px 50px rgba(0,0,0,.6);
+  }
+  [data-theme="cerise"] {
+    --accent: #e2475b; --sur-accent: #ffffff;
+    --coque: linear-gradient(150deg, #e2475b, #a5162b 55%, #c42a3f);
+    --coque-plat: #b41f35; --coque-ombre: #6e0d1b; --charniere: linear-gradient(#c22a3f, #8c1124); --fente: #5a0a16;
+    --cadre: #160407; --bouton: #2b1216; --bouton-texte: #ffd9de; --bouton-ombre: #4a0811;
+    --petit: #f2c9cf; --grave: #ffd0d6; --hp: #7a0f20; --epaule: #ce3549; --epaule-texte: #ffe3e7;
+    --motif: radial-gradient(ellipse at 25% 10%, rgba(255,255,255,.35), transparent 45%);
+    --lueur: 0 18px 50px rgba(120,10,30,.5);
+  }
+  [data-theme="glacier"] {
+    --accent: #3d9be0; --sur-accent: #ffffff;
+    --coque: linear-gradient(160deg, rgba(190,230,255,.8), rgba(120,180,230,.6) 60%, rgba(170,215,250,.75));
+    --coque-plat: #93c4ea; --coque-ombre: rgba(60,120,180,.6); --charniere: linear-gradient(#a9d2f2, #6fa8d8); --fente: #4f86b8;
+    --cadre: #0b1622; --bouton: rgba(30,70,110,.85); --bouton-texte: #e6f6ff; --bouton-ombre: rgba(10,30,50,.8);
+    --petit: rgba(40,90,140,.6); --grave: #20507a; --hp: rgba(40,90,140,.55); --epaule: rgba(150,200,240,.95); --epaule-texte: #1d4d78;
+    --motif: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.45) 38%, transparent 46%),
+             repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 2px, transparent 2px 9px);
+    --lueur: 0 0 40px rgba(120,190,255,.3), 0 18px 50px rgba(0,0,0,.45);
+  }
+  [data-theme="galaxie"] {
+    --accent: #8e6bea; --sur-accent: #ffffff;
+    --coque: radial-gradient(ellipse at 70% 20%, #5a2f9c, transparent 55%), radial-gradient(ellipse at 15% 85%, #1f4fa0, transparent 50%), #120c26;
+    --coque-plat: #1a1236; --coque-ombre: #05030c; --charniere: linear-gradient(#2e2058, #170f33); --fente: #07041a;
+    --cadre: #04020a; --bouton: #2b2156; --bouton-texte: #e7dcff; --bouton-ombre: #07041a;
+    --petit: #4a3a8a; --grave: #a796e8; --hp: #4a3a8a; --epaule: #2f2360; --epaule-texte: #cbbcff;
+    --motif: radial-gradient(1.5px 1.5px at 12% 18%, #fff, transparent), radial-gradient(1px 1px at 33% 72%, #fff, transparent),
+             radial-gradient(1.5px 1.5px at 58% 34%, #fff, transparent), radial-gradient(1px 1px at 81% 61%, #fff, transparent),
+             radial-gradient(2px 2px at 90% 14%, #ffe9a8, transparent), radial-gradient(1px 1px at 22% 48%, #cfe2ff, transparent),
+             radial-gradient(1px 1px at 70% 88%, #fff, transparent), radial-gradient(1.5px 1.5px at 46% 9%, #fff, transparent),
+             radial-gradient(1px 1px at 8% 92%, #fff, transparent), radial-gradient(1px 1px at 95% 40%, #fff, transparent);
+    --lueur: 0 0 50px rgba(110,70,220,.3), 0 18px 50px rgba(0,0,0,.55);
+  }
+  [data-theme="sakura"] {
+    --accent: #d96585; --sur-accent: #ffffff;
+    --coque: linear-gradient(160deg, #fff1f4, #f9d5de 70%, #f6c6d2);
+    --coque-plat: #f6ccd7; --coque-ombre: #e3a9b8; --charniere: linear-gradient(#f4c3cf, #e2a3b4); --fente: #d996a9;
+    --cadre: #2a1a20; --bouton: #8c4a5e; --bouton-texte: #fff0f4; --bouton-ombre: #5e2c3b;
+    --petit: #e3a9b8; --grave: #a8657a; --hp: #e3a9b8; --epaule: #f2bccb; --epaule-texte: #8c4a5e;
+    --motif: radial-gradient(circle at 12% 20%, rgba(232,120,150,.55) 0 4px, transparent 5px),
+             radial-gradient(circle at 16% 24%, rgba(232,120,150,.35) 0 3px, transparent 4px),
+             radial-gradient(circle at 85% 30%, rgba(232,120,150,.45) 0 5px, transparent 6px),
+             radial-gradient(circle at 80% 78%, rgba(232,120,150,.4) 0 4px, transparent 5px),
+             radial-gradient(circle at 20% 82%, rgba(232,120,150,.5) 0 3px, transparent 4px),
+             radial-gradient(circle at 50% 6%, rgba(232,120,150,.3) 0 3px, transparent 4px);
+    --lueur: 0 18px 46px rgba(180,80,110,.35);
+  }
+  [data-theme="or"] {
+    --accent: #d4b264; --sur-accent: #1a1408;
+    --coque: linear-gradient(135deg, #0d0d0f, #1c1a16 50%, #0d0d0f);
+    --coque-plat: #141310; --coque-ombre: #000; --charniere: linear-gradient(#e8c877, #b8913f 50%, #8d6a24); --fente: #000;
+    --cadre: #000; --bouton: linear-gradient(#f0d58c, #b8913f); --bouton-texte: #1a1408; --bouton-ombre: #5a4312;
+    --petit: #b8913f; --grave: #d4b264; --hp: #6e5a2c; --epaule: linear-gradient(#e8c877, #a8822f); --epaule-texte: #1a1408;
+    --motif: repeating-linear-gradient(45deg, rgba(212,178,100,.07) 0 1px, transparent 1px 12px),
+             repeating-linear-gradient(-45deg, rgba(212,178,100,.07) 0 1px, transparent 1px 12px);
+    --lueur: 0 0 0 2px #b8913f, 0 18px 50px rgba(0,0,0,.6);
+  }
+  [data-theme="neon"] {
+    --accent: #00e5ff; --sur-accent: #001418;
+    --coque: #0b0c10;
+    --coque-plat: #0b0c10; --coque-ombre: #000; --charniere: #101218; --fente: #00e5ff;
+    --cadre: #000; --bouton: #11131a; --bouton-texte: #ff3df2; --bouton-ombre: #ff3df2;
+    --petit: #00e5ff; --grave: #00e5ff; --hp: #ff3df2; --epaule: #11131a; --epaule-texte: #00e5ff;
+    --motif: linear-gradient(rgba(0,229,255,.06) 1px, transparent 1px) 0 0 / 100% 14px,
+             linear-gradient(90deg, rgba(0,229,255,.06) 1px, transparent 1px) 0 0 / 14px 100%;
+    --lueur: 0 0 0 1.5px #00e5ff, 0 0 22px rgba(0,229,255,.5), 0 0 60px rgba(255,61,242,.22);
+  }
+  [data-theme="neon"] .croix button, [data-theme="neon"] .croix .centre { box-shadow: 0 0 8px rgba(0,229,255,.5); outline: 1px solid #00e5ff; }
+  [data-theme="neon"] .abxy button { outline: 1px solid #ff3df2; box-shadow: 0 0 10px rgba(255,61,242,.6); }
+  [data-theme="neon"] .epaule { outline: 1px solid #00e5ff; }
