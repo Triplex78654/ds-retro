@@ -8,7 +8,7 @@
 //   GET  /sauvegardes           liste des sauvegardes du joueur
 //   GET  /sauvegardes/:jeu      télécharge une sauvegarde
 //   PUT  /sauvegardes/:jeu      envoie une sauvegarde (en-tête X-Maj = date en ms)
-//   GET  /ludotheque            jeux personnels du joueur (privés, seulement pour lui)
+//   GET  /ludotheque            jeux personnels du joueur (privés, seulement pour lui ; fichiers dans R2)
 //   GET  /ludotheque/:id/:n     télécharge le morceau n d'un jeu
 //   PUT  /ludotheque/:id/:n     envoie le morceau n (en-têtes X-Nom, X-Taille, X-Morceaux)
 //   POST /ludotheque/:id        met le jeu au catalogue du salon ou l'en retire (en-têtes X-Catalogue = 1 ou 0, X-Maj)
@@ -24,8 +24,9 @@ const CORS = {
   "Access-Control-Expose-Headers": "X-Maj",
 };
 const TAILLE_MAX_SAUVEGARDE = 2_000_000;
-const TAILLE_MORCEAU = 1_900_000;          // un morceau de jeu tient dans une ligne SQLite (2 Mo max)
-const QUOTA_LUDOTHEQUE = 1_000_000_000;    // 1 Go de jeux par joueur
+const TAILLE_MORCEAU = 1_900_000;          // taille d'un morceau de jeu envoyé par la console
+const PLAFOND_R2 = 9_500_000_000;          // R2 offre 10 Go par mois : on s'arrête avant pour ne jamais payer
+const QUOTA_POTE = 1_000_000_000;          // 1 Go par pote ; le propriétaire de l'app a tout le reste
 
 function json(objet, statut = 200) {
   return new Response(JSON.stringify(objet), { status: statut, headers: { ...CORS, "Content-Type": "application/json" } });
@@ -48,6 +49,33 @@ async function joueurDepuisJeton(jeton, env) {
   if (cacheJoueurs.size > 1000) cacheJoueurs.clear();
   cacheJoueurs.set(jeton, { joueur, expire: Date.now() + 10 * 60 * 1000 });
   return joueur;
+}
+
+// Le propriétaire de l'application Discord (toi) a le gros quota.
+// PROPRIETAIRE_ID peut le fixer à la main ; sinon on le demande à Discord une fois par heure.
+const memoProprio = { id: null, expire: 0 };
+async function idProprietaire(env) {
+  if (env.PROPRIETAIRE_ID) return env.PROPRIETAIRE_ID;
+  if (memoProprio.expire > Date.now()) return memoProprio.id;
+  memoProprio.expire = Date.now() + 60 * 60 * 1000;
+  try {
+    const r = await fetch(DISCORD + "/oauth2/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: "Basic " + btoa(env.DISCORD_CLIENT_ID + ":" + env.DISCORD_CLIENT_SECRET),
+      },
+      body: new URLSearchParams({ grant_type: "client_credentials", scope: "identify" }),
+    });
+    const d = await r.json();
+    if (!d.access_token) throw new Error("jeton");
+    const u = await (await fetch(DISCORD + "/users/@me", { headers: { Authorization: "Bearer " + d.access_token } })).json();
+    memoProprio.id = u.id || null;
+  } catch (e) {
+    memoProprio.id = null;
+    memoProprio.expire = Date.now() + 5 * 60 * 1000;
+  }
+  return memoProprio.id;
 }
 
 export default {
@@ -112,14 +140,17 @@ export default {
       const joueur = await joueurDepuisJeton(jeton, env);
       if (!joueur) return json({ erreur: "Non connecté." }, 401);
       const coffre = env.COFFRES.get(env.COFFRES.idFromName(joueur.id));
+      const entetes = new Headers(req.headers);
+      entetes.set("X-Joueur-Id", joueur.id);
+      entetes.set("X-Proprietaire", joueur.id === await idProprietaire(env) ? "1" : "0");
       const r = await coffre.fetch(new Request("https://coffre/ludo/" + (m[1] || "") + (m[2] !== undefined ? "/" + m[2] : ""), {
         method: req.method,
-        headers: req.headers,
+        headers: entetes,
         body: req.method === "PUT" ? req.body : null,
       }));
-      const entetes = new Headers(r.headers);
-      for (const [k, v] of Object.entries(CORS)) entetes.set(k, v);
-      return new Response(r.body, { status: r.status, headers: entetes });
+      const sortie = new Headers(r.headers);
+      for (const [k, v] of Object.entries(CORS)) sortie.set(k, v);
+      return new Response(r.body, { status: r.status, headers: sortie });
     }
 
     return json({ erreur: "Introuvable." }, 404);
@@ -276,30 +307,68 @@ export class Coffre extends DurableObject {
     super(ctx, env);
     ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS sauvegardes (jeu TEXT PRIMARY KEY, maj INTEGER NOT NULL, donnees BLOB NOT NULL)");
     ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS cartouches (id TEXT PRIMARY KEY, nom TEXT NOT NULL, taille INTEGER NOT NULL, morceaux INTEGER NOT NULL, ajoute INTEGER NOT NULL)");
+    // Anciens morceaux gardés dans le Durable Object : déplacés peu à peu vers R2.
     ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS morceaux (id TEXT NOT NULL, n INTEGER NOT NULL, donnees BLOB NOT NULL, PRIMARY KEY (id, n))");
+    // Morceaux rangés dans R2 : ici seulement leur taille.
+    ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS pieces (id TEXT NOT NULL, n INTEGER NOT NULL, octets INTEGER NOT NULL, PRIMARY KEY (id, n))");
     // « Au catalogue » : le nom du jeu est montré aux potes du salon (jamais le fichier).
     const colonnes = new Set([...ctx.storage.sql.exec("PRAGMA table_info(cartouches)")].map(c => c.name));
     if (!colonnes.has("catalogue")) ctx.storage.sql.exec("ALTER TABLE cartouches ADD COLUMN catalogue INTEGER NOT NULL DEFAULT 0");
     if (!colonnes.has("catalogue_maj")) ctx.storage.sql.exec("ALTER TABLE cartouches ADD COLUMN catalogue_maj INTEGER NOT NULL DEFAULT 0");
   }
 
-  // Ludothèque : les jeux personnels du joueur, découpés en morceaux.
+  // Ludothèque : les jeux personnels du joueur, découpés en morceaux rangés dans R2.
+  utilise(sauf) {
+    const sql = this.ctx.storage.sql;
+    const [id, n] = sauf || ["", -1];
+    const a = [...sql.exec("SELECT COALESCE(SUM(octets), 0) AS t FROM pieces WHERE NOT (id = ? AND n = ?)", id, n)][0].t;
+    const b = [...sql.exec("SELECT COALESCE(SUM(length(donnees)), 0) AS t FROM morceaux WHERE NOT (id = ? AND n = ?)", id, n)][0].t;
+    return a + b;
+  }
+
+  registre() {
+    return this.env.REGISTRE.get(this.env.REGISTRE.idFromName("global"));
+  }
+
+  // Déplace un petit lot d'anciens morceaux vers R2 à chaque passage.
+  async migrer(cle) {
+    const sql = this.ctx.storage.sql;
+    for (const m of [...sql.exec("SELECT id, n, donnees FROM morceaux LIMIT 20")]) {
+      await this.env.JEUX.put(cle(m.id, m.n), m.donnees);
+      sql.exec("INSERT OR REPLACE INTO pieces (id, n, octets) VALUES (?, ?, ?)", m.id, m.n, m.donnees.byteLength);
+      sql.exec("DELETE FROM morceaux WHERE id = ? AND n = ?", m.id, m.n);
+    }
+  }
+
   async ludotheque(req, id, n) {
     const sql = this.ctx.storage.sql;
     const ligne = requete => [...requete][0];
+    const joueur = req.headers.get("X-Joueur-Id");
+    if (!joueur) return new Response(null, { status: 400 });
+    const proprietaire = req.headers.get("X-Proprietaire") === "1";
+    const quota = proprietaire ? PLAFOND_R2 : QUOTA_POTE;
+    const cle = (jeu, k) => "ludo/" + joueur + "/" + jeu + "/" + k;
+    await this.migrer(cle);
 
     if (!id) {
       if (req.method !== "GET") return new Response(null, { status: 405 });
       const jeux = [...sql.exec(
-        "SELECT c.id, c.nom, c.taille, c.morceaux, c.ajoute, c.catalogue, c.catalogue_maj, (SELECT COUNT(*) FROM morceaux m WHERE m.id = c.id) AS recus FROM cartouches c ORDER BY c.ajoute DESC"
+        "SELECT c.id, c.nom, c.taille, c.morceaux, c.ajoute, c.catalogue, c.catalogue_maj, " +
+        "(SELECT COUNT(*) FROM pieces p WHERE p.id = c.id) + (SELECT COUNT(*) FROM morceaux m WHERE m.id = c.id) AS recus " +
+        "FROM cartouches c ORDER BY c.ajoute DESC"
       )];
-      const utilise = ligne(sql.exec("SELECT COALESCE(SUM(length(donnees)), 0) AS t FROM morceaux")).t;
-      return Response.json({ jeux, utilise, quota: QUOTA_LUDOTHEQUE });
+      const utilise = this.utilise();
+      const serveur = await this.registre().noter(joueur, utilise);
+      return Response.json({ jeux, utilise, quota, proprietaire, serveur, plafond: PLAFOND_R2 });
     }
 
     if (req.method === "DELETE") {
+      const ns = [...sql.exec("SELECT n FROM pieces WHERE id = ?", id)].map(r => r.n);
+      for (let i = 0; i < ns.length; i += 1000) await this.env.JEUX.delete(ns.slice(i, i + 1000).map(k => cle(id, k)));
+      sql.exec("DELETE FROM pieces WHERE id = ?", id);
       sql.exec("DELETE FROM morceaux WHERE id = ?", id);
       sql.exec("DELETE FROM cartouches WHERE id = ?", id);
+      await this.registre().noter(joueur, this.utilise());
       return Response.json({ ok: true });
     }
 
@@ -316,6 +385,11 @@ export class Coffre extends DurableObject {
     if (n === null) return new Response(null, { status: 404 });
 
     if (req.method === "GET") {
+      if (ligne(sql.exec("SELECT 1 AS x FROM pieces WHERE id = ? AND n = ?", id, n))) {
+        const objet = await this.env.JEUX.get(cle(id, n));
+        if (!objet) return new Response(null, { status: 404 });
+        return new Response(objet.body, { headers: { "Content-Type": "application/octet-stream" } });
+      }
       const m = ligne(sql.exec("SELECT donnees FROM morceaux WHERE id = ? AND n = ?", id, n));
       if (!m) return new Response(null, { status: 404 });
       return new Response(m.donnees, { headers: { "Content-Type": "application/octet-stream" } });
@@ -328,14 +402,18 @@ export class Coffre extends DurableObject {
       if (!nom || !(taille > 0) || !(morceaux > 0) || n >= morceaux) return new Response("En-têtes invalides.", { status: 400 });
       const donnees = await req.arrayBuffer();
       if (!donnees.byteLength || donnees.byteLength > TAILLE_MORCEAU) return new Response("Morceau invalide.", { status: 400 });
-      const utilise = ligne(sql.exec("SELECT COALESCE(SUM(length(donnees)), 0) AS t FROM morceaux WHERE NOT (id = ? AND n = ?)", id, n)).t;
-      if (utilise + donnees.byteLength > QUOTA_LUDOTHEQUE) return Response.json({ ok: false, raison: "quota" }, { status: 507 });
+      const total = this.utilise([id, n]) + donnees.byteLength;
+      if (total > quota) return Response.json({ ok: false, raison: "quota", quota }, { status: 507 });
+      const place = await this.registre().reserver(joueur, total, PLAFOND_R2);
+      if (!place.ok) return Response.json({ ok: false, raison: "serveur-plein", plafond: PLAFOND_R2 }, { status: 507 });
+      await this.env.JEUX.put(cle(id, n), donnees);
       sql.exec(
         "INSERT INTO cartouches (id, nom, taille, morceaux, ajoute) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET nom = excluded.nom, taille = excluded.taille, morceaux = excluded.morceaux",
         id, nom, taille, morceaux, Date.now()
       );
-      sql.exec("INSERT OR REPLACE INTO morceaux (id, n, donnees) VALUES (?, ?, ?)", id, n, donnees);
-      const recus = ligne(sql.exec("SELECT COUNT(*) AS c FROM morceaux WHERE id = ?", id)).c;
+      sql.exec("INSERT OR REPLACE INTO pieces (id, n, octets) VALUES (?, ?, ?)", id, n, donnees.byteLength);
+      sql.exec("DELETE FROM morceaux WHERE id = ? AND n = ?", id, n);
+      const recus = ligne(sql.exec("SELECT (SELECT COUNT(*) FROM pieces WHERE id = ?) + (SELECT COUNT(*) FROM morceaux WHERE id = ?) AS c", id, id)).c;
       return Response.json({ ok: true, recus, morceaux });
     }
 
@@ -374,5 +452,32 @@ export class Coffre extends DurableObject {
       return Response.json({ ok: true, maj });
     }
     return new Response(null, { status: 405 });
+  }
+}
+
+// ---------- Registre : place utilisée par chaque joueur dans R2, pour rester sous les 10 Go gratuits ----------
+export class Registre extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
+    ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS place (joueur TEXT PRIMARY KEY, octets INTEGER NOT NULL)");
+  }
+
+  total() {
+    return [...this.ctx.storage.sql.exec("SELECT COALESCE(SUM(octets), 0) AS t FROM place")][0].t;
+  }
+
+  // Réserve la place si le total de tout le monde reste sous le plafond.
+  reserver(joueur, octets, plafond) {
+    const sql = this.ctx.storage.sql;
+    const autres = [...sql.exec("SELECT COALESCE(SUM(octets), 0) AS t FROM place WHERE joueur != ?", joueur)][0].t;
+    if (autres + octets > plafond) return { ok: false, total: autres };
+    sql.exec("INSERT INTO place (joueur, octets) VALUES (?, ?) ON CONFLICT(joueur) DO UPDATE SET octets = excluded.octets", joueur, octets);
+    return { ok: true, total: autres + octets };
+  }
+
+  // Remet le compte d'un joueur à sa vraie valeur et renvoie le total de tout le monde.
+  noter(joueur, octets) {
+    this.ctx.storage.sql.exec("INSERT INTO place (joueur, octets) VALUES (?, ?) ON CONFLICT(joueur) DO UPDATE SET octets = excluded.octets", joueur, octets);
+    return this.total();
   }
 }

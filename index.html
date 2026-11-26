@@ -423,14 +423,13 @@
   .cart.nuage .etiquette { filter: grayscale(.4); }
   .retirer.arme { opacity: 1; background: #b3261e; color: #fff; width: auto; padding: 0 calc(var(--u) * 5); border-radius: 99px; font-size: max(10px, calc(var(--u) * 7)); }
 
-  /* Au catalogue : l'étoile sur une cartouche, le bandeau après un ajout, les rubriques du catalogue */
+  /* Au catalogue : le bouton sur une cartouche, le bandeau après un ajout, les rubriques du catalogue */
   .au-catalogue {
-    position: absolute; bottom: calc(var(--u) * -3); right: calc(var(--u) * -3);
-    width: max(20px, calc(var(--u) * 14)); height: max(20px, calc(var(--u) * 14));
-    border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+    position: absolute; bottom: calc(var(--u) * -4); right: calc(var(--u) * -3);
+    height: max(18px, calc(var(--u) * 12)); padding: 0 calc(var(--u) * 5);
+    border-radius: 99px; border: 0; cursor: pointer;
     background: var(--encre); color: var(--lcd);
-    font: 400 13px/1 system-ui, sans-serif;
-    display: grid; place-items: center;
+    font: 600 max(10px, calc(var(--u) * 7))/1 "Pixelify", system-ui, sans-serif; white-space: nowrap;
     opacity: 0; transition: opacity .12s; z-index: 2;
   }
   .emplacement:hover .au-catalogue, .au-catalogue:focus-visible { opacity: 1; }
@@ -441,11 +440,11 @@
     padding: calc(var(--u) * 4) calc(var(--u) * 5);
     border-radius: calc(var(--u) * 4); border: calc(var(--u) * 1) solid rgba(31,43,51,.2);
     background: rgba(255,255,255,.6);
-    display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--u) * 4);
+    display: grid; grid-template-columns: 1fr auto; gap: calc(var(--u) * 4);
     font-size: max(11px, calc(var(--u) * 8));
   }
   .apres-ajout p { grid-column: 1 / -1; margin: 0 calc(var(--u) * 1); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .apres-ajout .choix { padding: calc(var(--u) * 3) calc(var(--u) * 4); text-align: center; font-weight: 600; font-size: max(11px, calc(var(--u) * 8.5)); white-space: nowrap; }
+  .apres-ajout .choix { padding: calc(var(--u) * 3) calc(var(--u) * 7); text-align: center; font-weight: 600; font-size: max(11px, calc(var(--u) * 8.5)); white-space: nowrap; }
   .apres-ajout .choix[aria-pressed="true"] { box-shadow: none; background: var(--accent); color: var(--sur-accent); border-color: transparent; }
   .titre-grille {
     grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: calc(var(--u) * 6);
@@ -1441,22 +1440,22 @@
     }
   }
 
-  // Étoile : met le jeu au catalogue du salon. Tes potes voient son nom et peuvent te demander
-  // d'y jouer ; le jeu tourne sur ta console et ils jouent à distance. Le fichier reste chez toi.
+  // « + Catalogue » : met le jeu au catalogue de tout le salon. Tout le monde voit son nom et peut
+  // te demander d'y jouer ; le jeu tourne sur ta console et ils jouent à distance. Le fichier reste chez toi.
   function boutonCatalogue(nom, oui, action) {
     const b = document.createElement("button");
     b.type = "button"; b.className = "au-catalogue";
     const maj = () => {
-      b.textContent = oui ? "★" : "☆";
+      b.textContent = oui ? "✓ Catalogue" : "+ Catalogue";
       b.setAttribute("aria-pressed", String(oui));
-      b.setAttribute("aria-label", (oui ? "Retirer du catalogue : " : "Mettre au catalogue : ") + nom);
-      b.title = oui ? "Au catalogue" : "Mettre au catalogue";
+      b.setAttribute("aria-label", (oui ? "Retirer du catalogue de tout le monde : " : "Ajouter au catalogue pour tout le monde : ") + nom);
+      b.title = oui ? "Dans le catalogue de tout le monde" : "Ajouter au catalogue pour tout le monde";
     };
     const expliquer = () => {
       if (jeuActif || spectateur) return;
       $("message-haut").textContent = oui
-        ? nom + " est au catalogue : tes potes du salon voient son nom et peuvent te demander d'y jouer."
-        : "Étoile : mets " + nom + " au catalogue du salon. Le fichier reste chez toi.";
+        ? nom + " est dans le catalogue de tout le monde : chacun peut te demander d'y jouer."
+        : "+ Catalogue : ajoute " + nom + " au catalogue pour tout le monde. Le fichier reste chez toi.";
     };
     maj();
     b.addEventListener("mouseenter", expliquer);
@@ -1514,11 +1513,11 @@
       for (const c of cartouches) await basculerCatalogue({ id: c.id }, tous);
       await afficherCartouches();
       $("message-haut").textContent = !tous ? "Retiré du catalogue."
-        : seul ? nom + " est au catalogue : tes potes du salon le voient et peuvent te demander d'y jouer."
-        : "Ces jeux sont au catalogue : tes potes du salon les voient et peuvent te demander d'y jouer.";
+        : seul ? nom + " est dans le catalogue de tout le monde : chacun peut te demander d'y jouer."
+        : "Ces jeux sont dans le catalogue de tout le monde : chacun peut te demander d'y jouer.";
     });
     const majCatalogue = () => {
-      bCatalogue.textContent = tous ? "★ Au catalogue" : seul ? "☆ Mettre au catalogue" : "☆ Tout mettre au catalogue";
+      bCatalogue.textContent = tous ? "✓ Dans le catalogue de tous" : seul ? "+ Catalogue pour tout le monde" : "+ Tout au catalogue pour tous";
       bCatalogue.setAttribute("aria-pressed", String(tous));
     };
     majCatalogue();
@@ -1579,7 +1578,7 @@
     await afficherCartouches();
     synchroniserLudotheque();
     await afficherApresAjout([id]);
-    $("message-haut").textContent = nomLisible(fichier.name) + " est prêt. Touche Jouer, ou mets-le au catalogue pour tes potes.";
+    $("message-haut").textContent = nomLisible(fichier.name) + " est prêt. Touche Jouer, ou ajoute-le au catalogue pour tout le monde.";
   }
 
   // Plusieurs jeux d'un coup : ils rejoignent tous « Tes cartouches », sans lancer de partie.
@@ -1652,7 +1651,7 @@
     $("erreur").textContent = "";
     if (vueJeux !== "perso") masquerApresAjout();
     if (!jeuActif && !salon.infos.hote) {
-      $("message-haut").textContent = vueJeux === "catalogue" ? "Le catalogue du salon : tes jeux étoilés, ceux de tes potes et des jeux libres." : MESSAGE_ACCUEIL;
+      $("message-haut").textContent = vueJeux === "catalogue" ? "Le catalogue de tout le salon : tes jeux, ceux de tes potes et des jeux libres." : MESSAGE_ACCUEIL;
     }
     if (vueJeux === "catalogue") { if (!catalogue && !chargementCatalogue) chargerCatalogue(); else afficherCatalogue(true); }
   }
@@ -1687,7 +1686,7 @@
     return cart;
   }
 
-  // Trois rubriques : tes jeux étoilés, les jeux de tes potes présents dans le salon, les jeux libres.
+  // Trois rubriques : tes jeux au catalogue, ceux de tes potes présents dans le salon, les jeux libres.
   function afficherCatalogue(forcer) {
     return dessinerCatalogue(forcer).catch(e => console.warn("catalogue", e));
   }
@@ -1726,12 +1725,12 @@
     };
 
     if (miens.length) {
-      rubrique("Tes jeux", "tes potes voient leur nom");
+      rubrique("Tes jeux", "pour tout le monde");
       miens.forEach(j => {
         const emplacement = document.createElement("div");
         emplacement.className = "emplacement";
         const cart = nouvelleCart(j.nom, "Jouer à " + j.nom, teinte(j.nom));
-        fiche(cart, j.nom + ", ton jeu au catalogue. Touche pour jouer : tes potes pourront regarder et prendre la manette.");
+        fiche(cart, j.nom + ", ton jeu dans le catalogue de tout le monde. Touche pour jouer : tes potes pourront regarder et prendre la manette.");
         cart.addEventListener("click", () => j.d ? recupererDuCloud(cart, j.d) : jouerCartouche(cart, j.id));
         emplacement.append(cart, boutonCatalogue(j.nom, true, oui => basculerCatalogue(j.d ? { cle: j.d.id } : { id: j.id }, oui)));
         grille.appendChild(emplacement);
@@ -1756,7 +1755,7 @@
     });
 
     if (libres.length) {
-      rubrique("Jeux libres", "pour tout le monde");
+      rubrique("Jeux libres", "jouables par chacun");
       libres.forEach(jeu => {
         const emplacement = document.createElement("div");
         emplacement.className = "emplacement";
@@ -1775,7 +1774,7 @@
       const vide = document.createElement("div");
       vide.className = "vide";
       vide.innerHTML = chargementCatalogue ? "<p>Chargement du catalogue…</p>"
-        : "<p>Le catalogue est vide. Touche l'étoile ☆ d'une de tes cartouches pour l'y mettre.</p><p>Tes potes du salon verront son nom.</p>";
+        : "<p>Le catalogue est vide. Touche <b>+ Catalogue</b> sur une de tes cartouches pour l'ajouter pour tout le monde.</p>";
       grille.appendChild(vide);
     } else if (catalogueEnPanne) {
       const vide = document.createElement("div");
@@ -2470,7 +2469,11 @@
 
   // ---------- Ludothèque privée : une copie de tes jeux dans ton cloud, pour toi seul ----------
   const TAILLE_MORCEAU = 1_900_000;
-  const ludo = { distants: new Map(), cles: new Map(), file: [], actif: false, plein: false, charge: false };
+  const ludo = { distants: new Map(), cles: new Map(), file: [], actif: false, plein: false, charge: false, quota: 0, utilise: 0, raison: "" };
+  function tailleLisible(octets) {
+    if (octets >= 1e9) return (octets / 1e9).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " Go";
+    return Math.max(1, Math.round(octets / 1e6)) + " Mo";
+  }
 
   async function cleLudo(idLocal) {
     if (!ludo.cles.has(idLocal)) ludo.cles.set(idLocal, await cleJeu("ludo:" + idLocal));
@@ -2504,13 +2507,15 @@
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
     ludo.distants = new Map(d.jeux.map(j => [j.id, j]));
-    ludo.plein = d.utilise >= d.quota * 0.98;
+    ludo.quota = d.quota; ludo.utilise = d.utilise;
+    ludo.plein = ludo.plein || d.utilise >= d.quota * 0.98;
     ludo.charge = true;
   }
 
   async function synchroniserLudotheque() {
     if (!salon.jeton || ludo.actif) return;
     ludo.actif = true;
+    ludo.plein = false; ludo.raison = "";
     try {
       await chargerListeLudo();
       const locaux = await listerCartouches();
@@ -2527,8 +2532,10 @@
       await accorderCatalogue(await listerCartouches());
       await afficherCartouches();
       const n = locaux.filter(c => ludoContient(c.id)).length;
-      if (ludo.plein) majEtatLudo("Ton cloud est plein (1 Go). Retire des jeux pour en sauvegarder d'autres.");
-      else majEtatLudo(n ? (n === 1 ? "Ce jeu est aussi dans ton cloud, rien que pour toi." : "Tes " + n + " jeux sont aussi dans ton cloud, rien que pour toi.") : "");
+      const place = " (" + tailleLisible(ludo.utilise) + " sur " + tailleLisible(ludo.quota) + ")";
+      if (ludo.raison === "serveur-plein") majEtatLudo("Le cloud du serveur est plein (10 Go gratuits). Retire des jeux pour en sauvegarder d'autres.");
+      else if (ludo.plein) majEtatLudo("Ton cloud est plein" + place + ". Retire des jeux pour en sauvegarder d'autres.");
+      else majEtatLudo(n ? (n === 1 ? "Ce jeu est aussi dans ton cloud, rien que pour toi" : "Tes " + n + " jeux sont aussi dans ton cloud, rien que pour toi") + place + "." : "");
     } catch (e) {
       majEtatLudo("Ton cloud ne répond pas. Tes jeux restent sur cet appareil.");
     } finally {
@@ -2536,7 +2543,7 @@
     }
   }
 
-  // L'étoile suit le choix le plus récent, entre cet appareil et ton cloud.
+  // « Au catalogue » suit le choix le plus récent, entre cet appareil et ton cloud.
   async function accorderCatalogue(locaux) {
     for (const c of locaux) {
       const d = ludo.distants.get(await cleLudo(c.id));
@@ -2570,7 +2577,11 @@
           body: morceau,
         });
       } catch (e) { return false; }
-      if (r.status === 507) { ludo.plein = true; return false; }
+      if (r.status === 507) {
+        const d = await r.json().catch(() => ({}));
+        ludo.plein = true; ludo.raison = d.raison || "quota";
+        return false;
+      }
       if (!r.ok) return false;
     }
     return true;
@@ -2583,13 +2594,22 @@
     document.body.classList.add("chargement");
     const nom = nomLisible(d.nom);
     try {
-      const morceaux = [];
-      for (let i = 0; i < d.morceaux; i++) {
-        $("message-haut").textContent = "Récupération de " + nom + " depuis ton cloud… " + Math.round(i / d.morceaux * 100) + " %";
-        const r = await appelLudo("/" + d.id + "/" + i);
-        if (!r.ok) throw new Error(r.status);
-        morceaux.push(new Uint8Array(await r.arrayBuffer()));
-      }
+      // Trois morceaux à la fois, remis dans l'ordre à la fin.
+      const morceaux = new Array(d.morceaux);
+      let suivant = 0, recus = 0;
+      $("message-haut").textContent = "Récupération de " + nom + " depuis ton cloud… 0 %";
+      const ouvrier = async () => {
+        while (suivant < d.morceaux) {
+          const i = suivant++;
+          let r = await appelLudo("/" + d.id + "/" + i);
+          if (!r.ok) r = await appelLudo("/" + d.id + "/" + i);
+          if (!r.ok) throw new Error(r.status);
+          morceaux[i] = new Uint8Array(await r.arrayBuffer());
+          recus++;
+          $("message-haut").textContent = "Récupération de " + nom + " depuis ton cloud… " + Math.round(recus / d.morceaux * 100) + " %";
+        }
+      };
+      await Promise.all([ouvrier(), ouvrier(), ouvrier()]);
       const blob = new Blob(morceaux);
       const idLocal = d.nom + "|" + d.taille;
       ludo.cles.set(idLocal, d.id);

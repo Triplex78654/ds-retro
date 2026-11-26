@@ -18,3 +18,16 @@ class_name = "Coffre"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Salle", "Coffre"]
+
+# Les jeux de la ludothèque (fichiers privés de chaque joueur)
+[[r2_buckets]]
+binding = "JEUX"
+bucket_name = "ds-retro-jeux"
+
+[[durable_objects.bindings]]
+name = "REGISTRE"
+class_name = "Registre"
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Registre"]
