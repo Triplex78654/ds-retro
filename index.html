@@ -1394,6 +1394,7 @@
       grille.appendChild(vide);
     }
     $("compte").textContent = nbCartes ? String(nbCartes) : "";
+    try { envoyerMaListe(false); } catch (e) {}
   }
   // Bouton × : un premier appui arme le retrait, le second retire (de l'appareil et du cloud).
   function boutonRetirer(nom, action) {
@@ -1779,6 +1780,10 @@
     tentative: 0,
     infos: { joueurs: [], hote: null, manette: null, jeu: null, pause: false },
     demandes: new Set(),
+    listes: new Map(),        // jeux des autres joueurs (noms seulement)
+    propositions: [],         // jeux que les autres te proposent de lancer
+    proposeA: null,           // jeu que tu as proposé : { a, nom }
+    donnerManetteA: null,     // à qui donner la manette quand ton jeu démarre
   };
   const moiId = () => salon.moi && salon.moi.id;
   const estHote = () => Boolean(salon.infos.hote) && salon.infos.hote === moiId();
@@ -1828,7 +1833,7 @@
     const ws = new WebSocket(url);
     ws.binaryType = "arraybuffer";
     salon.ws = ws;
-    ws.onopen = () => { salon.etat = "connecte"; salon.tentative = 0; majSalon(); };
+    ws.onopen = () => { salon.etat = "connecte"; salon.tentative = 0; majSalon(); envoyerMaListe(true); };
     ws.onmessage = e => {
       if (typeof e.data === "string") { try { recevoirMessage(JSON.parse(e.data)); } catch (err) {} }
       else recevoirImage(e.data);
@@ -1851,6 +1856,20 @@
     if (m.t === "etat") {
       const avant = salon.infos;
       salon.infos = m;
+      const presents = new Set(m.joueurs.map(j => j.id));
+      [...salon.listes.keys()].forEach(id => { if (!presents.has(id)) salon.listes.delete(id); });
+      salon.propositions = salon.propositions.filter(p => presents.has(p.de.id));
+      if (m.joueurs.length > avant.joueurs.length) envoyerMaListe(true);
+      // Ton pote lance le jeu que tu lui as proposé : tu regardes directement, la manette arrive.
+      if (salon.proposeA && m.hote === salon.proposeA.a && !jeuActif && !spectateur) {
+        salon.proposeA = null;
+        setTimeout(regarder, 200);
+      }
+      // Tu viens de lancer un jeu proposé : la manette part chez celui qui l'a proposé.
+      if (salon.donnerManetteA && m.hote === moiId() && presents.has(salon.donnerManetteA)) {
+        envoyerSalon({ t: "manette", a: salon.donnerManetteA });
+        salon.donnerManetteA = null;
+      }
       if (avant.manette !== m.manette) relacherTouchesDistantes();
       if (spectateur && m.hote !== avant.hote) {
         arreterDeRegarder();
@@ -1875,6 +1894,15 @@
       if (estHote()) toucheDistante(m.b, m.e);
     } else if (m.t === "tactile") {
       if (estHote()) tactileDistant(m);
+    } else if (m.t === "liste") {
+      salon.listes.set(m.de, m.jeux || []);
+      majSalon();
+    } else if (m.t === "propose") {
+      salon.propositions = salon.propositions.filter(p => !(p.de.id === m.de.id && p.jeu.id === m.jeu.id));
+      salon.propositions.unshift(m);
+      bulle(m.de.nom + " te propose " + m.jeu.nom + ". MENU, puis Salon pour le lancer.");
+      if (ongletActif !== "salon") $("point-salon").hidden = false;
+      majSalon();
     } else if (m.t === "refus") {
       bulle(m.raison + " Ta partie reste en solo.");
     }
@@ -2077,6 +2105,37 @@
       });
     }
 
+    if (salon.etat === "connecte") {
+      const titreSection = texte => { const t = document.createElement("div"); t.className = "sous-titre"; t.textContent = texte; liste.appendChild(t); };
+      const ligneJeu = (texteNom, texteDetail, texteBouton, action, vif) => {
+        const ligne = document.createElement("div");
+        ligne.className = "joueur";
+        const rond = document.createElement("span");
+        rond.className = "rond"; rond.style.setProperty("--teinte", teinte(texteNom)); rond.textContent = initiales(texteNom).slice(0, 2);
+        const qui = document.createElement("span");
+        qui.className = "qui"; qui.textContent = texteNom + (texteDetail ? " · " + texteDetail : "");
+        const b = document.createElement("button");
+        b.type = "button"; b.textContent = texteBouton;
+        if (vif) b.classList.add("demande");
+        b.addEventListener("click", action);
+        ligne.append(rond, qui, b);
+        liste.appendChild(ligne);
+      };
+      if (salon.propositions.length && !jeuActif) {
+        titreSection("On te propose");
+        salon.propositions.forEach(p => ligneJeu(p.jeu.nom, p.de.nom, "Lancer", () => lancerProposition(p), true));
+      }
+      const autres = [...salon.listes].filter(([id, jeux]) => id !== moi && jeux.length && i.joueurs.some(j => j.id === id));
+      if (autres.length) {
+        titreSection("Jeux de tes potes");
+        autres.forEach(([id, jeux]) => jeux.forEach(jeu => ligneJeu(jeu.nom, nomDe(id), "Proposer", () => {
+          envoyerSalon({ t: "propose", a: id, jeu });
+          salon.proposeA = { a: id, nom: jeu.nom };
+          bulle("Proposé à " + nomDe(id) + ". Dès qu'il lance " + jeu.nom + ", tu verras son écran.");
+        })));
+      }
+    }
+
     const pastilles = $("pastilles-spectateur");
     pastilles.innerHTML = "";
     const pastille = (texte, vif) => { const p = document.createElement("span"); p.textContent = texte; if (vif) p.className = "vif"; pastilles.appendChild(p); };
@@ -2089,6 +2148,44 @@
       if (i.manette !== moi) pastille("Manette : " + nomDe(i.manette), true);
     }
     pastilles.hidden = !pastilles.children.length;
+  }
+
+  // Ta liste de jeux (noms seulement) pour les autres joueurs du salon.
+  let derniereListe = "";
+  async function envoyerMaListe(forcer) {
+    if (salon.etat !== "connecte") return;
+    const locaux = await listerCartouches();
+    const jeux = locaux.map(c => ({ id: c.id, nom: nomLisible(c.nom) }));
+    try {
+      for (const d of await jeuxSeulementDansLeCloud(locaux)) jeux.push({ id: "nuage:" + d.id, nom: nomLisible(d.nom) });
+    } catch (e) {}
+    jeux.sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+    const texte = JSON.stringify(jeux);
+    if (!forcer && texte === derniereListe) return;
+    derniereListe = texte;
+    envoyerSalon({ t: "liste", jeux });
+  }
+
+  async function lancerProposition(p) {
+    if (jeuActif || spectateur) return;
+    salon.propositions = salon.propositions.filter(x => x !== p);
+    salon.donnerManetteA = p.de.id;
+    fermerPause();
+    afficherOnglet("jeux");
+    afficherVueJeux("perso");
+    if (p.jeu.id.startsWith("nuage:")) {
+      const d = ludo.distants.get(p.jeu.id.slice(6));
+      if (d) return recupererDuCloud(null, d);
+    } else {
+      const c = await lireDans("cartouches", p.jeu.id).catch(() => null);
+      if (c && c.blob) {
+        c.joue = Date.now();
+        ecrireDans("cartouches", c).catch(() => {});
+        return inserer(document.querySelector(`.cart[data-id="${CSS.escape(c.id)}"]`), c.blob, c.nom, c.id);
+      }
+    }
+    salon.donnerManetteA = null;
+    $("erreur").textContent = "Ce jeu n'est plus dans tes cartouches.";
   }
 
   // Sauvegardes dans le cloud : une par joueur Discord et par jeu.

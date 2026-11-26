@@ -242,6 +242,18 @@ export class Salle extends DurableObject {
       case "tactile":
         if (e.hote && !estHote && e.manette === joueur.id) this.envoyerA(e.hote, { ...m, de: joueur.id });
         return;
+      case "liste": {
+        // Liste des jeux d'un joueur (noms seulement, jamais les fichiers), montrée aux autres.
+        const jeux = Array.isArray(m.jeux)
+          ? m.jeux.slice(0, 300).map(j => ({ id: String((j && j.id) || "").slice(0, 80), nom: String((j && j.nom) || "").slice(0, 80) })).filter(j => j.id && j.nom)
+          : [];
+        return this.envoyerATous({ t: "liste", de: joueur.id, jeux }, ws);
+      }
+      case "propose":
+        if (typeof m.a === "string" && m.a !== joueur.id && m.jeu) {
+          this.envoyerA(m.a, { t: "propose", de: joueur, jeu: { id: String(m.jeu.id || "").slice(0, 80), nom: String(m.jeu.nom || "").slice(0, 80) } });
+        }
+        return;
       case "ping":
         return ws.send(JSON.stringify({ t: "pong", n: m.n }));
     }
