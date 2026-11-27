@@ -1,7 +1,7 @@
 {
   "name": "retro-app",
   "productName": "Rétro",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Rétro : toutes tes consoles dans une seule appli, avec ton cloud et tes potes",
   "author": "Triplex78654",
   "license": "GPL-3.0-or-later",
@@ -26,7 +26,9 @@
       "site/**/*",
       "package.json",
       "emulateurs.js",
-      "maj.js"
+      "maj.js",
+      "azahar.js",
+      "recherche.js"
     ],
     "directories": {
       "output": "dist",

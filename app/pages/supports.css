@@ -1,0 +1,26 @@
+/* Supports de jeu dessinés (cartouche, disque, boîtier, carte, petit disque) : catalogue et accueil. */
+  .jaquette::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 9px; background: linear-gradient(#3a3227, #241e17); box-shadow: 0 -1px 0 rgba(255,255,255,.08) inset; }
+  .media { position: relative; z-index: 1; display: grid; place-items: center; margin-bottom: 9px; transition: transform .15s; }
+  :is(.carte, .console):hover .media, :is(.carte, .console):focus-visible .media { transform: translateY(-6px) rotate(-1.5deg); }
+  .etiquette { font: 600 26px/1 "Pixelify", system-ui, sans-serif; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.3); }
+  /* Cartouche : coque grise, rainures en haut, étiquette colorée */
+  [data-support="cartouche"] .media { width: 96px; height: 104px; border-radius: 7px 7px 3px 3px; background: linear-gradient(#8d9098, #6d7079); box-shadow: 0 6px 12px rgba(0,0,0,.4), inset 0 2px 0 rgba(255,255,255,.25); clip-path: polygon(0 0, 100% 0, 100% 88%, 92% 100%, 8% 100%, 0 88%); }
+  [data-support="cartouche"] .media::before { content: ""; position: absolute; top: 6px; left: 14px; right: 14px; height: 10px; background: repeating-linear-gradient(90deg, rgba(0,0,0,.25) 0 3px, transparent 3px 7px); border-radius: 2px; }
+  [data-support="cartouche"] .etiquette { width: 74px; height: 62px; margin-top: 14px; display: grid; place-items: center; border-radius: 4px; background: linear-gradient(160deg, hsl(var(--t) 60% 52%), hsl(var(--t) 55% 30%)); box-shadow: inset 0 0 0 2px rgba(255,255,255,.18); }
+  /* Disque dans son boîtier transparent */
+  [data-support="disque"] .media { width: 104px; height: 100px; border-radius: 3px; background: linear-gradient(135deg, rgba(255,255,255,.18), rgba(255,255,255,.04) 40%, rgba(255,255,255,.12)); border: 1px solid rgba(255,255,255,.25); box-shadow: 0 6px 12px rgba(0,0,0,.4); }
+  [data-support="disque"] .media::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 9px; background: rgba(0,0,0,.35); border-right: 1px solid rgba(255,255,255,.15); }
+  [data-support="disque"] .etiquette { width: 80px; height: 80px; margin-left: 9px; border-radius: 50%; display: grid; place-items: center; font-size: 22px;
+    background: radial-gradient(circle, #1b1d22 0 9px, #c9ccd3 9.5px 12px, transparent 12.5px), conic-gradient(from 30deg, hsl(var(--t) 60% 55%), hsl(calc(var(--t) + 60) 60% 50%), hsl(var(--t) 55% 35%), hsl(calc(var(--t) - 50) 60% 55%), hsl(var(--t) 60% 55%)); }
+  /* Boîtier haut (PS2, PS3) : bandeau du haut et jaquette */
+  [data-support="boitier"] .media { width: 78px; height: 112px; border-radius: 4px; overflow: hidden; background: linear-gradient(170deg, hsl(var(--t) 55% 45%), hsl(var(--t) 50% 22%)); box-shadow: 0 6px 12px rgba(0,0,0,.45), inset -5px 0 0 rgba(0,0,0,.25); }
+  [data-support="boitier"] .media::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 15px; background: hsl(var(--h) 20% 12%); border-bottom: 1px solid rgba(255,255,255,.2); }
+  [data-support="boitier"] .etiquette { margin-top: 12px; }
+  /* Carte de jeu (3DS, Switch) : petite carte avec un coin coupé */
+  [data-support="carte"] .media { width: 74px; height: 88px; border-radius: 8px; background: linear-gradient(#3a3d45, #24262c); box-shadow: 0 6px 12px rgba(0,0,0,.45); clip-path: polygon(0 0, 82% 0, 100% 13%, 100% 100%, 0 100%); }
+  [data-support="carte"] .media::before { content: ""; position: absolute; top: 5px; left: 9px; right: 18px; height: 6px; background: repeating-linear-gradient(90deg, #d7b45a 0 4px, transparent 4px 7px); opacity: .8; }
+  [data-support="carte"] .etiquette { width: 58px; height: 56px; margin-top: 10px; display: grid; place-items: center; border-radius: 4px; font-size: 22px; background: linear-gradient(160deg, hsl(var(--t) 60% 55%), hsl(var(--t) 55% 32%)); }
+  /* Petit disque dans sa coque (PSP) */
+  [data-support="umd"] .media { width: 92px; height: 100px; border-radius: 14px 14px 8px 8px; background: linear-gradient(#2c2f36, #1c1e23); box-shadow: 0 6px 12px rgba(0,0,0,.45); }
+  [data-support="umd"] .etiquette { width: 66px; height: 66px; border-radius: 50%; display: grid; place-items: center; font-size: 20px; background: radial-gradient(circle, #15161a 0 7px, transparent 7.5px), conic-gradient(hsl(var(--t) 60% 55%), hsl(calc(var(--t) + 80) 55% 50%), hsl(var(--t) 60% 55%)); }
+  @media (prefers-reduced-motion: reduce) { .media { transition: none; } :is(.carte, .console):hover .media { transform: none; } }

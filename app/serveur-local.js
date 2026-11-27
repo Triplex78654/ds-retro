@@ -13,7 +13,8 @@ const TYPES = {
 };
 
 // dossiers : { nes: "C:\\Users\\…\\Documents\\Rétro\\NES", … } — les jeux posés là apparaissent dans le catalogue.
-function demarrer({ dossier, port, api, dossiers = {} }) {
+// bibliotheque(c) : jeux trouvés ailleurs sur le PC par « Chercher mes jeux » ([{ nom, chemin, dossier }]).
+function demarrer({ dossier, port, api, dossiers = {}, bibliotheque = () => [] }) {
   const hoteAttendu = "127.0.0.1:" + port;
   const cibleApi = new URL(api || "http://0.0.0.0/api");                  // ex. https://ds-retro-serveur.….workers.dev/api
   const securise = cibleApi.protocol === "https:";
@@ -32,15 +33,30 @@ function demarrer({ dossier, port, api, dossiers = {} }) {
       const nom = decodeURIComponent(dj[2]);
       if (!nom) {
         return fs.readdir(racineJeux, { withFileTypes: true }, (e, liste) => {
-          const fichiers = e ? [] : liste.filter(f => f.isFile()).map(f => {
-            try { const st = fs.statSync(path.join(racineJeux, f.name)); return { nom: f.name, taille: st.size, maj: st.mtimeMs }; } catch (x) { return null; }
+          // Fichiers de jeux, et dossiers (jeux PS3 rangés en dossier, avec PS3_GAME ou EBOOT.BIN dedans)
+          const fichiers = e ? [] : liste.filter(f => (f.isFile() || f.isDirectory()) && !f.name.startsWith(".")).map(f => {
+            try {
+              const st = fs.statSync(path.join(racineJeux, f.name));
+              return f.isDirectory() ? { nom: f.name, taille: 0, maj: st.mtimeMs, dossier: true } : { nom: f.name, taille: st.size, maj: st.mtimeMs };
+            } catch (x) { return null; }
           }).filter(Boolean);
+          const noms = new Set(fichiers.map(f => f.nom));
+          for (const b of bibliotheque(dj[1])) {
+            if (noms.has(b.nom)) continue;
+            try {
+              const st = fs.statSync(b.chemin);
+              fichiers.push(b.dossier ? { nom: b.nom, taille: 0, maj: st.mtimeMs, dossier: true, trouve: true } : { nom: b.nom, taille: st.size, maj: st.mtimeMs, trouve: true });
+              noms.add(b.nom);
+            } catch (x) { /* fichier déplacé ou supprimé */ }
+          }
           res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
           res.end(JSON.stringify(fichiers));
         });
       }
-      const fichier = path.join(racineJeux, nom);
+      let fichier = path.join(racineJeux, nom);
       if (nom.includes("/") || nom.includes("\\") || path.dirname(fichier) !== path.resolve(racineJeux)) { res.writeHead(403); return res.end(); }
+      // Pas dans le dossier : peut-être un jeu trouvé ailleurs (seulement ceux de la bibliothèque).
+      if (!fs.existsSync(fichier)) { const b = bibliotheque(dj[1]).find(x => x.nom === nom && !x.dossier); if (b) fichier = b.chemin; }
       return fs.stat(fichier, (e, st) => {
         if (e || !st.isFile()) { res.writeHead(404); return res.end(); }
         res.writeHead(200, { "Content-Type": "application/octet-stream", "Content-Length": st.size, "Cache-Control": "no-cache" });
@@ -103,6 +119,6 @@ module.exports = { demarrer };
 // Lancé seul (tests) : node serveur-local.js <dossier> <port> <api>
 if (require.main === module) {
   const [dossier, port, api, jeux] = process.argv.slice(2);
-  const dossiers = jeux ? Object.fromEntries(["ds", "nes", "snes", "n64", "psx", "3ds"].map(c => [c, path.join(path.resolve(jeux), c)])) : {};
+  const dossiers = jeux ? Object.fromEntries(["ds", "nes", "snes", "n64", "psx", "3ds", "switch", "psp", "ps2", "ps3"].map(c => [c, path.join(path.resolve(jeux), c)])) : {};
   demarrer({ dossier: path.resolve(dossier), port: Number(port), api, dossiers }).then(() => console.log("Serveur local prêt sur " + port));
 }

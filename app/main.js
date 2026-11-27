@@ -12,7 +12,8 @@ if (!app.requestSingleInstanceLock()) app.quit();
 
 let fenetre = null;
 // Un dossier de jeux par console, dans Documents\\Rétro : ce qui est posé là apparaît dans le catalogue.
-const NOMS_DOSSIERS = { ds: "DS", nes: "NES", snes: "Super Nintendo", n64: "Nintendo 64", psx: "PlayStation", "3ds": "3DS" };
+const NOMS_DOSSIERS = { ds: "DS", nes: "NES", snes: "Super Nintendo", n64: "Nintendo 64", psx: "PlayStation", "3ds": "3DS",
+  switch: "Switch", psp: "PSP", ps2: "PlayStation 2", ps3: "PlayStation 3" };
 function dossiersDeJeux() {
   const fs = require("node:fs");
   const racine = path.join(app.getPath("documents"), "Rétro");
@@ -25,10 +26,33 @@ function dossiersDeJeux() {
 }
 let DOSSIERS = {};
 
+// Bibliothèque : jeux trouvés sur le PC par « Chercher mes jeux » (chemins seulement, rien n'est copié).
+const fichierBibliotheque = () => path.join(app.getPath("userData"), "bibliotheque.json");
+let BIBLIOTHEQUE = null;
+function bibliotheque() {
+  if (!BIBLIOTHEQUE) { try { BIBLIOTHEQUE = JSON.parse(require("node:fs").readFileSync(fichierBibliotheque(), "utf8")); } catch (e) { BIBLIOTHEQUE = {}; } }
+  return BIBLIOTHEQUE;
+}
+function ajouterABibliotheque(trouves) {
+  const b = bibliotheque(), ajoutes = {};
+  for (const t of trouves) {
+    const liste = b[t.console] || (b[t.console] = []);
+    if (liste.some(x => x.chemin === t.chemin)) continue;
+    // Deux jeux du même nom à deux endroits : le 2e prend « (2) ».
+    let nom = t.nom, i = 2;
+    const ext = t.dossier ? "" : path.extname(t.nom);
+    while (liste.some(x => x.nom === nom)) nom = path.basename(t.nom, ext) + " (" + i++ + ")" + ext;
+    liste.push({ nom, chemin: t.chemin, dossier: Boolean(t.dossier) });
+    ajoutes[t.console] = (ajoutes[t.console] || 0) + 1;
+  }
+  require("node:fs").writeFileSync(fichierBibliotheque(), JSON.stringify(b, null, 1));
+  return ajoutes;
+}
+
 async function lancer() {
   DOSSIERS = dossiersDeJeux();
   try {
-    await demarrer({ dossier: path.join(__dirname, "site"), port: PORT, dossiers: DOSSIERS });
+    await demarrer({ dossier: path.join(__dirname, "site"), port: PORT, dossiers: DOSSIERS, bibliotheque: c => bibliotheque()[c] || [] });
   } catch (e) {
     const { dialog } = require("electron");
     dialog.showErrorBox("Rétro", "Rétro est peut-être déjà ouvert (le port " + PORT + " est occupé).");
@@ -69,17 +93,61 @@ ipcMain.handle("emulateur-installer", async (e, c) => {
   try { return { ok: true, etat: await emulateurs.installer(String(c), envoyer) }; }
   catch (err) { return { ok: false, erreur: String(err.message || err) }; }
 });
-ipcMain.handle("lancer-externe", async (e, c, nom) => {
+ipcMain.handle("emulateur-derniere-version", (_e, c) => emulateurs.derniereVersion(String(c)));
+// Clés, firmware, BIOS : le joueur choisit ses fichiers dans une fenêtre Windows, l'appli les range.
+ipcMain.handle("systeme-importer", async (e, c, quoi, enDossier) => {
+  c = String(c); quoi = String(quoi);
+  const et = emulateurs.etat(c);
+  const def = et && et.systeme && et.systeme[quoi];
+  if (!def) return { ok: false, erreur: "Rien à importer ici" };
+  const { dialog } = require("electron");
+  const f = BrowserWindow.fromWebContents(e.sender);
+  const choix = await dialog.showOpenDialog(f, {
+    title: def.titre,
+    properties: enDossier && def.dossierPossible ? ["openDirectory"] : ["openFile"].concat(def.plusieurs ? ["multiSelections"] : []),
+    filters: enDossier ? [] : def.filtres.concat([{ name: "Tous les fichiers", extensions: ["*"] }]),
+  });
+  if (choix.canceled || !choix.filePaths.length) return { ok: false, annule: true };
+  const envoyer = p => { if (!e.sender.isDestroyed()) e.sender.send("emulateur-progression", p); };
+  try { return { ok: true, etat: await emulateurs.importerSysteme(c, quoi, choix.filePaths, envoyer) }; }
+  catch (err) { return { ok: false, erreur: String(err.message || err) }; }
+});
+// « Chercher mes jeux » : le joueur choisit des dossiers (ou un disque), l'appli range chaque jeu dans sa console.
+ipcMain.handle("chercher-jeux", async e => {
+  const { dialog } = require("electron");
+  const f = BrowserWindow.fromWebContents(e.sender);
+  const choix = await dialog.showOpenDialog(f, { title: "Où sont tes jeux ? (un dossier ou un disque entier)", properties: ["openDirectory", "multiSelections"] });
+  if (choix.canceled || !choix.filePaths.length) return { ok: false, annule: true };
+  const envoyer = p => { if (!e.sender.isDestroyed()) e.sender.send("recherche-progression", p); };
+  try {
+    const sept = require("7zip-bin").path7za.replace("app.asar", "app.asar.unpacked");
+    const trouves = await require("./recherche").chercher(choix.filePaths, {
+      sept, progression: envoyer,
+      // Pas la peine de fouiller les dossiers de jeux de l'appli ni ses émulateurs.
+      exclure: Object.values(DOSSIERS).concat([app.getPath("userData")]),
+    });
+    return { ok: true, trouves: trouves.length, ajoutes: ajouterABibliotheque(trouves) };
+  } catch (err) { return { ok: false, erreur: String(err.message || err) }; }
+});
+ipcMain.handle("lancer-externe", async (e, c, nom, options) => {
   c = String(c); nom = String(nom);
   const dossier = DOSSIERS[c];
   if (!dossier || !nom || /[\\/]/.test(nom) || nom.startsWith(".")) return { ok: false, erreur: "Jeu introuvable" };
-  const chemin = path.join(dossier, nom);
-  if (!require("node:fs").existsSync(chemin)) return { ok: false, erreur: "Ce jeu n'est plus dans ton dossier" };
+  let chemin = path.join(dossier, nom);
+  if (!require("node:fs").existsSync(chemin)) {
+    const b = (bibliotheque()[c] || []).find(x => x.nom === nom);
+    if (b) chemin = b.chemin;
+  }
+  if (!require("node:fs").existsSync(chemin)) return { ok: false, erreur: "Ce jeu n'est plus à sa place sur ton PC" };
   const f = BrowserWindow.fromWebContents(e.sender);
+  const envoyer = texte => { if (texte && !e.sender.isDestroyed()) e.sender.send("emulateur-progression", { etape: "lancement", texte }); };
+  let reduite = false;
   try {
-    const fin = emulateurs.lancer(c, chemin);
-    if (f) f.minimize();
-    await fin;
+    await emulateurs.lancer(c, chemin, {
+      manette: Boolean(options && options.manette),
+      // Juste avant de lancer le jeu : l'appli se met de côté, elle revient quand l'émulateur se ferme.
+      etape: texte => { if (texte) envoyer(texte); else if (f && !reduite) { reduite = true; f.minimize(); } },
+    });
     if (f) { f.restore(); f.focus(); }
     return { ok: true };
   } catch (err) {

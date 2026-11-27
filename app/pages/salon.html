@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rétro</title>
 <link rel="stylesheet" href="console/styles/00-polices.css">
+<link rel="stylesheet" href="supports.css">
 <style>
   :root { --fond: #16181d; --panneau: #1f232b; --texte: #eef0f4; --texte-2: #9aa1ad; --h: 0; color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -19,6 +20,7 @@
   button:focus-visible, .bouton:focus-visible { outline: 3px solid hsl(var(--h) 65% 60% / .6); outline-offset: 2px; }
   button.principal { background: hsl(var(--h) 55% 45%); border-color: transparent; }
   label.volume { display: flex; align-items: center; gap: 8px; color: var(--texte-2); font-size: 13px; }
+  label.volume[hidden] { display: none; }
   label.volume input { accent-color: hsl(var(--h) 65% 55%); width: 110px; }
   main { min-height: 0; overflow: hidden; }
   /* Catalogue plein écran ; pendant une partie, l'écran prend toute la place */
@@ -30,11 +32,29 @@
   .grille-jeux { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
   .jeu { position: relative; }
   .jeu > button.carte {
-    width: 100%; display: grid; grid-template-rows: 130px auto; padding: 0; overflow: hidden; text-align: left;
+    width: 100%; display: grid; grid-template-rows: 150px auto; padding: 0; overflow: hidden; text-align: left;
     background: var(--panneau); border: 1px solid rgba(255,255,255,.06); border-radius: 12px; transition: transform .1s, border-color .1s;
   }
   .jeu > button.carte:hover, .jeu > button.carte:focus-visible { transform: translateY(-3px); border-color: hsl(var(--h) 65% 60%); }
-  .jaquette { display: grid; place-items: center; background: linear-gradient(160deg, hsl(var(--t) 50% 38%), hsl(var(--t) 45% 20%)); font: 600 38px/1 "Pixelify", system-ui, sans-serif; color: rgba(255,255,255,.92); text-shadow: 0 2px 0 rgba(0,0,0,.25); }
+  /* Le jeu posé sur l'étagère, dans le support de sa console : cartouche, disque, boîtier, carte. */
+  .jaquette {
+    position: relative; display: grid; place-items: end center; padding-top: 14px; overflow: hidden;
+    background: radial-gradient(120% 90% at 50% 100%, hsl(var(--h) 35% 22%), hsl(var(--h) 25% 12%) 70%);
+  }
+
+  /* Fichiers de la console (clés, firmware, BIOS) */
+  .systeme { margin: 18px 0 4px; padding: 16px 18px; border-radius: 12px; background: var(--panneau); border: 1px solid rgba(255,255,255,.06); max-width: 900px; }
+  .systeme h2 { margin: 0 0 4px; font: 600 18px/1.2 "Pixelify", system-ui, sans-serif; }
+  .systeme > p { margin: 0 0 12px; color: var(--texte-2); font-size: 13px; }
+  .systeme ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .systeme li { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 10px; background: rgba(0,0,0,.18); }
+  .systeme li strong { display: block; font-size: 14px; }
+  .systeme li small { color: var(--texte-2); font-size: 12px; }
+  .systeme .voyant { width: 12px; height: 12px; border-radius: 50%; background: #5b6170; }
+  .systeme li.present .voyant { background: #43c47a; box-shadow: 0 0 8px #43c47a; }
+  .systeme li.manque .voyant { background: #e5a23a; box-shadow: 0 0 8px #e5a23a; }
+  .systeme .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .aide-externe { color: var(--texte-2); font-size: 13px; max-width: 900px; margin: 12px 0 0; line-height: 1.9; }
   .carte .titre-jeu { padding: 10px 12px 12px; font-weight: 600; font-size: 14px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .carte small { display: block; color: var(--texte-2); font-weight: 400; font-size: 12px; margin-top: 2px; }
   .jeu .retirer { position: absolute; top: 8px; right: 8px; padding: 6px 9px; font-size: 12px; background: rgba(0,0,0,.55); opacity: 0; }
@@ -77,8 +97,15 @@
     </div>
     <div class="barre" id="barre-emulateur" hidden>
       <button type="button" id="installer-emulateur" hidden></button>
-      <p id="etat-emulateur"></p>
+      <button type="button" id="maj-emulateur" hidden></button>
+      <p id="etat-emulateur" role="status"></p>
     </div>
+    <section class="systeme" id="systeme" hidden aria-labelledby="titre-systeme">
+      <h2 id="titre-systeme">Fichiers de ta console</h2>
+      <p>Ils viennent de ta propre console : l'appli les range au bon endroit, ils ne quittent jamais ton PC.</p>
+      <ul id="liste-systeme"></ul>
+    </section>
+    <p class="aide-externe" id="aide-externe" hidden></p>
     <p class="message" id="message" role="status"></p>
     <ul class="grille-jeux" id="jeux"></ul>
   </section>
@@ -118,12 +145,16 @@
   "use strict";
   // Une page pour toutes les consoles de salon. Le cœur de chaque console est hébergé avec l'appli.
   const CONSOLES = {
-    nes: { nom: "NES", coeur: "fceumm", h: 0, extensions: [".nes", ".zip", ".7z"], formats: "Fichiers .nes (ou un .zip / .7z qui en contient un)." },
-    snes: { nom: "Super Nintendo", coeur: "snes9x", h: 265, extensions: [".sfc", ".smc", ".zip", ".7z"], formats: "Fichiers .sfc ou .smc (ou un .zip / .7z)." },
-    n64: { nom: "Nintendo 64", coeur: "mupen64plus_next", h: 140, extensions: [".z64", ".n64", ".v64", ".zip", ".7z"], formats: "Fichiers .z64, .n64 ou .v64 (ou un .zip / .7z)." },
-    psx: { nom: "PlayStation", coeur: "pcsx_rearmed", h: 210, extensions: [".chd", ".pbp", ".zip", ".7z", ".iso"], formats: "Un fichier .chd ou .pbp, ou un .zip avec le .cue et les .bin du jeu." },
+    nes: { nom: "NES", support: "cartouche", coeur: "fceumm", h: 0, extensions: [".nes", ".zip", ".7z"], formats: "Fichiers .nes (ou un .zip / .7z qui en contient un)." },
+    snes: { nom: "Super Nintendo", support: "cartouche", coeur: "snes9x", h: 265, extensions: [".sfc", ".smc", ".zip", ".7z"], formats: "Fichiers .sfc ou .smc (ou un .zip / .7z)." },
+    n64: { nom: "Nintendo 64", support: "cartouche", coeur: "mupen64plus_next", h: 140, extensions: [".z64", ".n64", ".v64", ".zip", ".7z"], formats: "Fichiers .z64, .n64 ou .v64 (ou un .zip / .7z)." },
+    psx: { nom: "PlayStation", support: "disque", coeur: "pcsx_rearmed", h: 210, extensions: [".chd", ".pbp", ".zip", ".7z", ".iso"], formats: "Un fichier .chd ou .pbp, ou un .zip avec le .cue et les .bin du jeu." },
     // Consoles lancées avec un émulateur externe (téléchargé au premier jeu)
-    "3ds": { nom: "3DS", externe: "Azahar", h: 350, extensions: [".cci", ".3ds", ".cxi", ".3dsx", ".zcci", ".zcxi", ".z3dsx"], formats: "Tes jeux 3DS déchiffrés : .cci (un .3ds déchiffré renommé en .cci marche), .cxi ou .3dsx." },
+    "3ds": { nom: "3DS", support: "carte", externe: "Azahar", h: 350, extensions: [".cci", ".3ds", ".cxi", ".cia", ".3dsx", ".zcci", ".zcxi", ".z3dsx"], formats: "Tes jeux 3DS déchiffrés : .cia, .cci, .cxi ou .3dsx (un .3ds déchiffré renommé en .cci marche)." },
+    switch: { nom: "Switch", support: "carte", externe: "Eden", h: 355, extensions: [".nsp", ".xci", ".nca", ".nro", ".nso"], formats: "Tes jeux Switch : .nsp ou .xci (avec tes clés et ton firmware)." },
+    psp: { nom: "PSP", support: "umd", externe: "PPSSPP", h: 200, extensions: [".iso", ".cso", ".chd", ".pbp"], formats: "Tes jeux PSP : .iso, .cso, .chd ou .pbp." },
+    ps2: { nom: "PlayStation 2", support: "boitier", externe: "PCSX2", h: 230, extensions: [".iso", ".chd", ".cso", ".zso", ".cue"], formats: "Tes jeux PS2 : .iso, .chd, .cso ou .cue (avec le BIOS de ta PS2)." },
+    ps3: { nom: "PlayStation 3", support: "boitier", externe: "RPCS3", h: 0, dossiers: true, extensions: [".iso"], formats: "Tes jeux PS3 : un dossier de jeu (avec PS3_GAME ou EBOOT.BIN dedans) ou un .iso." },
   };
   // Pistolet à la souris : un pistolet branché sur le port 2, visé avec la souris (clic = tir).
   // L'émulateur web lit la souris comme un écran tactile : visée exacte, sans dérive.
@@ -141,12 +172,18 @@
     n64: "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> stick · souris caméra (boutons C) · clic gauche Z (tir) · clic droit R (viser) · <kbd>Espace</kbd> A · <kbd>J</kbd> B · <kbd>Maj</kbd> Z · <kbd>A</kbd> <kbd>E</kbd> L / R · <kbd>↑↓←→</kbd> boutons C · <kbd>Entrée</kbd> Start. Manette : stick gauche, stick droit = boutons C, gâchettes = Z, bumpers = L / R.",
     psx: "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> bouger · souris caméra · clic gauche R2 · clic droit L2 · <kbd>Espace</kbd> ✕ · <kbd>L</kbd> ○ · <kbd>J</kbd> □ · <kbd>I</kbd> △ · <kbd>A</kbd> <kbd>E</kbd> L1 / R1 · <kbd>Maj</kbd> L2 · <kbd>R</kbd> R2 · <kbd>Entrée</kbd> Start. Manette DualShock : deux sticks, gâchettes L2 / R2.",
   };
+  // Commandes dans les émulateurs externes (réglées par l'appli quand c'est possible).
+  const AIDES_EXTERNES = {
+    "3ds": "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> stick · <kbd>Maj</kbd> marcher · <kbd>Entrée</kbd> A (valider) · <kbd>Espace</kbd> B (retour) · <kbd>I</kbd> X · <kbd>J</kbd> Y · <kbd>A</kbd> <kbd>E</kbd> L / R · <kbd>↑↓←→</kbd> croix · <kbd>P</kbd> Start · <kbd>O</kbd> Select · souris = écran tactile. Avec une manette branchée (appuie sur un bouton ici avant de lancer), tout passe par la manette.",
+  };
   const C = CONSOLES[id];
   const $ = x => document.getElementById(x);
   if (!C) { location.href = "accueil.html"; return; }
   document.title = "Rétro · " + C.nom;
   document.documentElement.style.setProperty("--h", C.h);
   $("titre").textContent = C.nom;
+  document.body.dataset.support = C.support;
+  document.querySelector("header .pastille").dataset.support = C.support;
   $("formats").textContent = C.formats;
   $("fichier").accept = C.extensions.join(",");
   if (C.externe) {
@@ -167,7 +204,7 @@
   const ecrire = (s, v) => magasin(s, "readwrite", o => o.put(v));
   const effacer = (s, k) => magasin(s, "readwrite", o => o.delete(k));
   const tous = s => magasin(s, "readonly", o => o.getAll());
-  const nomLisible = n => n.replace(/\.[^.]+$/, "").replace(/[_]+/g, " ");
+  const nomLisible = n => n.replace(/\.(nes|sfc|smc|z64|n64|v64|chd|pbp|zip|7z|iso|cci|3ds|cxi|cia|3dsx|zcci|zcxi|z3dsx|nsp|xci|nca|nro|nso|cso|zso|cue)$/i, "").replace(/[_]+/g, " ");
 
   // ---------- Catalogue : le dossier de jeux du PC + les jeux ajoutés à la main ----------
   const teinte = t => { let h = 0; for (const c of t) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
@@ -178,7 +215,7 @@
     try {
       const r = await fetch("jeux-pc/" + id + "/", { cache: "no-store" });
       if (!r.ok) return [];
-      return (await r.json()).filter(f => accepte(f.nom)).map(f => ({ id: id + ":" + f.nom + "|" + f.taille, console: id, nom: f.nom, taille: f.taille, source: "pc" }));
+      return (await r.json()).filter(f => (f.dossier ? C.dossiers : accepte(f.nom))).map(f => ({ id: id + ":" + f.nom + "|" + f.taille, console: id, nom: f.nom, taille: f.taille, source: "pc", dossier: Boolean(f.dossier), trouve: Boolean(f.trouve) }));
     } catch (e) { return []; }
   }
   async function afficherJeux() {
@@ -201,9 +238,11 @@
       const carte = document.createElement("button"); carte.type = "button"; carte.className = "carte";
       carte.style.setProperty("--t", teinte(j.nom));
       carte.setAttribute("aria-label", "Jouer à " + nomLisible(j.nom));
-      const jaq = document.createElement("span"); jaq.className = "jaquette"; jaq.textContent = initiales(j.nom);
+      const jaq = document.createElement("span"); jaq.className = "jaquette"; jaq.dataset.support = C.support;
+      jaq.innerHTML = '<span class="media"><span class="etiquette"></span></span>';
+      jaq.querySelector(".etiquette").textContent = initiales(j.nom);
       const t = document.createElement("span"); t.className = "titre-jeu"; t.textContent = nomLisible(j.nom);
-      const sous = document.createElement("small"); sous.textContent = j.source === "pc" ? "Dans ton dossier" : "Ajouté à l'appli";
+      const sous = document.createElement("small"); sous.textContent = j.source === "pc" ? (j.trouve ? "Trouvé sur ton PC" : j.dossier ? "Dossier de jeu" : "Dans ton dossier") : "Ajouté à l'appli";
       t.appendChild(sous);
       carte.append(jaq, t);
       carte.addEventListener("click", () => lancer(j));
@@ -274,17 +313,62 @@
 
   // ---------- Émulateur externe (3DS…) : installé au premier jeu, puis lancé en plein écran ----------
   let emulateurPret = false, occupe = false;
+  // Clés, firmware, BIOS : état et import.
+  function dessinerSysteme(sys) {
+    $("systeme").hidden = !sys;
+    if (!sys) return;
+    const ul = $("liste-systeme"); ul.innerHTML = "";
+    for (const [quoi, f] of Object.entries(sys)) {
+      const li = document.createElement("li"); li.className = f.present ? "present" : (f.obligatoire ? "manque" : "");
+      li.innerHTML = '<span class="voyant" aria-hidden="true"></span><div><strong></strong><small></small></div><span class="actions"></span>';
+      li.querySelector("strong").textContent = f.titre + (f.present ? " · " + f.detail : f.obligatoire ? " · à ajouter" : " · conseillé");
+      li.querySelector("small").textContent = f.aide;
+      const actions = li.querySelector(".actions");
+      const bouton = (texte, dossier) => {
+        const b = document.createElement("button"); b.type = "button"; b.textContent = texte;
+        b.addEventListener("click", () => importer(quoi, dossier));
+        actions.appendChild(b);
+      };
+      bouton(f.present ? "Remplacer" : "Choisir le fichier", false);
+      if (f.dossierPossible) bouton("Choisir un dossier", true);
+      ul.appendChild(li);
+    }
+  }
+  async function importer(quoi, dossier) {
+    if (occupe) return;
+    occupe = true;
+    const arret = retroApp.surProgression(p => {
+      $("etat-emulateur").textContent = p.etape === "telechargement" && p.total ? p.texte + " : " + Math.round(p.recus / p.total * 100) + " %" : p.texte;
+    });
+    const r = await retroApp.importerSysteme(id, quoi, dossier);
+    arret(); occupe = false;
+    if (r.ok) { await majEmulateur(); $("etat-emulateur").textContent = "C'est rangé. " + $("etat-emulateur").textContent; }
+    else if (!r.annule) $("etat-emulateur").textContent = "Import impossible : " + r.erreur + ".";
+  }
+  const manqueSysteme = e => e && e.systeme && Object.values(e.systeme).find(f => f.obligatoire && !f.present);
+  $("maj-emulateur").addEventListener("click", async () => { if (await installerEmulateur()) $("maj-emulateur").hidden = true; });
+
   async function majEmulateur() {
     if (!C.externe) return;
     if (!window.retroApp) { $("etat-emulateur").textContent = "La " + C.nom + " marche seulement dans l'appli Rétro pour PC."; return; }
     const e = await retroApp.emulateurEtat(id);
     emulateurPret = Boolean(e && e.installe);
+    etatEmulateur = e;
+    dessinerSysteme(e && e.systeme);
+    if (AIDES_EXTERNES[id]) { $("aide-externe").hidden = false; $("aide-externe").innerHTML = AIDES_EXTERNES[id]; }
+    // Nouvelle version de l'émulateur : bouton pour mettre à jour (clés, BIOS et sauvegardes gardés).
+    if (emulateurPret && retroApp.derniereVersionEmulateur && !verifiee) {
+      verifiee = true;
+      retroApp.derniereVersionEmulateur(id).then(v => {
+        if (v && e.version && v !== e.version) { $("maj-emulateur").hidden = false; $("maj-emulateur").textContent = "Mettre à jour " + e.nom + " (" + v + ")"; }
+      });
+    }
     const b = $("installer-emulateur");
     if (emulateurPret) {
       $("etat-emulateur").textContent = e.nom + " " + (e.version || "") + " est installé. Choisis un jeu : il s'ouvre dans " + e.nom + ", ferme-le pour revenir ici.";
       b.hidden = true;
     } else {
-      $("etat-emulateur").textContent = C.externe + " n'est pas encore installé. L'appli le télécharge depuis sa page officielle (GitHub) quand tu lances ton premier jeu.";
+      $("etat-emulateur").textContent = C.externe + " n'est pas encore installé. L'appli le télécharge depuis son site officiel quand tu lances ton premier jeu.";
       b.hidden = false; b.textContent = "Installer " + C.externe + " maintenant";
     }
   }
@@ -303,19 +387,29 @@
     return true;
   }
   $("installer-emulateur").addEventListener("click", installerEmulateur);
+  let etatEmulateur = null, verifiee = false;
   async function lancerExterne(jeu) {
     if (!window.retroApp || occupe) return;
     if (!emulateurPret && !(await installerEmulateur())) return;
+    const manque = manqueSysteme(etatEmulateur);
+    if (manque) {
+      $("etat-emulateur").textContent = "Avant de jouer, ajoute : " + manque.titre + " (plus bas).";
+      $("systeme").scrollIntoView({ behavior: "smooth", block: "center" });
+      const b = $("liste-systeme").querySelector("li.manque button"); if (b) b.focus();
+      return;
+    }
     occupe = true;
     $("etat-emulateur").textContent = nomLisible(jeu.nom) + " est lancé dans " + C.externe + ". Ferme " + C.externe + " pour revenir ici.";
-    const r = await retroApp.lancerExterne(id, jeu.nom);
+    const arret = retroApp.surProgression(p => { $("etat-emulateur").textContent = p.texte; });
+    const r = await retroApp.lancerExterne(id, jeu.nom, { manette: manetteVue });
+    arret();
     occupe = false;
     if (!r.ok) $("etat-emulateur").textContent = "Lancement impossible : " + r.erreur + ".";
     else majEmulateur();
   }
 
   // ---------- Partie ----------
-  let partie = null, empreinte = "";
+  let partie = null, empreinte = "", manetteVue = false;
   const empreinteDe = o => { let h = 2166136261; for (let i = 0; i < o.length; i++) h = Math.imul(h ^ o[i], 16777619); return o.length + ":" + (h >>> 0); };
   const choixPistolet = j => localStorage.getItem("retro-pistolet:" + j.id) || "auto";
   const pistoletActif = j => Boolean(PISTOLETS[id]) && (choixPistolet(j) === "oui" || (choixPistolet(j) === "auto" && PISTOLETS[id].jeux.test(j.nom)));
@@ -411,6 +505,7 @@
   let avant = {};
   (function boucle() {
     const m = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(Boolean);
+    manetteVue = Boolean(m);
     if (m) {
       const b = i => Boolean(m.buttons[i] && m.buttons[i].pressed);
       const e = { g: b(14) || m.axes[0] < -0.6, d: b(15) || m.axes[0] > 0.6, h: b(12) || m.axes[1] < -0.6, bas: b(13) || m.axes[1] > 0.6, a: b(0), b: b(1), pause: b(8) && b(9) };
