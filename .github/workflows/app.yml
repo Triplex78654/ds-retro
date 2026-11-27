@@ -1,6 +1,6 @@
 # Construit l'appli Windows « Rétro » (installateur + version portable).
 # - À chaque modification de l'appli ou de la console : fichiers à télécharger dans l'onglet Actions.
-# - Avec une étiquette app-vX.Y.Z : une version publiée dans « Releases », à donner à tes potes.
+# - Pour publier (Releases + bouton de mise à jour de l'appli) : Actions → Appli Windows → Run workflow → cocher « Publier ».
 name: Appli Windows
 
 on:
@@ -9,6 +9,11 @@ on:
     paths: ["app/**", "console/**", "console.js", "index.html", "emulateur/**", ".github/workflows/app.yml"]
     tags: ["app-v*"]
   workflow_dispatch:
+    inputs:
+      publier:
+        description: "Publier cette version (le bouton de mise à jour de l'appli la proposera)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -39,11 +44,20 @@ jobs:
             app/dist/latest.yml
           if-no-files-found: error
       - name: Publier la version
-        if: startsWith(github.ref, 'refs/tags/app-v')
+        # Lancé à la main (Actions → Appli Windows → Run workflow → cocher « Publier ») ou par une étiquette app-vX.Y.Z.
+        # Le numéro de version vient de app/package.json.
+        if: inputs.publier || startsWith(github.ref, 'refs/tags/app-v')
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" app/dist/*.exe app/dist/latest.yml app/dist/*.blockmap \
-            --title "Rétro ${GITHUB_REF_NAME#app-v}" \
+          version=$(node -p "require('./app/package.json').version")
+          etiquette="app-v${version}"
+          if gh release view "$etiquette" >/dev/null 2>&1; then
+            echo "::error::La version ${version} est déjà publiée : change le numéro de version dans app/package.json."
+            exit 1
+          fi
+          gh release create "$etiquette" app/dist/*.exe app/dist/latest.yml app/dist/*.blockmap \
+            --target "$GITHUB_SHA" \
+            --title "Rétro ${version}" \
             --notes "Appli Windows Rétro. Prends l'installateur (Setup) ou la version portable. Avec l'installateur, les versions suivantes s'installent depuis l'appli (bouton en bas de l'accueil). Windows peut afficher un avertissement car l'appli n'est pas signée : « Informations complémentaires », puis « Exécuter quand même »."
