@@ -82,6 +82,31 @@
       grille.appendChild(emplacement);
     });
 
+    // Appli Rétro pour PC : jeux de Documents\Rétro\DS et jeux trouvés sur le PC, lus sur place (rien n'est copié).
+    const dejaLa = new Set(liste.map(c => c.id));
+    for (const j of await jeuxDuPc()) {
+      const id = j.nom + "|" + j.taille; // même identifiant qu'un jeu ajouté à la main : mêmes sauvegardes
+      if (dejaLa.has(id)) continue;
+      const nom = nomLisible(j.nom);
+      const emplacement = document.createElement("div");
+      emplacement.className = "emplacement";
+      const cart = document.createElement("button");
+      cart.type = "button"; cart.className = "cart";
+      cart.dataset.id = id;
+      cart.title = j.trouve ? "Trouvé sur ton PC" : "Dans ton dossier Rétro";
+      cart.style.setProperty("--teinte", teinte(nom));
+      cart.setAttribute("aria-label", "Jouer à " + nom);
+      const etiquette = document.createElement("span");
+      etiquette.className = "etiquette"; etiquette.textContent = initiales(nom);
+      const titre = document.createElement("span");
+      titre.className = "nom"; titre.textContent = nom;
+      cart.append(etiquette, titre);
+      marquerSysteme(cart, systemeDuNom(j.nom));
+      cart.addEventListener("click", () => jouerDuPc(cart, j.nom, id));
+      emplacement.appendChild(cart);
+      grille.appendChild(emplacement);
+    }
+
     // Jeux de ton cloud qui ne sont pas encore sur cet appareil
     for (const d of await jeuxSeulementDansLeCloud(liste)) {
       const nom = nomLisible(d.nom);
@@ -127,6 +152,27 @@
     const e = document.createElement("span");
     e.className = "systeme"; e.textContent = SYSTEMES[systeme].nom;
     cart.appendChild(e);
+  }
+
+  // Jeux DS / GBA / Game Boy que l'appli Rétro a sur le PC (servis par son serveur local).
+  async function jeuxDuPc() {
+    if (!window.retroApp) return [];
+    try {
+      const r = await fetch("jeux-pc/ds/", { cache: "no-store" });
+      if (!r.ok) return [];
+      return (await r.json()).filter(f => !f.dossier && EXTENSIONS.some(ext => f.nom.toLowerCase().endsWith(ext)));
+    } catch (e) { return []; }
+  }
+  async function jouerDuPc(cart, nomFichier, id) {
+    $("erreur").textContent = "";
+    try {
+      const r = await fetch("jeux-pc/ds/" + encodeURIComponent(nomFichier));
+      if (!r.ok) throw new Error(r.status);
+      inserer(cart, await r.blob(), nomFichier, id);
+    } catch (e) {
+      $("erreur").textContent = "Ce jeu n'est plus à sa place sur ton PC.";
+      afficherCartouches();
+    }
   }
 
   async function jouerCartouche(cart, id) {
@@ -257,6 +303,8 @@
   }
 
   afficherCartouches();
+  // La recherche automatique de l'appli a rangé de nouveaux jeux : la liste se met à jour.
+  if (window.retroApp && retroApp.surRecherche) retroApp.surRecherche(p => { if (p.etape === "fini" && p.resultat && p.resultat.ok && !jeuActif) afficherCartouches(); });
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
   async function ajouterFichier(fichier) {

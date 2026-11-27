@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 const ici = path.dirname(fileURLToPath(import.meta.url));
 const appli = path.resolve(ici, "..");
 const sortie = path.resolve(process.argv[2] || path.join(appli, "captures"));
-const PORT_DEBUG = 9333, ORIGINE = "http://127.0.0.1:53134";
+const PORT_DEBUG = 9333, ORIGINE = "http://127.0.0.1:53135";
 fs.mkdirSync(sortie, { recursive: true });
 
 // ---------- Jeux de démonstration ----------
@@ -31,6 +31,11 @@ for (const [dossier, noms] of Object.entries(JEUX)) {
   fs.mkdirSync(d, { recursive: true });
   noms.forEach((n, i) => fs.writeFileSync(path.join(d, n), Buffer.alloc(40960 * (i + 1))));
 }
+// Console DS : un vrai jeu libre du catalogue et la ROM GBA des tests, pour vérifier qu'ils se lancent.
+const dossierDs = path.join(demo, "documents", "Rétro", "DS");
+fs.mkdirSync(dossierDs, { recursive: true });
+fs.copyFileSync(path.join(appli, "..", "catalogue", "SpaceImpaktoDS.nds"), path.join(dossierDs, "SpaceImpaktoDS.nds"));
+fs.copyFileSync(path.join(appli, "..", "tests", "roms", "test-rouge.gba"), path.join(dossierDs, "Test rouge.gba"));
 
 execFileSync(process.execPath, ["preparer.mjs"], { cwd: appli, stdio: "inherit" });
 const electron = createRequire(import.meta.url)(path.join(appli, "node_modules", "electron"));
@@ -109,6 +114,16 @@ try {
   await capture("bibliotheque-liste");
   await evaluer("document.querySelector('input[name=vue][value=grille]').click(); true");
 
+  // Console DS : les jeux du dossier DS apparaissent dans « Tes cartouches » et se lancent.
+  await aller("index.html");
+  await pause(1500);
+  verifier(await evaluer("[...document.querySelectorAll('#grille .cart .nom')].map(n => n.textContent).sort().join(',')") === "SpaceImpaktoDS,Test rouge", "la console DS montre les jeux DS / GBA du PC");
+  await capture("console-ds");
+  await evaluer("[...document.querySelectorAll('#grille .cart')].find(c => c.textContent.includes('Test rouge')).click(); true");
+  await pause(6000);
+  verifier(await evaluer("document.body.classList.contains('mode-gba') && !document.body.classList.contains('chargement') && Boolean(document.querySelector('canvas')) && !document.getElementById('erreur').textContent"), "un jeu GBA du PC se lance dans la console DS");
+  await capture("console-ds-en-jeu");
+
   await aller("salon.html?console=nes");
   verifier(await evaluer("document.querySelectorAll('#jeux .carte').length") === 5, "le catalogue NES liste ses jeux");
   await capture("console-nes");
@@ -145,5 +160,9 @@ try {
 } catch (e) { erreurs.push(String(e.stack || e)); }
 
 ws.close();
+// Messages connus et sans gravité : EmulatorJS essaie d'abord ses fichiers minifiés (absents) puis prend les autres ;
+// le cœur demande à garder l'écran allumé, refusé quand la fenêtre de test n'est pas au premier plan.
+const CONNUES = [/emulator\.min\.(js|css)/, /localization\/fr\.json/, /WakeLock|Wake Lock/];
+erreurs.splice(0, erreurs.length, ...erreurs.filter(e => !CONNUES.some(r => r.test(e))));
 if (erreurs.length) { console.error("\nErreurs :\n- " + erreurs.join("\n- ")); fin(1); }
 else { console.log("\nAucune erreur dans la console. Captures dans " + sortie); fin(0); }
