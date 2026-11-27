@@ -177,6 +177,25 @@ ipcMain.handle("chercher-jeux", async e => {
   return rechercheAuto(choix.filePaths);
 });
 ipcMain.handle("recherche-relancer", () => rechercheAuto());
+// Mods Switch : une archive (.zip / .7z) ou un dossier, rangé là où Eden lit les mods.
+ipcMain.handle("mod-importer", async (e, c, enDossier) => {
+  c = String(c);
+  const { dialog } = require("electron");
+  const f = BrowserWindow.fromWebContents(e.sender);
+  const choix = await dialog.showOpenDialog(f, {
+    title: "Choisis le mod",
+    properties: enDossier ? ["openDirectory"] : ["openFile"],
+    filters: enDossier ? [] : [{ name: "Mod (.zip, .7z)", extensions: ["zip", "7z", "rar"] }, { name: "Tous les fichiers", extensions: ["*"] }],
+  });
+  if (choix.canceled || !choix.filePaths.length) return { ok: false, annule: true };
+  const envoyer = p => { if (!e.sender.isDestroyed()) e.sender.send("emulateur-progression", p); };
+  try { const mods = await emulateurs.importerMod(c, choix.filePaths[0], envoyer); return { ok: true, mods, etat: emulateurs.etat(c) }; }
+  catch (err) { return { ok: false, erreur: String(err.message || err) }; }
+});
+ipcMain.handle("mod-retirer", (_e, c, id, nom) => {
+  try { emulateurs.retirerMod(String(c), String(id), String(nom)); return { ok: true, etat: emulateurs.etat(String(c)) }; }
+  catch (err) { return { ok: false, erreur: String(err.message || err) }; }
+});
 ipcMain.handle("lancer-externe", async (e, c, nom, options) => {
   c = String(c); nom = String(nom);
   const dossier = DOSSIERS[c];

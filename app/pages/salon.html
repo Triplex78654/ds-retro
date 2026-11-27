@@ -54,6 +54,8 @@
   .systeme li.present .voyant { background: #43c47a; box-shadow: 0 0 8px #43c47a; }
   .systeme li.manque .voyant { background: #e5a23a; box-shadow: 0 0 8px #e5a23a; }
   .systeme .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .actions-mods { display: flex; gap: 8px; margin-top: 12px; }
+  #liste-mods:empty::before { content: "Aucun mod pour l'instant."; color: var(--texte-2); font-size: 13px; }
   .aide-externe { color: var(--texte-2); font-size: 13px; max-width: 900px; margin: 12px 0 0; line-height: 1.9; }
   .carte .titre-jeu { padding: 10px 12px 12px; font-weight: 600; font-size: 14px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .carte small { display: block; color: var(--texte-2); font-weight: 400; font-size: 12px; margin-top: 2px; }
@@ -104,6 +106,12 @@
       <h2 id="titre-systeme">Fichiers de ta console</h2>
       <p>Ils viennent de ta propre console : l'appli les range au bon endroit, ils ne quittent jamais ton PC.</p>
       <ul id="liste-systeme"></ul>
+    </section>
+    <section class="systeme" id="mods" hidden aria-labelledby="titre-mods">
+      <h2 id="titre-mods">Mods</h2>
+      <p>Un mod change un jeu (2 joueurs, nouveaux costumes…). Donne l'archive du mod telle quelle : l'appli la range pour Eden. Le jeu lui-même reste à part.</p>
+      <ul id="liste-mods"></ul>
+      <div class="actions-mods"><button type="button" id="ajouter-mod">Ajouter un mod</button><button type="button" id="ajouter-mod-dossier">Choisir un dossier de mod</button></div>
     </section>
     <p class="aide-externe" id="aide-externe" hidden></p>
     <p class="message" id="message" role="status"></p>
@@ -347,6 +355,37 @@
     if (r.ok) { await majEmulateur(); $("etat-emulateur").textContent = "C'est rangé. " + $("etat-emulateur").textContent; }
     else if (!r.annule) $("etat-emulateur").textContent = "Import impossible : " + r.erreur + ".";
   }
+  // Mods (Switch)
+  const JEUX_CONNUS = { "0100000000010000": "Super Mario Odyssey" };
+  function dessinerMods(mods) {
+    $("mods").hidden = !mods;
+    if (!mods) return;
+    const ul = $("liste-mods"); ul.innerHTML = "";
+    for (const m of mods) {
+      const li = document.createElement("li"); li.className = "present";
+      li.innerHTML = '<span class="voyant" aria-hidden="true"></span><div><strong></strong><small></small></div><span class="actions"><button type="button">Retirer</button></span>';
+      li.querySelector("strong").textContent = m.nom;
+      li.querySelector("small").textContent = "Pour " + (JEUX_CONNUS[m.id] || "le jeu " + m.id) + " · actif dans Eden (désactivable dans les propriétés du jeu)";
+      li.querySelector("button").addEventListener("click", async () => {
+        const r = await retroApp.retirerMod(id, m.id, m.nom);
+        if (r.ok) dessinerMods(r.etat.mods); else $("etat-emulateur").textContent = "Impossible de retirer : " + r.erreur;
+      });
+      ul.appendChild(li);
+    }
+  }
+  async function ajouterMod(dossier) {
+    if (occupe) return;
+    occupe = true;
+    const arret = retroApp.surProgression(p => { $("etat-emulateur").textContent = p.etape === "telechargement" && p.total ? p.texte + " : " + Math.round(p.recus / p.total * 100) + " %" : p.texte; });
+    const r = await retroApp.importerMod(id, dossier);
+    arret(); occupe = false;
+    if (r.ok) {
+      dessinerMods(r.etat.mods);
+      $("etat-emulateur").textContent = "Mod ajouté : " + r.mods.map(m => m.nom + " pour " + (JEUX_CONNUS[m.id] || m.id)).join(", ") + ". Lance le jeu : Eden le charge tout seul.";
+    } else if (!r.annule) $("etat-emulateur").textContent = "Mod impossible à ajouter : " + r.erreur + ".";
+  }
+  $("ajouter-mod").addEventListener("click", () => ajouterMod(false));
+  $("ajouter-mod-dossier").addEventListener("click", () => ajouterMod(true));
   const manqueSysteme = e => e && e.systeme && Object.values(e.systeme).find(f => f.obligatoire && !f.present);
   $("maj-emulateur").addEventListener("click", async () => { if (await installerEmulateur()) $("maj-emulateur").hidden = true; });
 
@@ -357,6 +396,7 @@
     emulateurPret = Boolean(e && e.installe);
     etatEmulateur = e;
     dessinerSysteme(e && e.systeme);
+    dessinerMods(e && e.mods);
     if (AIDES_EXTERNES[id]) { $("aide-externe").hidden = false; $("aide-externe").innerHTML = AIDES_EXTERNES[id]; }
     // Nouvelle version de l'émulateur : bouton pour mettre à jour (clés, BIOS et sauvegardes gardés).
     if (emulateurPret && retroApp.derniereVersionEmulateur && !verifiee) {

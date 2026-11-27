@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld("retroApp", {
   rechercheEtat: () => ipcRenderer.invoke("recherche-etat"),
   relancerRecherche: () => ipcRenderer.invoke("recherche-relancer"),
   surRecherche: f => { const r = (_e, p) => f(p); ipcRenderer.on("recherche-progression", r); return () => ipcRenderer.removeListener("recherche-progression", r); },
+  importerMod: (c, enDossier) => ipcRenderer.invoke("mod-importer", String(c), Boolean(enDossier)),
+  retirerMod: (c, id, nom) => ipcRenderer.invoke("mod-retirer", String(c), String(id), String(nom)),
   lancerExterne: (c, nom, options) => ipcRenderer.invoke("lancer-externe", String(c), String(nom), { manette: Boolean(options && options.manette) }),
   majEtat: () => ipcRenderer.invoke("maj-etat"),
   majVerifier: () => ipcRenderer.invoke("maj-verifier"),

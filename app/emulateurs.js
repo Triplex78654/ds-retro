@@ -93,7 +93,7 @@ function etat(c) {
   let version = null;
   try { version = fs.readFileSync(path.join(dossierDe(c), "version.txt"), "utf8").trim(); } catch (x) {}
   const exe = exeDe(c);
-  return { nom: e.nom, installe: Boolean(version && exe), version, systeme: etatSysteme(c, exe) };
+  return { nom: e.nom, installe: Boolean(version && exe), version, systeme: etatSysteme(c, exe), mods: c === "switch" ? modsInstalles(c) : null };
 }
 
 const sept = () => require("7zip-bin").path7za.replace("app.asar", "app.asar.unpacked");
@@ -247,6 +247,77 @@ async function importerSysteme(c, quoi, chemins, progression) {
   return etat(c);
 }
 
+// ---------- Mods Switch (Eden) ----------
+// Un mod = des dossiers exefs / romfs pour un jeu (identifiant à 16 chiffres hexadécimaux).
+// Eden les lit dans user/load/<IDENTIFIANT>/<nom du mod>/.
+const ID_JEU = /^0100[0-9a-f]{12}$/i;
+function dossiersDeMod(racine, profondeur = 0, trouves = []) {
+  if (profondeur > 7) return trouves;
+  for (const e of fs.readdirSync(racine, { withFileTypes: true })) {
+    if (!e.isDirectory()) continue;
+    const p = path.join(racine, e.name);
+    if (ID_JEU.test(e.name) && fs.readdirSync(p).some(n => /^(exefs|romfs|cheats)$/i.test(n))) trouves.push({ id: e.name.toUpperCase(), dossier: p });
+    else dossiersDeMod(p, profondeur + 1, trouves);
+  }
+  return trouves;
+}
+function archivesDans(racine, profondeur = 0, liste = []) {
+  if (profondeur > 3) return liste;
+  for (const e of fs.readdirSync(racine, { withFileTypes: true })) {
+    const p = path.join(racine, e.name);
+    if (e.isDirectory()) archivesDans(p, profondeur + 1, liste);
+    else if (/\.(zip|7z)$/i.test(e.name)) liste.push(p);
+  }
+  return liste;
+}
+const nomDeMod = chemin => path.basename(chemin).replace(/\.(zip|7z|rar)$/i, "").replace(/[-_ ]?v?\d+(\.\d+)*([-.]?(alpha|beta|rc)[-.]?\d*)?$/i, "").replace(/[<>:"/\\|?*]/g, "").trim() || "Mod";
+async function importerMod(c, chemin, progression) {
+  if (c !== "switch") throw new Error("Les mods sont pour la Switch");
+  if (!exeDe(c)) await installer(c, progression);
+  const dir = path.dirname(exeDe(c));
+  const tmp = path.join(app.getPath("temp"), "retro-mod-" + Date.now());
+  try {
+    progression({ etape: "extraction", texte: "Lecture du mod…" });
+    let source = chemin;
+    if (fs.statSync(chemin).isFile()) { await extraire(chemin, tmp); source = tmp; }
+    let mods = dossiersDeMod(source);
+    // Archive dans l'archive (ex. un .7z qui contient le .zip du mod) : on ouvre aussi celles-là.
+    if (!mods.length) {
+      for (const a of archivesDans(source)) {
+        const vers = path.join(tmp, "interne-" + path.basename(a));
+        await extraire(a, vers);
+        mods = mods.concat(dossiersDeMod(vers).map(m => ({ ...m, archive: a })));
+      }
+    }
+    if (!mods.length) throw new Error("Pas de mod Switch ici : il faut des dossiers exefs ou romfs rangés sous l'identifiant du jeu (0100…)");
+    const installes = [];
+    for (const m of mods) {
+      const nom = nomDeMod(m.archive || chemin);
+      const cible = path.join(dir, "user", "load", m.id, nom);
+      fs.rmSync(cible, { recursive: true, force: true });
+      fs.mkdirSync(cible, { recursive: true });
+      fs.cpSync(m.dossier, cible, { recursive: true });
+      installes.push({ id: m.id, nom });
+    }
+    progression({ etape: "fini", texte: "Mod installé." });
+    return installes;
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+}
+function modsInstalles(c) {
+  if (c !== "switch" || !exeDe(c)) return [];
+  const load = path.join(path.dirname(exeDe(c)), "user", "load");
+  const liste = [];
+  try {
+    for (const id of fs.readdirSync(load)) if (ID_JEU.test(id))
+      for (const nom of fs.readdirSync(path.join(load, id))) if (fs.statSync(path.join(load, id, nom)).isDirectory()) liste.push({ id, nom });
+  } catch (e) {}
+  return liste;
+}
+function retirerMod(c, id, nom) {
+  if (c !== "switch" || !ID_JEU.test(id) || !nom || /[\\/]|^\.\.?$/.test(nom) || !exeDe(c)) throw new Error("Mod inconnu");
+  fs.rmSync(path.join(path.dirname(exeDe(c)), "user", "load", id, nom), { recursive: true, force: true });
+}
+
 // Lance le jeu ; renvoie une promesse résolue quand l'émulateur se ferme.
 // options.manette : une manette est branchée (les commandes de l'émulateur suivent).
 const executer = (exe, args) => new Promise((ok, ko) => {
@@ -278,4 +349,4 @@ async function lancer(c, cheminJeu, options = {}) {
   return executer(exe, e.args(jeu));
 }
 
-module.exports = { EMULATEURS, etat, installer, derniereVersion, importerSysteme, lancer };
+module.exports = { EMULATEURS, etat, installer, derniereVersion, importerSysteme, importerMod, retirerMod, lancer };
