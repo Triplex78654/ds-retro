@@ -30,7 +30,8 @@
       "maj.js",
       "azahar.js",
       "recherche.js",
-      "eden.js"
+      "eden.js",
+      "pcsx2.js"
     ],
     "directories": {
       "output": "dist",

@@ -247,6 +247,7 @@ ipcMain.handle("lancer-externe", async (e, c, nom, options) => {
   try {
     await emulateurs.lancer(c, chemin, {
       manette: Boolean(options && options.manette),
+      disposition: Object.fromEntries(Object.entries((options && options.disposition) || {}).filter(([k, v]) => /^Key[A-Z]$/.test(k) && /^[a-z]$/i.test(String(v)))),
       info: t => { info = t; },
       // Juste avant de lancer le jeu : l'appli se met de côté, elle revient quand l'émulateur se ferme.
       etape: texte => { if (texte) envoyer(texte); else if (f && !reduite) { reduite = true; f.minimize(); } },

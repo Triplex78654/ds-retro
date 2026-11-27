@@ -370,6 +370,9 @@ async function lancer(c, cheminJeu, options = {}) {
     }
   }
   let info = null;
+  if (c === "ps2") {
+    try { require("./pcsx2").reglerCommandes(path.dirname(exe), options.disposition); } catch (x) { /* réglages impossibles : PCSX2 garde les siens */ }
+  }
   if (c === "switch") {
     try {
       const r = require("./eden").reglerCommandes(path.dirname(exe), Boolean(options.manette));

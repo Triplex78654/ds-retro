@@ -529,7 +529,10 @@
     R.noterLancement(jeu);
     $("etat-emulateur").textContent = nomLisible(jeu.nom) + " est lancé dans " + C.externe + ". Ferme " + C.externe + " pour revenir ici.";
     const arret = retroApp.surProgression(p => { $("etat-emulateur").textContent = p.texte; });
-    const r = await retroApp.lancerExterne(id, jeu.nom, { manette: manetteVue });
+    // Lettres réelles du clavier (AZERTY, QWERTZ…) pour que les émulateurs mettent les touches à la bonne place.
+    let disposition = {};
+    try { if (navigator.keyboard && navigator.keyboard.getLayoutMap) { const m = await navigator.keyboard.getLayoutMap(); for (const [code, lettre] of m) if (/^Key[A-Z]$/.test(code)) disposition[code] = lettre; } } catch (e) {}
+    const r = await retroApp.lancerExterne(id, jeu.nom, { manette: manetteVue, disposition });
     arret();
     occupe = false;
     if (!r.ok) $("etat-emulateur").textContent = "Lancement impossible : " + r.erreur + ".";

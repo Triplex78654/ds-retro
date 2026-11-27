@@ -14,6 +14,7 @@ const { demarrer } = require(path.join(racine, "serveur-local.js"));
 const recherche = require(path.join(racine, "recherche.js"));
 const azahar = require(path.join(racine, "azahar.js"));
 const eden = require(path.join(racine, "eden.js"));
+const pcsx2 = require(path.join(racine, "pcsx2.js"));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "retro-tests-"));
 
 // ---------- Faux fichiers de jeux ----------
@@ -168,4 +169,26 @@ test("Eden : clavier/souris, puis la manette réglée dans Eden est retenue", ()
   assert.match(fs.readFileSync(f, "utf8"), /player_0_button_a="code:16777220/);
   eden.reglerCommandes(dir, true);
   assert.match(fs.readFileSync(f, "utf8"), /player_0_button_a="engine:sdl/);
+});
+
+test("PCSX2 : clavier par position (AZERTY) et toute manette, sans toucher au reste", () => {
+  const dir = path.join(tmp, "pcsx2"); fs.mkdirSync(path.join(dir, "inis"), { recursive: true });
+  const f = path.join(dir, "inis", "PCSX2.ini");
+  fs.writeFileSync(f, ["[UI]", "SettingsVersion = 1", "", "[InputSources]", "Keyboard = true", "SDL = false", "",
+    "[Pad1]", "Type = DualShock2", "Deadzone = 0.2", "Cross = Keyboard/K", "LUp = Keyboard/W", "", "[Pad2]", "Type = None", ""].join("\n"));
+  pcsx2.reglerCommandes(dir, { KeyW: "z", KeyA: "q", KeyQ: "a" });
+  const t = fs.readFileSync(f, "utf8");
+  const pad1 = t.split("[Pad1]")[1].split("[Pad2]")[0];
+  assert.match(pad1, /^Deadzone = 0\.2$/m, "réglage gardé");
+  assert.match(pad1, /^LUp = Keyboard\/Z$/m, "Z en AZERTY");
+  assert.match(pad1, /^LLeft = Keyboard\/Q$/m);
+  assert.match(pad1, /^L1 = Keyboard\/A$/m);
+  assert.match(pad1, /^Cross = SDL-0\/FaceSouth$/m, "manette");
+  assert.doesNotMatch(pad1, /Keyboard\/W/, "ancienne touche retirée");
+  assert.match(t, /\[InputSources\][^[]*SDL = true/);
+  assert.match(t, /\[Pad2\]\nType = None/, "joueur 2 intact");
+  assert.match(t, /^SettingsVersion = 1$/m);
+  // Sans fichier : fichier minimal avec SettingsVersion ; sans disposition : lettres QWERTY.
+  fs.rmSync(f); pcsx2.reglerCommandes(dir);
+  assert.match(fs.readFileSync(f, "utf8"), /SettingsVersion = 1[\s\S]*\[Pad1\][\s\S]*LUp = Keyboard\/W/);
 });

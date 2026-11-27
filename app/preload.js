@@ -15,7 +15,11 @@ contextBridge.exposeInMainWorld("retroApp", {
   surRecherche: f => { const r = (_e, p) => f(p); ipcRenderer.on("recherche-progression", r); return () => ipcRenderer.removeListener("recherche-progression", r); },
   importerMod: (c, enDossier) => ipcRenderer.invoke("mod-importer", String(c), Boolean(enDossier)),
   retirerMod: (c, id, nom) => ipcRenderer.invoke("mod-retirer", String(c), String(id), String(nom)),
-  lancerExterne: (c, nom, options) => ipcRenderer.invoke("lancer-externe", String(c), String(nom), { manette: Boolean(options && options.manette) }),
+  lancerExterne: (c, nom, options) => ipcRenderer.invoke("lancer-externe", String(c), String(nom), {
+    manette: Boolean(options && options.manette),
+    // Lettre de chaque touche du clavier (ex. KeyW → « z » en AZERTY), pour régler les touches des émulateurs par position.
+    disposition: Object.fromEntries(Object.entries((options && options.disposition) || {}).filter(([k, v]) => /^Key[A-Z]$/.test(k) && /^[a-z]$/i.test(String(v))).map(([k, v]) => [k, String(v)])),
+  }),
   majEtat: () => ipcRenderer.invoke("maj-etat"),
   majVerifier: () => ipcRenderer.invoke("maj-verifier"),
   majTelecharger: () => ipcRenderer.invoke("maj-telecharger"),
