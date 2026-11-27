@@ -227,6 +227,13 @@
     document.querySelector("label.volume").hidden = true;
     $("barre-emulateur").hidden = false;
   }
+  // DS : la partie se joue dans la console DS ; ses touches, son volume et ses jeux ajoutés à la main sont là-bas.
+  if (C.ds) {
+    $("ajouter").hidden = true;
+    document.querySelector("label.volume").hidden = true;
+    const ouvrir = document.createElement("a"); ouvrir.className = "btn principal"; ouvrir.href = "index.html"; ouvrir.textContent = "Ouvrir la console DS";
+    $("dossier").before(ouvrir);
+  }
 
   // ---------- Stockage local (IndexedDB, partagé avec la bibliothèque) ----------
   const { lire, ecrire, effacer, tous } = R.db;
@@ -275,7 +282,7 @@
   function ouvrirFiche(j) {
     jeuFiche = j;
     const jaq = $("fiche-jaquette");
-    jaq.dataset.support = C.support; jaq.style.setProperty("--t", R.teinte(j.nom)); jaq.style.setProperty("--h", C.h);
+    jaq.dataset.support = C.ds && /\.gba$/i.test(j.nom) ? "gba" : C.ds && /\.gbc?$/i.test(j.nom) ? "gb" : C.support; jaq.style.setProperty("--t", R.teinte(j.nom)); jaq.style.setProperty("--h", C.h);
     jaq.querySelector(".etiquette").textContent = R.initiales(j.nom);
     $("fiche-titre").textContent = nomLisible(j.nom);
     $("fiche-console").textContent = C.nom;
@@ -286,7 +293,7 @@
     info("Provenance", R.provenance(j));
     const derniere = R.dernierLancement(j);
     info("Dernière partie", derniere ? R.ilYA(derniere) : "jamais lancé");
-    info("Lancé avec", C.externe ? C.externe + " (émulateur Windows)" : "l'émulateur intégré à Rétro");
+    info("Lancé avec", C.externe ? C.externe + " (émulateur Windows)" : C.ds ? "la console DS de Rétro" : "l'émulateur intégré à Rétro");
     majFavori();
     // Réglages utiles pour ce jeu
     const reg = $("fiche-reglages"); reg.innerHTML = "";
@@ -300,7 +307,7 @@
       sel.addEventListener("change", () => localStorage.setItem("retro-pistolet:" + j.id, sel.value));
       reg.appendChild(l);
     }
-    if (!C.externe) {
+    if (!C.externe && !C.ds) {
       const l = document.createElement("label");
       l.innerHTML = "<span><strong>Volume</strong><br><small>Le même pour tous les jeux de l'appli.</small></span>";
       const r = $("volume").cloneNode(); r.id = "fiche-volume"; r.value = volume;
@@ -536,6 +543,7 @@
   const pistoletActif = j => Boolean(PISTOLETS[id]) && (choixPistolet(j) === "oui" || (choixPistolet(j) === "auto" && PISTOLETS[id].jeux.test(j.nom)));
   async function lancer(jeu) {
     if (C.externe) return lancerExterne(jeu);
+    if (C.ds) { R.noterLancement(jeu); location.href = "index.html?jeu=" + encodeURIComponent(jeu.nom); return; }
     if (partie) return;
     R.noterLancement(jeu);
     if (!jeu.blob) {

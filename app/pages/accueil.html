@@ -148,7 +148,7 @@
     tuiles[c.id] = b;
     return b;
   }
-  const disponibles = [R.DS].concat(Object.values(R.CONSOLES));
+  const disponibles = Object.values(R.CONSOLES);
   disponibles.forEach((c, i) => $("disponibles").appendChild(tuile(c, i)));
   R.BIENTOT.forEach((c, i) => $("bientot").appendChild(tuile(c, i)));
   $("disponibles").querySelector(".console").focus({ preventScroll: true });
@@ -164,12 +164,6 @@
       badge.textContent = n ? n + (n > 1 ? " jeux" : " jeu") : "Aucun jeu";
       b.setAttribute("aria-label", c.nom + ", " + badge.textContent);
     }
-    // Jeux DS / GBA / Game Boy du PC : la console DS les montre dans « Tes cartouches ».
-    let nDs = 0;
-    try { const r = await fetch("jeux-pc/ds/", { cache: "no-store" }); if (r.ok) nDs = (await r.json()).filter(f => !f.dossier && /\.(nds|gba|gbc?|zip|7z)$/i.test(f.nom)).length; } catch (e) {}
-    const badgeDs = tuiles.ds.querySelector(".badge");
-    badgeDs.className = "badge " + (nDs ? "accent" : "pret");
-    badgeDs.textContent = nDs ? nDs + (nDs > 1 ? " jeux" : " jeu") + " sur le PC" : "Prête";
     const consolesAvecJeux = Object.keys(par).length;
     $("resume-consoles").textContent = consolesAvecJeux ? consolesAvecJeux + " avec des jeux sur ton PC" : "";
 
@@ -195,7 +189,7 @@
     const stats = $("stats"); stats.innerHTML = "";
     stats.hidden = !prefs.accueilStats;
     const ajouter = (valeur, texte) => { const d = document.createElement("div"); d.className = "stat"; d.innerHTML = "<b></b><span></span>"; d.querySelector("b").textContent = valeur; d.querySelector("span").textContent = texte; stats.appendChild(d); };
-    ajouter(tous.length + nDs, tous.length + nDs > 1 ? "jeux détectés" : "jeu détecté");
+    ajouter(tous.length, tous.length > 1 ? "jeux détectés" : "jeu détecté");
     ajouter(consolesAvecJeux + " / " + Object.keys(R.CONSOLES).length, "consoles avec des jeux");
     ajouter(R.favoris().size, "favoris");
     ajouter(R.lancements(), "parties lancées");
@@ -221,8 +215,7 @@
       if (!r.ok) return "Recherche impossible : " + r.erreur;
       const parties = Object.entries(r.ajoutes || {}).filter(([c]) => NOMS[c]).map(([c, n]) => n + " " + NOMS[c]);
       let t = parties.length ? "Nouveaux jeux rangés : " + parties.join(", ") + "." : r.trouves ? r.trouves + " jeux trouvés sur ton PC, tous rangés dans leur console." : "Aucun jeu trouvé pour l'instant : ajoute le dossier où ils sont.";
-      const ds = (r.ajoutes || {}).ds || 0, gc = (r.ajoutes || {}).gc || 0;
-      if (ds) t += " " + ds + " jeu(x) DS / GBA / Game Boy ajoutés à la console DS.";
+      const gc = (r.ajoutes || {}).gc || 0;
       if (gc) t += " " + gc + " jeu(x) GameCube / Wii gardés pour plus tard.";
       return t;
     };

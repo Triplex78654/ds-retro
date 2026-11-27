@@ -18,7 +18,7 @@ const PAR_EXTENSION = {
 // (.cue/.bin à part : l'émulateur PlayStation de l'appli les lit dans un .zip.)
 const A_LIRE = new Set([".iso", ".chd", ".pbp", ".3ds", ".zip", ".7z"]);
 // Dossiers qu'on ne fouille pas (système, programmes, caches).
-const IGNORES = /^(windows|program files( \(x86\))?|programdata|\$recycle\.bin|system volume information|appdata|node_modules|\.git|steamapps|retro-site)$/i;
+const IGNORES = /^(windows|program files( \(x86\))?|programdata|\$recycle\.bin|system volume information|appdata|node_modules|\.git|steamapps|retro-site|__macosx)$/i;
 
 // Lectures asynchrones : l'appli reste fluide pendant la recherche.
 async function lire(fh, position, taille) {
@@ -153,6 +153,8 @@ async function chercher(racines, { sept, progression = () => {}, exclure = [], d
     dossiersVus++;
     let liste;
     try { liste = await fsp.readdir(dossier, { withFileTypes: true }); } catch (e) { return; }
+    // Projet de code (dépôt git) : ses fichiers de test ou copies de jeux ne sont pas ta ludothèque.
+    if (profondeur > 0 && liste.some(e => e.name === ".git")) return;
     // Ce dossier est lui-même un jeu PS3 : on le range tel quel, sans fouiller dedans.
     if (profondeur > 0 && await estJeuPs3(dossier, new Set(liste.map(e => e.name)))) {
       trouves.push({ console: "ps3", chemin: dossier, nom: path.basename(dossier), dossier: true });
@@ -166,7 +168,7 @@ async function chercher(racines, { sept, progression = () => {}, exclure = [], d
         await fouiller(p, profondeur + 1);
         continue;
       }
-      if (!e.isFile()) continue;
+      if (!e.isFile() || e.name.startsWith("._")) continue; // ._fichier : reste d'une archive faite sur Mac
       const ext = path.extname(e.name).toLowerCase();
       if (!PAR_EXTENSION[ext] && !A_LIRE.has(ext)) continue;
       if (Date.now() - dernier > 250) { dernier = Date.now(); progression({ etape: "recherche", texte: "Recherche… " + trouves.length + " jeux trouvés", dossier }); }
@@ -176,8 +178,32 @@ async function chercher(racines, { sept, progression = () => {}, exclure = [], d
     }
   }
   for (const r of racines) await fouiller(r, 0);
-  progression({ etape: "fini", texte: trouves.length + " jeux trouvés" });
-  return trouves;
+  const uniques = sansDoublons(trouves);
+  uniques.complet = !stop(); // false : recherche coupée (durée ou nombre de dossiers), tout n'a pas été vu
+  progression({ etape: "fini", texte: uniques.length + " jeux trouvés" });
+  return uniques;
 }
 
-module.exports = { chercher, consoleDe };
+// Un même jeu trouvé plusieurs fois (copies dans plusieurs dossiers, ou archive + jeu extrait) n'est gardé qu'une fois :
+// même console et même nom (sans extension, accents, ponctuation ni « (2) »), en préférant le jeu extrait à l'archive.
+// Une archive X.zip dont le dossier X\ (créé par « Extraire tout ») contient un jeu de la même console est aussi écartée,
+// même si le nom extrait est abîmé (accents mal convertis par une archive faite sur Mac).
+const ARCHIVE = /\.(zip|7z)$/i;
+const tige = t => (t.dossier ? t.nom : path.basename(t.nom, path.extname(t.nom)));
+const cleJeu = t => t.console + "|" + tige(t).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s*\(\d+\)$/, "").replace(/[^a-z0-9]+/g, "");
+function sansDoublons(trouves) {
+  const dedans = (fichier, dossier) => (path.dirname(fichier).toLowerCase() + path.sep).startsWith(dossier.toLowerCase() + path.sep);
+  const extraits = trouves.filter(t => !ARCHIVE.test(t.nom));
+  const garde = new Map();
+  for (const t of trouves) {
+    if (ARCHIVE.test(t.nom)) {
+      const dossierExtrait = path.join(path.dirname(t.chemin), tige(t));
+      if (extraits.some(u => u.console === t.console && dedans(u.chemin, dossierExtrait))) continue;
+    }
+    const k = cleJeu(t), deja = garde.get(k);
+    if (!deja || (ARCHIVE.test(deja.nom) && !ARCHIVE.test(t.nom))) garde.set(k, t);
+  }
+  return [...garde.values()];
+}
+
+module.exports = { chercher, consoleDe, sansDoublons };

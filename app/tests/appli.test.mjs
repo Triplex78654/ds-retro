@@ -64,6 +64,32 @@ test("la recherche range chaque jeu dans la bonne console", async () => {
   });
 });
 
+test("la recherche ignore les projets de code, les restes de Mac et les doublons", async () => {
+  const d = path.join(tmp, "doublons");
+  for (const sous of ["Telechargements", "Projet/.git", "Projet/tests", "Copie", "Jeu/__MACOSX"]) fs.mkdirSync(path.join(d, sous), { recursive: true });
+  fs.writeFileSync(path.join(d, "Telechargements", "Pong.nds"), "nds");
+  fs.writeFileSync(path.join(d, "Copie", "Pong.nds"), "nds");              // même jeu à un autre endroit
+  fs.writeFileSync(path.join(d, "Projet", "tests", "test.gba"), "gba");     // ROM de test d'un dépôt git
+  fs.writeFileSync(path.join(d, "Jeu", "__MACOSX", "._Pong.nds"), "mac");   // reste d'archive Mac
+  fs.writeFileSync(path.join(d, "Jeu", "._Autre.nds"), "mac");
+  const trouves = await recherche.chercher([d], {});
+  assert.deepEqual(trouves.map(t => t.nom), ["Pong.nds"]);
+  assert.equal(trouves.complet, true);
+  // Archive + jeu extrait (noms en NFD / NFC, « (2) ») : on garde le jeu extrait.
+  const un = recherche.sansDoublons([
+    { console: "ds", nom: "Pokémon Renegade Platinum.zip", chemin: "a.zip" },
+    { console: "ds", nom: "Pokémon Renegade Platinum.nds", chemin: "b.nds" },
+    { console: "ds", nom: "Pokémon Renegade Platinum (2).nds", chemin: "c.nds" },
+    { console: "nes", nom: "Pokémon Renegade Platinum.nes", chemin: "d.nes" },
+  ]);
+  assert.deepEqual(un.map(t => t.chemin), ["b.nds", "d.nes"]);
+  // « Extraire tout » : X.zip à côté du dossier X\ qui contient le jeu, au nom abîmé par une archive Mac.
+  const zip = path.join("C:", "DL", "Pokémon Renegade Platinum.zip");
+  const nds = path.join("C:", "DL", "Pokémon Renegade Platinum", "Poke╠ümon Renegade Platinum.nds");
+  const deux = recherche.sansDoublons([{ console: "ds", nom: path.basename(zip), chemin: zip }, { console: "ds", nom: path.basename(nds), chemin: nds }]);
+  assert.deepEqual(deux.map(t => t.chemin), [nds]);
+});
+
 test("la recherche s'arrête quand le temps est écoulé", async () => {
   const trouves = await recherche.chercher([path.join(tmp, "jeux")], { dureeMax: -1 });
   assert.equal(trouves.length, 0);

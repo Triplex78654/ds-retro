@@ -795,7 +795,18 @@
     return b;
   }
 
-  afficherCartouches();
+  afficherCartouches().then(() => {
+    // Arrivée depuis le catalogue ou la bibliothèque de l'appli (index.html?jeu=…) : le jeu du PC se lance tout de suite.
+    const demande = window.retroApp && new URLSearchParams(location.search).get("jeu");
+    if (!demande) return;
+    history.replaceState(null, "", location.pathname);
+    jeuxDuPc().then(liste => {
+      const j = liste.find(x => x.nom === demande);
+      if (!j) { $("erreur").textContent = "Ce jeu n'est plus à sa place sur ton PC."; return; }
+      const id = j.nom + "|" + j.taille;
+      jouerDuPc(document.querySelector(`.cart[data-id="${CSS.escape(id)}"]`), j.nom, id);
+    });
+  });
   // La recherche automatique de l'appli a rangé de nouveaux jeux : la liste se met à jour.
   if (window.retroApp && retroApp.surRecherche) retroApp.surRecherche(p => { if (p.etape === "fini" && p.resultat && p.resultat.ok && !jeuActif) afficherCartouches(); });
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});

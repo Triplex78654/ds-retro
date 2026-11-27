@@ -103,7 +103,7 @@ try {
   await capture("accueil");
 
   await aller("bibliotheque.html");
-  verifier(await evaluer("document.querySelectorAll('#jeux .carte').length") === 11, "la bibliothèque liste les 11 jeux");
+  verifier(await evaluer("document.querySelectorAll('#jeux .carte').length") === 13, "la bibliothèque liste les 13 jeux (DS compris)");
   await capture("bibliotheque");
   await evaluer("const q = document.getElementById('q'); q.value = 'demo'; q.dispatchEvent(new Event('input')); true");
   verifier(await evaluer("document.querySelectorAll('#jeux .carte').length") === 6, "la recherche filtre instantanément");
@@ -114,15 +114,19 @@ try {
   await capture("bibliotheque-liste");
   await evaluer("document.querySelector('input[name=vue][value=grille]').click(); true");
 
-  // Console DS : les jeux du dossier DS apparaissent dans « Tes cartouches » et se lancent.
-  await aller("index.html");
-  await pause(1500);
-  verifier(await evaluer("[...document.querySelectorAll('#grille .cart .nom')].map(n => n.textContent).sort().join(',')") === "SpaceImpaktoDS,Test rouge", "la console DS montre les jeux DS / GBA du PC");
-  await capture("console-ds");
-  await evaluer("[...document.querySelectorAll('#grille .cart')].find(c => c.textContent.includes('Test rouge')).click(); true");
-  await pause(6000);
-  verifier(await evaluer("document.body.classList.contains('mode-gba') && !document.body.classList.contains('chargement') && Boolean(document.querySelector('canvas')) && !document.getElementById('erreur').textContent"), "un jeu GBA du PC se lance dans la console DS");
+  // Console DS : catalogue comme les autres consoles, puis la fiche lance le jeu dans la console DS.
+  await aller("salon.html?console=ds");
+  verifier(await evaluer("[...document.querySelectorAll('#jeux .carte .titre-jeu > span')].map(n => n.textContent).sort().join(',')") === "SpaceImpaktoDS,Test rouge", "le catalogue DS liste les jeux DS / GBA du PC");
+  await capture("catalogue-ds");
+  await aller("salon.html?console=ds&jeu=" + encodeURIComponent("Test rouge.gba"));
+  verifier(await evaluer("document.getElementById('fiche').open"), "la fiche d'un jeu DS s'ouvre");
+  const versDs = new Promise(ok => { const f = d => { if (d.method === "Page.loadEventFired") { ecouteurs.splice(ecouteurs.indexOf(f), 1); ok(); } }; ecouteurs.push(f); });
+  await evaluer("document.getElementById('fiche-lancer').click(); true");
+  await versDs; await pause(6000);
+  verifier(await evaluer("location.pathname === '/index.html' && document.body.classList.contains('mode-gba') && !document.body.classList.contains('chargement') && !document.getElementById('erreur').textContent"), "« Lancer le jeu » démarre le jeu GBA dans la console DS");
   await capture("console-ds-en-jeu");
+  await aller("index.html");
+  verifier(await evaluer("[...document.querySelectorAll('#grille .cart .nom')].map(n => n.textContent).sort().join(',')") === "SpaceImpaktoDS,Test rouge", "la console DS montre aussi les jeux du PC");
 
   await aller("salon.html?console=nes");
   verifier(await evaluer("document.querySelectorAll('#jeux .carte').length") === 5, "le catalogue NES liste ses jeux");

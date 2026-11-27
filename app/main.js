@@ -174,12 +174,24 @@ function rechercheAuto(choisis) {
     // Un disque débranché n'efface rien : ses jeux sont juste cachés jusqu'à son retour.
     const b = bibliotheque();
     let retires = 0;
+    // Un jeu est retiré s'il a disparu, ou si la recherche a fouillé jusqu'au bout l'endroit où il est sans le garder
+    // (doublon, projet de code, fichier parasite). Une recherche coupée (trop longue) ne retire rien d'autre.
+    const nouveaux = new Set(trouves.map(t => t.chemin));
+    const sous = (x, d) => (path.resolve(x).toLowerCase() + path.sep).startsWith(path.resolve(d).toLowerCase() + path.sep);
+    const toutFouille = trouves.complet && !choisis;
+    const garder = x => nouveaux.has(x.chemin)
+      || ((fs.existsSync(x.chemin) || !fs.existsSync(path.parse(x.chemin).root) || !fs.existsSync(path.dirname(x.chemin)))
+        && !(toutFouille && endroits.some(d => sous(x.chemin, d))));
+    const connus = new Set(Object.values(b).flat().map(x => x.chemin));
     for (const c of Object.keys(b)) {
-      const avant = b[c].length;
-      b[c] = b[c].filter(x => fs.existsSync(x.chemin) || !fs.existsSync(path.parse(x.chemin).root) || !fs.existsSync(path.dirname(x.chemin)));
-      retires += avant - b[c].length;
+      const avant = b[c];
+      b[c] = avant.filter(garder);
+      retires += avant.filter(x => !nouveaux.has(x.chemin) && !b[c].includes(x)).length;
     }
-    const ajoutes = ajouterABibliotheque(trouves);
+    ajouterABibliotheque(trouves);
+    // « Nouveaux » : seulement les jeux qui n'étaient pas déjà dans la bibliothèque.
+    const ajoutes = {};
+    for (const t of trouves) if (!connus.has(t.chemin)) ajoutes[t.console] = (ajoutes[t.console] || 0) + 1;
     const r = { ok: true, trouves: trouves.length, ajoutes, retires };
     signaler({ etape: "fini", auto: true, resultat: r });
     return r;

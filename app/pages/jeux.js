@@ -6,6 +6,10 @@
   // ---------- Consoles ----------
   // coeur : cœur EmulatorJS (jeu dans l'appli) ; externe : émulateur Windows téléchargé au premier jeu.
   const CONSOLES = {
+    // DS / GBA / Game Boy : catalogue ici, partie dans la console DS (index.html, partagée avec l'Activité Discord).
+    ds: { nom: "DS, GBA et Game Boy", annee: 2004, sigle: "DS", support: "carteds", ds: true, h: 220, extensions: [".nds", ".gba", ".gb", ".gbc", ".zip", ".7z"],
+      formats: "Jeux DS (.nds), GBA (.gba), Game Boy (.gb, .gbc), ou un .zip / .7z qui en contient un.",
+      aide: "Les touches et la manette se règlent dans la console DS : son menu, onglet Touches." },
     nes: { nom: "NES", annee: 1983, sigle: "NES", support: "nes", coeur: "fceumm", h: 0, extensions: [".nes", ".zip", ".7z"], formats: "Fichiers .nes (ou un .zip / .7z qui en contient un).",
       aide: "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> bouger · <kbd>Espace</kbd> ou <kbd>K</kbd> A · <kbd>J</kbd> B · <kbd>Entrée</kbd> Start · <kbd>Retour</kbd> Select. Manette : stick ou croix, A/B, gâchettes RT = B (tir) et LT = A." },
     snes: { nom: "Super Nintendo", annee: 1990, sigle: "SNES", support: "snes", coeur: "snes9x", h: 265, extensions: [".sfc", ".smc", ".zip", ".7z"], formats: "Fichiers .sfc ou .smc (ou un .zip / .7z).",
@@ -23,8 +27,6 @@
     ps3: { nom: "PlayStation 3", annee: 2006, sigle: "PS3", support: "bluray", externe: "RPCS3", h: 0, dossiers: true, extensions: [".iso"], formats: "Tes jeux PS3 : un dossier de jeu (avec PS3_GAME ou EBOOT.BIN dedans) ou un .iso." },
   };
   for (const [id, c] of Object.entries(CONSOLES)) { c.id = id; c.page = "salon.html?console=" + encodeURIComponent(id); }
-  // La console DS a sa propre page (partagée avec l'Activité Discord) et garde ses jeux à part.
-  const DS = { id: "ds", nom: "DS, GBA et Game Boy", sigle: "DS", support: "carteds", h: 220, page: "index.html", detail: "DS Lite : jeux DS, GBA, Game Boy, Game Boy Color" };
   const BIENTOT = [{ id: "gc", nom: "GameCube et Wii", sigle: "GC", support: "minidisque", h: 255, detail: "avec Dolphin" }];
 
   // ---------- Stockage local (IndexedDB) : jeux ajoutés à la main, sauvegardes, états ----------
@@ -43,7 +45,20 @@
   };
 
   // ---------- Jeux ----------
-  const nomLisible = n => String(n).replace(/\.(nes|sfc|smc|z64|n64|v64|chd|pbp|zip|7z|iso|cci|3ds|cxi|cia|3dsx|zcci|zcxi|z3dsx|nsp|xci|nca|nro|nso|cso|zso|cue)$/i, "").replace(/[_]+/g, " ").trim();
+  // Nom abîmé par une archive faite sur Mac (« Poke╠ümon ») : les caractères de cadre trahissent de l'UTF-8 lu en CP437.
+  const CP437 = "ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ ";
+  function reparer(t) {
+    if (!/[─-╿]/.test(t)) return t;
+    const octets = [];
+    for (const c of t) {
+      if (c.charCodeAt(0) < 128) { octets.push(c.charCodeAt(0)); continue; }
+      const i = CP437.indexOf(c);
+      if (i < 0) return t;
+      octets.push(128 + i);
+    }
+    try { return new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(octets)).normalize("NFC"); } catch (e) { return t; }
+  }
+  const nomLisible = n => reparer(String(n)).replace(/\.(nds|gba|gbc|gb|nes|sfc|smc|z64|n64|v64|chd|pbp|zip|7z|iso|cci|3ds|cxi|cia|3dsx|zcci|zcxi|z3dsx|nsp|xci|nca|nro|nso|cso|zso|cue)$/i, "").replace(/[_]+/g, " ").trim();
   const teinte = t => { let h = 0; for (const c of String(t)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
   const initiales = t => nomLisible(t).split(/\s+/).filter(Boolean).slice(0, 2).map(m => m[0]).join("").toUpperCase() || "?";
   const cle = j => j.console + ":" + j.nom;
@@ -108,7 +123,7 @@
     b.style.setProperty("--t", teinte(j.nom));
     b.style.setProperty("--h", C ? C.h : 260);
     b.setAttribute("aria-label", nomLisible(j.nom) + (C ? ", " + C.nom : ""));
-    const jaq = document.createElement("span"); jaq.className = "jaquette"; jaq.dataset.support = C ? C.support : "nes";
+    const jaq = document.createElement("span"); jaq.className = "jaquette"; jaq.dataset.support = !C ? "nes" : C.ds && /\.gba$/i.test(j.nom) ? "gba" : C.ds && /\.gbc?$/i.test(j.nom) ? "gb" : C.support;
     jaq.innerHTML = '<span class="media"><span class="etiquette"></span></span>';
     jaq.querySelector(".etiquette").textContent = initiales(j.nom);
     const t = document.createElement("span"); t.className = "titre-jeu";
@@ -197,7 +212,7 @@
   }
 
   window.RetroJeux = {
-    CONSOLES, DS, BIENTOT, db, nomLisible, teinte, initiales, cle, accepte, taille, provenance,
+    CONSOLES, BIENTOT, db, nomLisible, teinte, initiales, cle, accepte, taille, provenance,
     jeuxDuDossier, lister, listerTout, favoris, estFavori, basculerFavori, recents, noterLancement, lancements, dernierLancement, ilYA,
     carte, lienFiche, deplacer, navigation, boutonMaj,
   };

@@ -78,3 +78,14 @@
 @media (prefers-reduced-motion: reduce) { .media { transition: none; } :is(.carte, .console):hover .media { transform: none; } }
 /* Disques : le titre sous le trou central */
 :is([data-support="cd"], [data-support="umd"], [data-support="minidisque"]) .etiquette { place-items: end center; padding-bottom: 14%; font-size: 15px; }
+
+/* GBA : cartouche grise plus large que haute, étiquette en haut, encoche en bas */
+[data-support="gba"] .media { width: 100px; height: 64px; padding-top: 6px; align-items: start; border-radius: 4px 4px 2px 2px; background: linear-gradient(#a3a5ac, #8a8c93);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 64% 100%, 64% 88%, 36% 88%, 36% 100%, 0 100%); }
+[data-support="gba"] .etiquette { width: 82px; height: 40px; border-radius: 2px; font-size: 16px; }
+
+/* Game Boy / Game Boy Color : cartouche grise, coin haut droit coupé, rainures en bas */
+[data-support="gb"] .media { width: 76px; height: 86px; padding-top: 10px; align-items: start; border-radius: 3px 3px 6px 6px; background: linear-gradient(#b8b9bf, #9fa0a7);
+  clip-path: polygon(0 0, 88% 0, 100% 9%, 100% 100%, 0 100%); }
+[data-support="gb"] .media::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: 6px; height: 10px; background: repeating-linear-gradient(#8e8f96 0 2px, transparent 2px 4px); }
+[data-support="gb"] .etiquette { width: 60px; height: 50px; border-radius: 2px; font-size: 16px; }
