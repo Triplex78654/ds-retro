@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rétro</title>
+<link rel="stylesheet" href="console/styles/00-polices.css">
+<style>
+  :root {
+    --fond: #16181d; --fond-2: #1f232b; --texte: #eef0f4; --texte-2: #9aa1ad;
+    --accent: #6c7cff; --pret: #43c47a; --u: clamp(10px, 1.1vw, 16px);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(1200px 600px at 20% -10%, #2a2f3a 0%, transparent 60%), var(--fond);
+    color: var(--texte); font: 400 16px/1.5 system-ui, sans-serif;
+    display: grid; grid-template-rows: auto 1fr auto; overflow: hidden;
+  }
+  header { display: flex; align-items: baseline; gap: 18px; padding: 28px 40px 8px; }
+  h1 { margin: 0; font: 600 44px/1 "Pixelify", system-ui, sans-serif; letter-spacing: 1px; }
+  header p { margin: 0; color: var(--texte-2); }
+  main { overflow-y: auto; padding: 16px 40px 32px; }
+  h2 { font: 600 15px/1 system-ui, sans-serif; color: var(--texte-2); margin: 18px 0 12px; }
+  .rangee { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
+  .console {
+    position: relative; display: grid; grid-template-rows: 120px auto; text-align: left;
+    background: var(--fond-2); border: 1px solid rgba(255,255,255,.06); border-radius: 14px;
+    padding: 0; overflow: hidden; color: inherit; font: inherit; cursor: pointer;
+    transition: transform .12s, border-color .12s;
+  }
+  .console:hover, .console:focus-visible { transform: translateY(-3px); border-color: var(--accent); outline: none; }
+  .console:focus-visible { box-shadow: 0 0 0 3px rgba(108,124,255,.45); }
+  .console[aria-disabled="true"] { cursor: default; opacity: .55; }
+  .console[aria-disabled="true"]:hover { transform: none; border-color: rgba(255,255,255,.06); }
+  .visuel { display: grid; place-items: center; background: linear-gradient(160deg, hsl(var(--h) 45% 32%), hsl(var(--h) 40% 18%)); }
+  .visuel span { font: 600 34px/1 "Pixelify", system-ui, sans-serif; color: rgba(255,255,255,.92); text-shadow: 0 2px 0 rgba(0,0,0,.25); }
+  .infos { padding: 12px 14px 14px; }
+  .infos strong { display: block; font-size: 16px; }
+  .infos small { color: var(--texte-2); }
+  .etat { position: absolute; top: 10px; right: 10px; font: 600 11px/1 system-ui, sans-serif; padding: 5px 8px; border-radius: 99px; background: rgba(0,0,0,.45); }
+  .etat.pret { background: var(--pret); color: #08140d; }
+  footer { padding: 10px 40px 16px; color: var(--texte-2); font-size: 13px; display: flex; justify-content: space-between; }
+  @media (prefers-reduced-motion: reduce) { .console { transition: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Rétro</h1>
+  <p>Choisis une console. Tes jeux restent chez toi, tes sauvegardes te suivent.</p>
+</header>
+<main>
+  <h2>Disponibles</h2>
+  <div class="rangee" id="disponibles"></div>
+  <h2>Bientôt</h2>
+  <div class="rangee" id="bientot"></div>
+</main>
+<footer><span>Flèches ou manette pour choisir, Entrée ou A pour lancer.</span><span id="version"></span></footer>
+<script>
+  // Consoles de l'appli. « page » = console prête ; les autres arrivent dans les prochaines versions.
+  const CONSOLES = [
+    { nom: "DS, GBA et Game Boy", detail: "DS Lite : jeux DS, GBA, Game Boy, Game Boy Color", sigle: "DS", h: 220, page: "index.html" },
+    { nom: "NES", detail: "1983", sigle: "NES", h: 0 },
+    { nom: "Super Nintendo", detail: "1990", sigle: "SNES", h: 265 },
+    { nom: "Nintendo 64", detail: "1996", sigle: "N64", h: 140 },
+    { nom: "PlayStation", detail: "1994", sigle: "PS1", h: 210 },
+    { nom: "3DS", detail: "avec Azahar", sigle: "3DS", h: 350 },
+    { nom: "GameCube et Wii", detail: "avec Dolphin", sigle: "GC", h: 255 },
+    { nom: "PSP", detail: "avec PPSSPP", sigle: "PSP", h: 200 },
+    { nom: "PlayStation 2", detail: "avec PCSX2", sigle: "PS2", h: 230 },
+    { nom: "PlayStation 3", detail: "avec RPCS3", sigle: "PS3", h: 0 },
+  ];
+  const tuile = c => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "console";
+    b.style.setProperty("--h", c.h);
+    b.innerHTML = '<div class="visuel"><span></span></div><div class="infos"><strong></strong><small></small></div><i class="etat"></i>';
+    b.querySelector(".visuel span").textContent = c.sigle;
+    b.querySelector("strong").textContent = c.nom;
+    b.querySelector("small").textContent = c.detail;
+    const etat = b.querySelector(".etat");
+    if (c.page) { etat.textContent = "Prête"; etat.classList.add("pret"); b.addEventListener("click", () => { location.href = c.page; }); }
+    else { etat.textContent = "Bientôt"; b.setAttribute("aria-disabled", "true"); }
+    return b;
+  };
+  CONSOLES.forEach(c => document.getElementById(c.page ? "disponibles" : "bientot").appendChild(tuile(c)));
+  const tuiles = () => [...document.querySelectorAll(".console")];
+  tuiles()[0].focus();
+
+  // Navigation au clavier et à la manette dans la grille
+  function deplacer(dx, dy) {
+    const liste = tuiles(), i = Math.max(0, liste.indexOf(document.activeElement));
+    const r = liste[i].getBoundingClientRect();
+    let meilleur = null, score = Infinity;
+    liste.forEach((t, j) => {
+      if (j === i) return;
+      const s = t.getBoundingClientRect(), x = s.left - r.left, y = s.top - r.top;
+      if ((dx && Math.sign(x) !== dx) || (dy && Math.sign(y) !== dy) || (dx && Math.abs(y) > r.height / 2) ) return;
+      const d = Math.abs(x) + Math.abs(y) * 2;
+      if (d < score) { score = d; meilleur = t; }
+    });
+    if (meilleur) meilleur.focus();
+  }
+  addEventListener("keydown", e => {
+    const t = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (t) { e.preventDefault(); deplacer(...t); }
+  });
+  let avant = {};
+  (function boucle() {
+    const m = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(Boolean);
+    if (m) {
+      const b = i => m.buttons[i] && m.buttons[i].pressed;
+      const etat = { g: b(14) || m.axes[0] < -0.6, d: b(15) || m.axes[0] > 0.6, h: b(12) || m.axes[1] < -0.6, b: b(13) || m.axes[1] > 0.6, a: b(0) };
+      if (etat.g && !avant.g) deplacer(-1, 0);
+      if (etat.d && !avant.d) deplacer(1, 0);
+      if (etat.h && !avant.h) deplacer(0, -1);
+      if (etat.b && !avant.b) deplacer(0, 1);
+      if (etat.a && !avant.a && document.activeElement.classList.contains("console")) document.activeElement.click();
+      avant = etat;
+    }
+    requestAnimationFrame(boucle);
+  })();
+  if (window.retroApp) retroApp.version().then(v => { document.getElementById("version").textContent = "Rétro " + v; });
+</script>
+</body>
+</html>
