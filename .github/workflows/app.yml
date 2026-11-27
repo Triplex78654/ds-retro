@@ -1,6 +1,7 @@
 # Construit l'appli Windows « Rétro » (installateur + version portable).
 # - À chaque modification de l'appli ou de la console : fichiers à télécharger dans l'onglet Actions.
-# - Pour publier (Releases + bouton de mise à jour de l'appli) : Actions → Appli Windows → Run workflow → cocher « Publier ».
+# - Nouveau numéro de version dans app/package.json : la version est publiée toute seule (Releases),
+#   et le bouton de mise à jour de l'appli la propose.
 name: Appli Windows
 
 on:
@@ -44,9 +45,9 @@ jobs:
             app/dist/latest.yml
           if-no-files-found: error
       - name: Publier la version
-        # Lancé à la main (Actions → Appli Windows → Run workflow → cocher « Publier ») ou par une étiquette app-vX.Y.Z.
-        # Le numéro de version vient de app/package.json.
-        if: inputs.publier || startsWith(github.ref, 'refs/tags/app-v')
+        # Publication automatique (accord du propriétaire du dépôt) : sur main, dès que le numéro de version
+        # de app/package.json n'a pas encore de version publiée. Aussi à la main (Run workflow → « Publier »).
+        if: github.ref == 'refs/heads/main' || inputs.publier || startsWith(github.ref, 'refs/tags/app-v')
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -54,8 +55,8 @@ jobs:
           version=$(node -p "require('./app/package.json').version")
           etiquette="app-v${version}"
           if gh release view "$etiquette" >/dev/null 2>&1; then
-            echo "::error::La version ${version} est déjà publiée : change le numéro de version dans app/package.json."
-            exit 1
+            echo "La version ${version} est déjà publiée : rien à faire."
+            exit 0
           fi
           gh release create "$etiquette" app/dist/*.exe app/dist/latest.yml app/dist/*.blockmap \
             --target "$GITHUB_SHA" \
