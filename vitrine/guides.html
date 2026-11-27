@@ -31,6 +31,7 @@
   <nav class="sommaire" aria-label="Sommaire des guides">
     <a href="#installation">Installation</a>
     <a href="#jeux">Ajouter tes jeux</a>
+    <a href="#zip">Jeu téléchargé en .zip</a>
     <a href="#jouer">Lancer un jeu</a>
     <a href="#configuration">Configuration</a>
     <a href="#manettes">Manettes</a>
@@ -74,6 +75,47 @@
       </tbody>
     </table>
     <p>Les jeux DS, GBA et Game Boy se chargent depuis la console DS de Rétro (tuile « DS, GBA et Game Boy »).</p>
+
+    <h2 id="zip">Télécharger un jeu en .zip, l'extraire et le faire trouver</h2>
+    <p>Beaucoup de jeux se téléchargent dans une archive (<code>.zip</code>, <code>.7z</code> ou <code>.rar</code>). Voici comment passer du téléchargement à la partie, sans rien ranger à la main.</p>
+    <div class="encadre important"><p>Télécharge uniquement des jeux que tu as le droit d'avoir : jeux libres (homebrew) publiés par leur auteur, par exemple sur <a href="https://itch.io/games/tag-homebrew">itch.io</a> ou sur le site du créateur, ou copie d'un jeu que tu possèdes. Les sites qui proposent des jeux du commerce gratuitement sont illégaux et souvent remplis de logiciels malveillants.</p></div>
+
+    <h3>Étape 1 : télécharger l'archive</h3>
+    <ol>
+      <li>Sur la page du jeu, clique sur le bouton de téléchargement.</li>
+      <li>Laisse le fichier arriver dans ton dossier <strong>Téléchargements</strong> : Rétro le fouille tout seul.</li>
+      <li>Si Windows ou ton antivirus signale le fichier, ne l'ouvre pas.</li>
+    </ol>
+
+    <h3>Étape 2 : l'extraire (seulement si besoin)</h3>
+    <p>Rétro regarde à l'intérieur des <code>.zip</code> et <code>.7z</code> pour savoir à quelle console le jeu appartient. Selon la console, tu peux garder l'archive telle quelle ou tu dois l'extraire :</p>
+    <table>
+      <thead><tr><th scope="col">Console</th><th scope="col">Archive .zip / .7z</th></tr></thead>
+      <tbody>
+        <tr><td>NES, Super Nintendo, Nintendo 64</td><td><strong>Garde-la</strong> : le jeu se lance directement depuis l'archive.</td></tr>
+        <tr><td>PlayStation</td><td><strong>Garde-la</strong> si elle contient le .cue et les .bin du jeu ; un .chd ou .pbp peut aussi être extrait.</td></tr>
+        <tr><td>DS, GBA, Game Boy</td><td><strong>Garde-la</strong> : la console DS de Rétro lit les .zip et .7z.</td></tr>
+        <tr><td>3DS, Switch, PSP, PS2, PS3</td><td><strong>Extrais-la</strong> : leurs émulateurs ont besoin du fichier du jeu (.cia, .nsp, .iso…) ou du dossier du jeu (PS3).</td></tr>
+        <tr><td>Toutes (.rar)</td><td><strong>Extrais-la</strong> : Rétro ne regarde pas dans les .rar.</td></tr>
+      </tbody>
+    </table>
+    <p>Pour extraire :</p>
+    <ol>
+      <li>Dans l'Explorateur de fichiers, fais un <strong>clic droit</strong> sur l'archive, puis <strong>Extraire tout…</strong></li>
+      <li>Garde le dossier proposé (dans Téléchargements), puis clique sur <strong>Extraire</strong>.</li>
+      <li>Pour un <code>.7z</code> ou un <code>.rar</code> : Windows 11 sait les ouvrir de la même façon ; sur Windows 10, installe <a href="https://www.7-zip.org/">7-Zip</a> (gratuit), puis clic droit › 7-Zip › <strong>Extraire ici</strong>.</li>
+    </ol>
+    <p>Une fois le jeu extrait, tu peux supprimer l'archive pour gagner de la place.</p>
+
+    <h3>Étape 3 : laisser Rétro le trouver</h3>
+    <ol>
+      <li>Ouvre Rétro (ou reviens dessus s'il est déjà ouvert).</li>
+      <li>La <strong>recherche automatique</strong> se lance à l'ouverture de Rétro, puis quand tu reviens sur l'appli (au plus toutes les 10 minutes). L'accueil affiche « Je cherche tes jeux… », puis « Nouveaux jeux rangés ».</li>
+      <li>Pas envie d'attendre ? Sur l'accueil, clique sur <strong>Chercher mes jeux maintenant</strong> (ou <strong>Paramètres › Dossiers de jeux › Chercher maintenant</strong>).</li>
+      <li>Le jeu apparaît dans sa console et dans la <strong>Bibliothèque</strong>. Les jeux DS, GBA et Game Boy apparaissent dans « Tes cartouches » de la console DS.</li>
+    </ol>
+    <div class="encadre"><p><strong>Ton jeu est ailleurs</strong> (un autre dossier, une clé USB) ? Ajoute ce dossier avec <strong>Ajouter un dossier</strong> : il sera fouillé à chaque recherche. Tu peux aussi poser le jeu directement dans <code>Documents\Rétro\&lt;console&gt;</code>.</p></div>
+    <div class="encadre"><p><strong>Le jeu n'apparaît pas ?</strong> Vérifie son format dans le <a href="#jeux">tableau des formats</a>, puis relance la recherche. Un .zip qui contient un jeu 3DS, Switch, PSP, PS2 ou PS3 doit être extrait.</p></div>
 
     <h2 id="jouer">Lancer un jeu</h2>
     <ol>
