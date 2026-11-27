@@ -42,6 +42,11 @@
   .chercher button { font: 600 15px/1 system-ui, sans-serif; color: #08140d; background: var(--pret); border: 0; border-radius: 10px; padding: 12px 16px; cursor: pointer; }
   .chercher button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
   .chercher button:disabled { opacity: .6; cursor: default; }
+  .chercher button.secondaire { background: #2b303b; color: var(--texte); border: 1px solid rgba(255,255,255,.12); }
+  .chercher p { display: flex; align-items: center; gap: 8px; }
+  .chercher p.cherche::before { content: ""; width: 10px; height: 10px; flex: none; border-radius: 50%; border: 2px solid var(--pret); border-right-color: transparent; animation: tourne .8s linear infinite; }
+  @keyframes tourne { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .chercher p.cherche::before { animation: none; } }
   .chercher p { margin: 0; color: var(--texte-2); font-size: 13px; max-width: 360px; }
   .infos { padding: 12px 14px 14px; }
   .infos strong { display: block; font-size: 16px; }
@@ -62,8 +67,8 @@
   <h1>Rétro</h1>
   <p>Choisis une console. Tes jeux restent chez toi, tes sauvegardes te suivent.</p>
   <div class="chercher" id="zone-chercher" hidden>
-    <p id="resultat-recherche" role="status">Trouve les jeux de ton PC et range-les dans la bonne console.</p>
-    <button type="button" id="chercher">Chercher mes jeux</button>
+    <p id="resultat-recherche" role="status">Tes jeux sont cherchés et rangés tout seuls.</p>
+    <button type="button" id="chercher" class="secondaire">Ajouter un dossier</button>
   </div>
 </header>
 <main>
@@ -140,22 +145,29 @@
     }
     requestAnimationFrame(boucle);
   })();
-  // Chercher mes jeux : dossiers choisis par le joueur, chaque jeu rangé dans sa console.
+  // Recherche automatique : l'appli fouille le PC toute seule et range chaque jeu dans sa console.
   const NOMS = { nes: "NES", snes: "Super Nintendo", n64: "Nintendo 64", psx: "PlayStation", "3ds": "3DS", switch: "Switch", psp: "PSP", ps2: "PlayStation 2", ps3: "PlayStation 3" };
   if (window.retroApp && retroApp.chercherJeux) {
     const zone = document.getElementById("zone-chercher"), bouton = document.getElementById("chercher"), texte = document.getElementById("resultat-recherche");
     zone.hidden = false;
+    const resume = r => {
+      if (!r.ok) return "Recherche impossible : " + r.erreur;
+      const parties = Object.entries(r.ajoutes || {}).filter(([c]) => NOMS[c]).map(([c, n]) => n + " " + NOMS[c]);
+      let t = parties.length ? "Nouveaux jeux rangés : " + parties.join(", ") + "." : r.trouves ? r.trouves + " jeux trouvés sur ton PC, tous rangés dans leur console." : "Aucun jeu trouvé pour l'instant : ajoute le dossier où ils sont.";
+      const autres = ((r.ajoutes || {}).ds || 0) + ((r.ajoutes || {}).gc || 0);
+      if (autres) t += " " + autres + " jeu(x) DS / Game Boy ou GameCube / Wii gardés pour plus tard.";
+      return t;
+    };
+    retroApp.surRecherche(p => {
+      texte.classList.toggle("cherche", p.etape !== "fini");
+      texte.textContent = p.etape === "fini" ? (p.resultat ? resume(p.resultat) : p.texte) : "Je cherche tes jeux… " + (p.texte || "").replace(/^Recherche… /, "");
+    });
+    retroApp.rechercheEtat().then(e => { if (e.enCours) { texte.classList.add("cherche"); texte.textContent = "Je cherche tes jeux…"; } });
     bouton.addEventListener("click", async () => {
       bouton.disabled = true;
-      const arret = retroApp.surRecherche(p => { texte.textContent = p.texte; });
       const r = await retroApp.chercherJeux();
-      arret(); bouton.disabled = false;
-      if (r.annule) { texte.textContent = "Trouve les jeux de ton PC et range-les dans la bonne console."; return; }
-      if (!r.ok) { texte.textContent = "Recherche impossible : " + r.erreur; return; }
-      const parties = Object.entries(r.ajoutes).filter(([c]) => NOMS[c]).map(([c, n]) => n + " " + NOMS[c]);
-      const autres = (r.ajoutes.ds || 0) + (r.ajoutes.gc || 0);
-      texte.textContent = parties.length ? "Ajoutés : " + parties.join(", ") + "." : (r.trouves ? "Rien de nouveau : ces jeux sont déjà rangés." : "Aucun jeu trouvé dans ce dossier.");
-      if (autres) texte.textContent += " " + autres + " jeu(x) DS / Game Boy ou GameCube / Wii gardés pour plus tard.";
+      bouton.disabled = false;
+      if (!r.annule) { texte.classList.remove("cherche"); texte.textContent = resume(r) + " Ce dossier sera fouillé à chaque fois."; }
     });
   }
   if (window.retroApp) retroApp.version().then(v => { document.getElementById("version").textContent = "Rétro " + v; });

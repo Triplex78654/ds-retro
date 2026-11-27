@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld("retroApp", {
   derniereVersionEmulateur: c => ipcRenderer.invoke("emulateur-derniere-version", String(c)),
   importerSysteme: (c, quoi, enDossier) => ipcRenderer.invoke("systeme-importer", String(c), String(quoi), Boolean(enDossier)),
   chercherJeux: () => ipcRenderer.invoke("chercher-jeux"),
+  rechercheEtat: () => ipcRenderer.invoke("recherche-etat"),
+  relancerRecherche: () => ipcRenderer.invoke("recherche-relancer"),
   surRecherche: f => { const r = (_e, p) => f(p); ipcRenderer.on("recherche-progression", r); return () => ipcRenderer.removeListener("recherche-progression", r); },
   lancerExterne: (c, nom, options) => ipcRenderer.invoke("lancer-externe", String(c), String(nom), { manette: Boolean(options && options.manette) }),
   majEtat: () => ipcRenderer.invoke("maj-etat"),

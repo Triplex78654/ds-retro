@@ -275,6 +275,8 @@
     retroApp.cheminDossier(id).then(c => { cheminDossier = c; afficherJeux(); });
     // Le dossier change pendant que l'appli est ouverte : on relit quand on revient sur la fenêtre.
     addEventListener("focus", () => { if (!partie) afficherJeux(); });
+    // La recherche automatique a rangé de nouveaux jeux pour cette console : le catalogue se met à jour.
+    if (retroApp.surRecherche) retroApp.surRecherche(p => { if (p.etape === "fini" && p.resultat && !partie) afficherJeux(); });
   }
 
   // Navigation dans la grille au clavier et à la manette

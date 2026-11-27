@@ -73,6 +73,9 @@ async function lancer() {
   fenetre.loadURL(ORIGINE + "/");
   // Regarde s'il y a une nouvelle version peu après le démarrage (le bouton de l'accueil l'affiche).
   setTimeout(() => maj.verifier(), 4000);
+  // Recherche automatique des jeux : au démarrage, puis quand on revient sur l'appli (au plus toutes les 10 minutes).
+  setTimeout(() => rechercheAuto(), 2500);
+  fenetre.on("focus", () => { if (Date.now() - derniereRecherche > 10 * 60 * 1000) rechercheAuto(); });
 }
 
 ipcMain.handle("version", () => app.getVersion());
@@ -112,23 +115,68 @@ ipcMain.handle("systeme-importer", async (e, c, quoi, enDossier) => {
   try { return { ok: true, etat: await emulateurs.importerSysteme(c, quoi, choix.filePaths, envoyer) }; }
   catch (err) { return { ok: false, erreur: String(err.message || err) }; }
 });
-// « Chercher mes jeux » : le joueur choisit des dossiers (ou un disque), l'appli range chaque jeu dans sa console.
+// ---------- Recherche automatique des jeux ----------
+// Au démarrage puis régulièrement, l'appli fouille les endroits habituels (Téléchargements, Bureau,
+// Documents, les autres disques) et les dossiers ajoutés par le joueur ; chaque jeu trouvé est rangé
+// dans sa console. Les jeux qui ont disparu du PC sont retirés.
+const fichierRecherche = () => path.join(app.getPath("userData"), "recherche.json");
+function reglagesRecherche() {
+  try { return JSON.parse(require("node:fs").readFileSync(fichierRecherche(), "utf8")); } catch (e) { return { dossiers: [] }; }
+}
+function sauverRecherche(r) { require("node:fs").writeFileSync(fichierRecherche(), JSON.stringify(r, null, 1)); }
+function endroitsAFouiller() {
+  const fs = require("node:fs");
+  const r = reglagesRecherche();
+  const endroits = [];
+  for (const nom of ["downloads", "desktop", "documents"]) { try { endroits.push(app.getPath(nom)); } catch (e) {} }
+  // OneDrive range souvent le Bureau et les Documents ailleurs.
+  if (process.env.OneDrive) for (const sous of ["Desktop", "Bureau", "Documents"]) endroits.push(path.join(process.env.OneDrive, sous));
+  // Les autres disques (pas C:, trop gros et plein de fichiers système).
+  if (process.platform === "win32") for (const l of "DEFGHIJKLMNOPQRSTUVWXYZ") { const d = l + ":\\"; try { if (fs.statSync(d).isDirectory()) endroits.push(d); } catch (e) {} }
+  return [...new Set(endroits.concat(r.dossiers || []))].filter(d => { try { return fs.statSync(d).isDirectory(); } catch (e) { return false; } });
+}
+let rechercheEnCours = null, derniereRecherche = 0;
+const signaler = p => { if (fenetre && !fenetre.isDestroyed()) fenetre.webContents.send("recherche-progression", p); };
+function rechercheAuto(endroits = endroitsAFouiller()) {
+  if (rechercheEnCours) return rechercheEnCours;
+  derniereRecherche = Date.now();
+  rechercheEnCours = (async () => {
+    const fs = require("node:fs");
+    const sept = require("7zip-bin").path7za.replace("app.asar", "app.asar.unpacked");
+    const trouves = await require("./recherche").chercher(endroits, {
+      sept, progression: p => signaler({ ...p, auto: true }),
+      // Pas les dossiers de jeux de l'appli (déjà au catalogue), ni ses émulateurs, ni l'appli elle-même.
+      exclure: Object.values(DOSSIERS).concat([app.getPath("userData"), path.dirname(app.getPath("exe"))]),
+    });
+    // Ranger les nouveaux jeux, retirer ceux qui ont disparu.
+    const b = bibliotheque();
+    let retires = 0;
+    for (const c of Object.keys(b)) {
+      const avant = b[c].length;
+      b[c] = b[c].filter(x => fs.existsSync(x.chemin));
+      retires += avant - b[c].length;
+    }
+    const ajoutes = ajouterABibliotheque(trouves);
+    const r = { ok: true, trouves: trouves.length, ajoutes, retires };
+    signaler({ etape: "fini", auto: true, resultat: r });
+    return r;
+  })().catch(err => ({ ok: false, erreur: String(err.message || err) })).finally(() => { rechercheEnCours = null; });
+  return rechercheEnCours;
+}
+ipcMain.handle("recherche-etat", () => ({ enCours: Boolean(rechercheEnCours), dossiers: reglagesRecherche().dossiers || [], derniere: derniereRecherche }));
+// Ajouter un endroit à fouiller (un dossier ou un disque) : il est retenu pour les prochaines fois.
 ipcMain.handle("chercher-jeux", async e => {
   const { dialog } = require("electron");
   const f = BrowserWindow.fromWebContents(e.sender);
-  const choix = await dialog.showOpenDialog(f, { title: "Où sont tes jeux ? (un dossier ou un disque entier)", properties: ["openDirectory", "multiSelections"] });
+  const choix = await dialog.showOpenDialog(f, { title: "Ajoute un dossier ou un disque où chercher tes jeux", properties: ["openDirectory", "multiSelections"] });
   if (choix.canceled || !choix.filePaths.length) return { ok: false, annule: true };
-  const envoyer = p => { if (!e.sender.isDestroyed()) e.sender.send("recherche-progression", p); };
-  try {
-    const sept = require("7zip-bin").path7za.replace("app.asar", "app.asar.unpacked");
-    const trouves = await require("./recherche").chercher(choix.filePaths, {
-      sept, progression: envoyer,
-      // Pas la peine de fouiller les dossiers de jeux de l'appli ni ses émulateurs.
-      exclure: Object.values(DOSSIERS).concat([app.getPath("userData")]),
-    });
-    return { ok: true, trouves: trouves.length, ajoutes: ajouterABibliotheque(trouves) };
-  } catch (err) { return { ok: false, erreur: String(err.message || err) }; }
+  const r = reglagesRecherche();
+  r.dossiers = [...new Set((r.dossiers || []).concat(choix.filePaths))];
+  sauverRecherche(r);
+  if (rechercheEnCours) await rechercheEnCours;
+  return rechercheAuto(choix.filePaths);
 });
+ipcMain.handle("recherche-relancer", () => rechercheAuto());
 ipcMain.handle("lancer-externe", async (e, c, nom, options) => {
   c = String(c); nom = String(nom);
   const dossier = DOSSIERS[c];
