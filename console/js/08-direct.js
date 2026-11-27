@@ -1,6 +1,15 @@
   // ---------- Diffusion directe (WebRTC) : vidéo et son de l'hôte vers chaque spectateur ----------
   // Le salon sert seulement à présenter les deux consoles. Si la connexion directe échoue
   // (réseau, Discord), le spectateur reste sur les images relayées par le serveur, sans le son.
+  // Image du jeu dans une toile 256 × 448 (les deux écrans de la DS, écart compris).
+  // GBA : 240 × 160 au centre de l'écran du haut ; Game Boy : agrandi à la hauteur de l'écran du haut.
+  const ZONES_ECRAN = { gba: [8, 16, 240, 160], gb: [21.333, 0, 213.333, 192] };
+  function dessinerJeu(g, source) {
+    const zone = ZONES_ECRAN[SYSTEMES[systemeJeu].mode];
+    if (!zone) return g.drawImage(source, 0, 0, 256, 448);
+    g.fillStyle = "#000"; g.fillRect(0, 0, 256, 448);
+    g.drawImage(source, ...zone);
+  }
   const ICE = [{ urls: "stun:stun.cloudflare.com:3478" }, { urls: "stun:stun.l.google.com:19302" }];
   const pairs = new Map();          // chez l'hôte : spectateur → connexion
   const echecsDirects = new Set();  // spectateurs pour qui le direct a échoué (on ne réessaie pas en boucle)
@@ -12,7 +21,7 @@
     const g = toile.getContext("2d");
     const dessiner = () => {
       const source = document.querySelector("#game canvas");
-      if (source && source.width && !menuOuvert) g.drawImage(source, 0, 0, 256, 448);
+      if (source && source.width && !menuOuvert) dessinerJeu(g, source);
       boucleDirecte = requestAnimationFrame(dessiner);
     };
     dessiner();

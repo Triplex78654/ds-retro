@@ -99,6 +99,7 @@
         const emplacement = document.createElement("div");
         emplacement.className = "emplacement";
         const cart = nouvelleCart(j.nom, "Jouer à " + j.nom, teinte(j.nom));
+        marquerSysteme(cart, j.d ? systemeDuNom(j.d.nom) : systemeDuNom(j.id.split("|")[0]));
         fiche(cart, j.nom + ", ton jeu dans le catalogue de tout le monde. Touche pour jouer : tes potes pourront regarder et prendre la manette.");
         cart.addEventListener("click", () => j.d ? recupererDuCloud(cart, j.d) : jouerCartouche(cart, j.id));
         emplacement.append(cart, boutonCatalogue(j.nom, true, oui => basculerCatalogue(j.d ? { cle: j.d.id } : { id: j.id }, oui)));
@@ -112,6 +113,7 @@
         const emplacement = document.createElement("div");
         emplacement.className = "emplacement";
         const cart = nouvelleCart(jeu.nom, "Demander à " + p.nom + " de lancer " + jeu.nom, teinte(jeu.nom));
+        marquerSysteme(cart, systemeDuNom(String(jeu.id).split("|")[0]));
         const badge = document.createElement("i");
         badge.className = "chez"; badge.textContent = (p.nom[0] || "?").toUpperCase();
         badge.style.setProperty("--teinte-pote", teinte(p.nom));
@@ -129,6 +131,7 @@
         const emplacement = document.createElement("div");
         emplacement.className = "emplacement";
         const cart = nouvelleCart(jeu.nom, "Jouer à " + jeu.nom, Number.isFinite(jeu.teinte) ? jeu.teinte : teinte(jeu.nom));
+        marquerSysteme(cart, systemeDuNom(jeu.fichier));
         const pastille = document.createElement("i");
         pastille.className = "partage"; pastille.title = "Jeu libre";
         cart.appendChild(pastille);

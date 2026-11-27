@@ -27,8 +27,11 @@
     }
   }
 
-  function demarrer(blob, nomFichier) {
+  async function demarrer(blob, nomFichier) {
     majOnglets();
+    systemeJeu = await systemeDuFichier(blob, nomFichier);
+    const systeme = SYSTEMES[systemeJeu];
+    document.body.classList.add("mode-" + systeme.mode);
 
     let revele = false;
     const reveler = () => {
@@ -46,13 +49,13 @@
       $("game").addEventListener("contextmenu", e => { e.preventDefault(); e.stopPropagation(); }, true);
     }
     window.EJS_player = "#game";
-    window.EJS_core = "desmume";
+    window.EJS_core = systeme.coeur;
     window.EJS_gameName = nomLisible(nomFichier);
     window.EJS_gameUrl = URL.createObjectURL(blob);
     window.EJS_pathtodata = CDN;
     window.EJS_startOnLoaded = true;
     window.EJS_defaultControls = construireControles();
-    window.EJS_defaultOptions = { desmume_screens_gap: "64", desmume_screens_layout: "top/bottom" };
+    window.EJS_defaultOptions = systemeJeu === "nds" ? { desmume_screens_gap: "64", desmume_screens_layout: "top/bottom" } : {};
     window.EJS_gameID = PRESETS[presetChoisi].gameId;
     window.EJS_ready = () => setTimeout(reveler, 150);
     window.EJS_onGameStart = () => { reveler(); restaurerSram(); setTimeout(focusJeu, 100); };

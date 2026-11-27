@@ -186,6 +186,18 @@
     opacity: .85;
   }
   .cart:hover, .cart:focus-visible { transform: translateY(calc(var(--u) * -2)); }
+  /* Cartouche GBA : grise, encoche au milieu du haut. Game Boy : grise claire, coins droits. */
+  .cart.gba {
+    clip-path: polygon(0 0, 36% 0, 36% 5%, 64% 5%, 64% 0, 100% 0, 100% 100%, 0 100%);
+    background: linear-gradient(180deg, #5d6069, #40434a);
+  }
+  .cart.gb { clip-path: none; border-radius: calc(var(--u) * 2) calc(var(--u) * 2) calc(var(--u) * 6) calc(var(--u) * 2); background: linear-gradient(180deg, #a3a5ab, #7d7f86); color: #1d1f24; }
+  .cart .systeme {
+    position: absolute; left: calc(var(--u) * 7); top: calc(var(--u) * 8);
+    padding: calc(var(--u) * 1) calc(var(--u) * 2.5); border-radius: calc(var(--u) * 2);
+    background: rgba(0,0,0,.55); color: #fff;
+    font: 600 max(8px, calc(var(--u) * 5.5))/1 "Pixelify", system-ui, sans-serif;
+  }
   .etiquette {
     display: grid; place-items: center;
     height: calc(var(--u) * 29); border-radius: calc(var(--u) * 2);

@@ -33,7 +33,43 @@
       discordPret = sdk.ready().catch(() => {});
     }
   }
-  const EXTENSIONS = [".nds", ".zip", ".7z"];
+  const EXTENSIONS = [".nds", ".gba", ".gb", ".gbc", ".zip", ".7z"];
+  // Consoles prises en charge. Comme sur une DS Lite, une cartouche GBA se met dans la fente du bas
+  // et le jeu s'affiche sur un seul écran. Le cœur mGBA lit aussi les jeux Game Boy et Game Boy Color.
+  const SYSTEMES = {
+    nds: { nom: "DS", coeur: "desmume", mode: "ds" },
+    gba: { nom: "GBA", coeur: "mgba", mode: "gba" },
+    gbc: { nom: "GBC", coeur: "mgba", mode: "gb" },
+    gb: { nom: "GB", coeur: "mgba", mode: "gb" },
+  };
+  let systemeJeu = "nds";
+  function systemeDuNom(nom) {
+    const n = String(nom || "").toLowerCase();
+    if (n.endsWith(".gba")) return "gba";
+    if (n.endsWith(".gbc")) return "gbc";
+    if (n.endsWith(".gb")) return "gb";
+    if (n.endsWith(".nds")) return "nds";
+    return null;
+  }
+  // Pour un .zip, on lit la liste des fichiers qu'il contient ; pour un .7z, on se fie au nom.
+  async function systemeDuFichier(blob, nom) {
+    const direct = systemeDuNom(nom);
+    if (direct) return direct;
+    if (/\.zip$/i.test(nom) && blob) {
+      try {
+        const fin = new Uint8Array(await blob.slice(Math.max(0, blob.size - 65_557)).arrayBuffer());
+        for (let i = 0; i + 46 <= fin.length; i++) {
+          if (fin[i] !== 0x50 || fin[i + 1] !== 0x4b || fin[i + 2] !== 0x01 || fin[i + 3] !== 0x02) continue;
+          const longueur = fin[i + 28] | (fin[i + 29] << 8);
+          const s = systemeDuNom(new TextDecoder().decode(fin.subarray(i + 46, i + 46 + longueur)));
+          if (s) return s;
+        }
+      } catch (e) {}
+    }
+    if (/\bgba\b/i.test(nom)) return "gba";
+    if (/\bgbc\b/i.test(nom)) return "gbc";
+    return "nds";
+  }
   const $ = id => document.getElementById(id);
   const lire = (cle, defaut) => { try { return localStorage.getItem(cle) || defaut; } catch (e) { return defaut; } };
   const ecrire = (cle, val) => { try { localStorage.setItem(cle, val); } catch (e) {} };

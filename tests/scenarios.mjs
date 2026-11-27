@@ -235,6 +235,34 @@ export async function lancerScenarios({ site }) {
     for (const p of [raiden, kenji, zoe]) { assert.deepEqual(p.erreurs, []); await p.context().close(); }
   }, { reessai: true });
 
+  test("GBA : la cartouche démarre avec mGBA dans l'écran du haut, sa sauvegarde est copiée", async () => {
+    const p = await joueur("111", "Raiden", "100000000000000001", { emulateur: true, instance: "i-gba" });
+    await p.setInputFiles("#fichier", path.join(path.dirname(new URL(import.meta.url).pathname), "roms", "test-rouge.gba"));
+    await p.waitForSelector("#apres-ajout:not([hidden])");
+    assert.equal(await p.evaluate(() => { const c = document.querySelector('#grille .cart[aria-label*="test-rouge"]'); return c && c.classList.contains("gba") && c.querySelector(".systeme").textContent; }), "GBA");
+    await p.screenshot({ path: path.join(captures, "gba-cartouche.png") });
+    await p.click("#apres-ajout button.principal");
+    await p.waitForFunction(() => jeuDemarre, null, { timeout: 60_000 });
+    await p.waitForSelector("#game canvas", { state: "attached", timeout: 30_000 });
+    assert.equal(await p.evaluate(() => [systemeJeu, document.body.classList.contains("mode-gba"), EJS_core]).then(x => x.join(",")), "gba,true,mgba");
+    // Ce que verraient les spectateurs : rouge dans l'écran du haut, noir dans celui du bas
+    const couleurs = async () => p.evaluate(() => {
+      const t = document.createElement("canvas"); t.width = 256; t.height = 448;
+      const g = t.getContext("2d"); dessinerJeu(g, document.querySelector("#game canvas"));
+      return [[...g.getImageData(128, 96, 1, 1).data].slice(0, 3), [...g.getImageData(128, 350, 1, 1).data].slice(0, 3)];
+    });
+    const fin = Date.now() + 10_000;
+    let vu;
+    while (Date.now() < fin) { vu = await couleurs(); if (vu[0][0] > 200 && vu[0][2] < 60) break; await attendre(300); }
+    assert.ok(vu[0][0] > 200 && vu[0][2] < 60, "écran du haut rouge : " + JSON.stringify(vu));
+    assert.deepEqual(vu[1], [0, 0, 0], "écran du bas éteint");
+    await p.screenshot({ path: path.join(captures, "gba-partie.png") });
+    // La ROM écrit 0x42 dans sa sauvegarde : elle doit être copiée sur l'appareil
+    await attendreQue(p, async () => { await sauverSram(true); const s = await lireDans("sauvegardes", cartoucheId); return Boolean(s && s.donnees[0] === 0x42); }, null, 15_000, "sauvegarde GBA pas copiée");
+    assert.deepEqual(p.erreurs, []);
+    await p.context().close();
+  }, { reessai: true });
+
   // ---------------------------------------------------------------------------
   let reussis = 0;
   for (const t of tests) {

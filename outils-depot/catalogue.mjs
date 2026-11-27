@@ -7,8 +7,8 @@ import path from "node:path";
 
 const dossier = "catalogue";
 const listePath = path.join(dossier, "jeux.json");
-const extensions = [".nds", ".zip", ".7z"];
-const partie = /^(.+\.(?:nds|zip|7z))\.(\d{3})$/i;
+const extensions = [".nds", ".gba", ".gb", ".gbc", ".zip", ".7z"];
+const partie = /^(.+\.(?:nds|gba|gb|gbc|zip|7z))\.(\d{3})$/i;
 
 const tous = fs.readdirSync(dossier).sort();
 const entrees = new Map(); // fichier -> liste des parties (ou null pour un fichier entier)

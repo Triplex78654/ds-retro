@@ -68,6 +68,7 @@
       const titre = document.createElement("span");
       titre.className = "nom"; titre.textContent = nom;
       cart.append(etiquette, titre);
+      marquerSysteme(cart, c.systeme || systemeDuNom(c.nom));
       cart.addEventListener("click", () => jouerCartouche(cart, c.id));
       if (ludoContient(c.id)) {
         const nuage = document.createElement("span");
@@ -97,6 +98,7 @@
       const nuage = document.createElement("span");
       nuage.className = "nuage-ok"; nuage.textContent = "☁";
       cart.append(etiquette, titre, nuage);
+      marquerSysteme(cart, systemeDuNom(d.nom));
       cart.addEventListener("click", () => recupererDuCloud(cart, d));
       emplacement.append(cart, boutonRetirer(nom, () => supprimerDuCloud(d.id)), boutonCatalogue(nom, Boolean(d.catalogue), oui => basculerCatalogue({ cle: d.id }, oui)));
       grille.appendChild(emplacement);
@@ -110,12 +112,21 @@
       try { connecte = Boolean(salon.jeton); } catch (e) {}
       vide.innerHTML = connecte
         ? "<p>Choisis un ou plusieurs jeux sur ton appareil. Une copie va dans ton cloud, visible par toi seul.</p><p>Pas de jeu ? Va voir le Catalogue.</p>"
-        : "<p>Choisis un ou plusieurs fichiers <b>.nds</b> sur ton appareil. Ils restent chez toi.</p><p>Pas de jeu ? Va voir le Catalogue.</p>";
+        : "<p>Choisis un ou plusieurs jeux <b>DS</b>, <b>GBA</b> ou <b>Game Boy</b> sur ton appareil. Ils restent chez toi.</p><p>Pas de jeu ? Va voir le Catalogue.</p>";
       grille.appendChild(vide);
     }
     $("compte").textContent = nbCartes ? String(nbCartes) : "";
     try { envoyerMaListe(false); } catch (e) {}
     afficherCatalogue();
+  }
+
+  // Cartouches GBA et Game Boy : leur forme et une petite étiquette (la DS reste sans étiquette).
+  function marquerSysteme(cart, systeme) {
+    if (!systeme || systeme === "nds" || !SYSTEMES[systeme]) return;
+    cart.classList.add(SYSTEMES[systeme].mode === "gba" ? "gba" : "gb");
+    const e = document.createElement("span");
+    e.className = "systeme"; e.textContent = SYSTEMES[systeme].nom;
+    cart.appendChild(e);
   }
 
   async function jouerCartouche(cart, id) {
@@ -252,14 +263,14 @@
     $("erreur").textContent = "";
     const nom = fichier.name.toLowerCase();
     if (!EXTENSIONS.some(ext => nom.endsWith(ext))) {
-      $("erreur").textContent = "Ce fichier n'est pas un jeu DS. Choisis un .nds, ou un .zip / .7z qui en contient un.";
+      $("erreur").textContent = "Ce fichier n'est pas un jeu DS, GBA ou Game Boy. Choisis un .nds, .gba, .gb, .gbc, ou un .zip / .7z qui en contient un.";
       return;
     }
     const id = fichier.name + "|" + fichier.size;
     afficherVueJeux("perso");
     try {
       const ancien = await lireDans("cartouches", id).catch(() => null);
-      await ecrireDans("cartouches", { ...(ancien || {}), id, nom: fichier.name, taille: fichier.size, ajoute: ancien ? ancien.ajoute : Date.now(), joue: Date.now(), blob: fichier });
+      await ecrireDans("cartouches", { ...(ancien || {}), id, nom: fichier.name, taille: fichier.size, ajoute: ancien ? ancien.ajoute : Date.now(), joue: Date.now(), systeme: await systemeDuFichier(fichier, fichier.name), blob: fichier });
     } catch (e) {
       // Plus de place sur l'appareil : on lance quand même, sans garder la cartouche.
       const cart = document.querySelector(`.cart[data-id="${CSS.escape(id)}"]`);
@@ -285,7 +296,7 @@
       const id = f.name + "|" + f.size;
       try {
         const ancien = await lireDans("cartouches", id).catch(() => null);
-        await ecrireDans("cartouches", { ...(ancien || {}), id, nom: f.name, taille: f.size, ajoute: ancien ? ancien.ajoute : Date.now(), joue: ancien ? ancien.joue : 0, blob: f });
+        await ecrireDans("cartouches", { ...(ancien || {}), id, nom: f.name, taille: f.size, ajoute: ancien ? ancien.ajoute : Date.now(), joue: ancien ? ancien.joue : 0, systeme: await systemeDuFichier(f, f.name), blob: f });
         ajoutes++;
         nouveaux.push(id);
       } catch (e) { sansPlace++; }
@@ -295,7 +306,7 @@
     await afficherApresAjout(nouveaux);
     $("message-haut").textContent = ajoutes === 1 ? "1 jeu ajouté à tes cartouches." : ajoutes + " jeux ajoutés à tes cartouches.";
     const remarques = [];
-    if (ignores) remarques.push(ignores === 1 ? "1 fichier ignoré (ce n'est pas un jeu DS)." : ignores + " fichiers ignorés (ce ne sont pas des jeux DS).");
+    if (ignores) remarques.push(ignores === 1 ? "1 fichier ignoré (ce n'est pas un jeu DS, GBA ou Game Boy)." : ignores + " fichiers ignorés (ce ne sont pas des jeux DS, GBA ou Game Boy).");
     if (sansPlace) remarques.push(sansPlace === 1 ? "1 jeu n'a pas pu être gardé : plus de place sur l'appareil." : sansPlace + " jeux n'ont pas pu être gardés : plus de place sur l'appareil.");
     $("erreur").textContent = remarques.join(" ");
   }

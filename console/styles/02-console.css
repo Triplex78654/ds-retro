@@ -76,6 +76,21 @@
     clip-path: polygon(0 0, 100% 0, 100% 42.857%, 0 42.857%, 0 57.143%, 100% 57.143%, 100% 100%, 0 100%);
   }
   #game:focus { outline: none; }
+  /* Cartouche GBA (fente du bas, comme sur la DS Lite) : le jeu occupe l'écran du haut à sa taille
+     d'origine, 240 × 160 ; l'écran du bas reste éteint. Game Boy : agrandi à la hauteur de l'écran. */
+  .ecrans-eteints {
+    display: none; position: absolute; inset: 0; background: #000; pointer-events: none;
+    clip-path: polygon(0 0, 100% 0, 100% 42.857%, 0 42.857%, 0 57.143%, 100% 57.143%, 100% 100%, 0 100%);
+  }
+  body.mode-gba .ecrans-eteints, body.mode-gb .ecrans-eteints { display: block; }
+  body.mode-gba #game {
+    inset: auto; left: calc(var(--u) * 8); top: calc(var(--u) * 16);
+    width: calc(var(--u) * 240); height: calc(var(--u) * 160); clip-path: none;
+  }
+  body.mode-gb #game {
+    inset: auto; left: calc(var(--u) * 21.333); top: 0;
+    width: calc(var(--u) * 213.333); height: calc(var(--u) * 192); clip-path: none;
+  }
 
   /* Charnière : bas de la moitié haute, fente, cylindre avec voyants, haut de la moitié basse */
   .charniere {

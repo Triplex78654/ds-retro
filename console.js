@@ -34,7 +34,43 @@
       discordPret = sdk.ready().catch(() => {});
     }
   }
-  const EXTENSIONS = [".nds", ".zip", ".7z"];
+  const EXTENSIONS = [".nds", ".gba", ".gb", ".gbc", ".zip", ".7z"];
+  // Consoles prises en charge. Comme sur une DS Lite, une cartouche GBA se met dans la fente du bas
+  // et le jeu s'affiche sur un seul écran. Le cœur mGBA lit aussi les jeux Game Boy et Game Boy Color.
+  const SYSTEMES = {
+    nds: { nom: "DS", coeur: "desmume", mode: "ds" },
+    gba: { nom: "GBA", coeur: "mgba", mode: "gba" },
+    gbc: { nom: "GBC", coeur: "mgba", mode: "gb" },
+    gb: { nom: "GB", coeur: "mgba", mode: "gb" },
+  };
+  let systemeJeu = "nds";
+  function systemeDuNom(nom) {
+    const n = String(nom || "").toLowerCase();
+    if (n.endsWith(".gba")) return "gba";
+    if (n.endsWith(".gbc")) return "gbc";
+    if (n.endsWith(".gb")) return "gb";
+    if (n.endsWith(".nds")) return "nds";
+    return null;
+  }
+  // Pour un .zip, on lit la liste des fichiers qu'il contient ; pour un .7z, on se fie au nom.
+  async function systemeDuFichier(blob, nom) {
+    const direct = systemeDuNom(nom);
+    if (direct) return direct;
+    if (/\.zip$/i.test(nom) && blob) {
+      try {
+        const fin = new Uint8Array(await blob.slice(Math.max(0, blob.size - 65_557)).arrayBuffer());
+        for (let i = 0; i + 46 <= fin.length; i++) {
+          if (fin[i] !== 0x50 || fin[i + 1] !== 0x4b || fin[i + 2] !== 0x01 || fin[i + 3] !== 0x02) continue;
+          const longueur = fin[i + 28] | (fin[i + 29] << 8);
+          const s = systemeDuNom(new TextDecoder().decode(fin.subarray(i + 46, i + 46 + longueur)));
+          if (s) return s;
+        }
+      } catch (e) {}
+    }
+    if (/\bgba\b/i.test(nom)) return "gba";
+    if (/\bgbc\b/i.test(nom)) return "gbc";
+    return "nds";
+  }
   const $ = id => document.getElementById(id);
   const lire = (cle, defaut) => { try { return localStorage.getItem(cle) || defaut; } catch (e) { return defaut; } };
   const ecrire = (cle, val) => { try { localStorage.setItem(cle, val); } catch (e) {} };
@@ -490,6 +526,7 @@
       const titre = document.createElement("span");
       titre.className = "nom"; titre.textContent = nom;
       cart.append(etiquette, titre);
+      marquerSysteme(cart, c.systeme || systemeDuNom(c.nom));
       cart.addEventListener("click", () => jouerCartouche(cart, c.id));
       if (ludoContient(c.id)) {
         const nuage = document.createElement("span");
@@ -519,6 +556,7 @@
       const nuage = document.createElement("span");
       nuage.className = "nuage-ok"; nuage.textContent = "☁";
       cart.append(etiquette, titre, nuage);
+      marquerSysteme(cart, systemeDuNom(d.nom));
       cart.addEventListener("click", () => recupererDuCloud(cart, d));
       emplacement.append(cart, boutonRetirer(nom, () => supprimerDuCloud(d.id)), boutonCatalogue(nom, Boolean(d.catalogue), oui => basculerCatalogue({ cle: d.id }, oui)));
       grille.appendChild(emplacement);
@@ -532,12 +570,21 @@
       try { connecte = Boolean(salon.jeton); } catch (e) {}
       vide.innerHTML = connecte
         ? "<p>Choisis un ou plusieurs jeux sur ton appareil. Une copie va dans ton cloud, visible par toi seul.</p><p>Pas de jeu ? Va voir le Catalogue.</p>"
-        : "<p>Choisis un ou plusieurs fichiers <b>.nds</b> sur ton appareil. Ils restent chez toi.</p><p>Pas de jeu ? Va voir le Catalogue.</p>";
+        : "<p>Choisis un ou plusieurs jeux <b>DS</b>, <b>GBA</b> ou <b>Game Boy</b> sur ton appareil. Ils restent chez toi.</p><p>Pas de jeu ? Va voir le Catalogue.</p>";
       grille.appendChild(vide);
     }
     $("compte").textContent = nbCartes ? String(nbCartes) : "";
     try { envoyerMaListe(false); } catch (e) {}
     afficherCatalogue();
+  }
+
+  // Cartouches GBA et Game Boy : leur forme et une petite étiquette (la DS reste sans étiquette).
+  function marquerSysteme(cart, systeme) {
+    if (!systeme || systeme === "nds" || !SYSTEMES[systeme]) return;
+    cart.classList.add(SYSTEMES[systeme].mode === "gba" ? "gba" : "gb");
+    const e = document.createElement("span");
+    e.className = "systeme"; e.textContent = SYSTEMES[systeme].nom;
+    cart.appendChild(e);
   }
 
   async function jouerCartouche(cart, id) {
@@ -674,14 +721,14 @@
     $("erreur").textContent = "";
     const nom = fichier.name.toLowerCase();
     if (!EXTENSIONS.some(ext => nom.endsWith(ext))) {
-      $("erreur").textContent = "Ce fichier n'est pas un jeu DS. Choisis un .nds, ou un .zip / .7z qui en contient un.";
+      $("erreur").textContent = "Ce fichier n'est pas un jeu DS, GBA ou Game Boy. Choisis un .nds, .gba, .gb, .gbc, ou un .zip / .7z qui en contient un.";
       return;
     }
     const id = fichier.name + "|" + fichier.size;
     afficherVueJeux("perso");
     try {
       const ancien = await lireDans("cartouches", id).catch(() => null);
-      await ecrireDans("cartouches", { ...(ancien || {}), id, nom: fichier.name, taille: fichier.size, ajoute: ancien ? ancien.ajoute : Date.now(), joue: Date.now(), blob: fichier });
+      await ecrireDans("cartouches", { ...(ancien || {}), id, nom: fichier.name, taille: fichier.size, ajoute: ancien ? ancien.ajoute : Date.now(), joue: Date.now(), systeme: await systemeDuFichier(fichier, fichier.name), blob: fichier });
     } catch (e) {
       // Plus de place sur l'appareil : on lance quand même, sans garder la cartouche.
       const cart = document.querySelector(`.cart[data-id="${CSS.escape(id)}"]`);
@@ -707,7 +754,7 @@
       const id = f.name + "|" + f.size;
       try {
         const ancien = await lireDans("cartouches", id).catch(() => null);
-        await ecrireDans("cartouches", { ...(ancien || {}), id, nom: f.name, taille: f.size, ajoute: ancien ? ancien.ajoute : Date.now(), joue: ancien ? ancien.joue : 0, blob: f });
+        await ecrireDans("cartouches", { ...(ancien || {}), id, nom: f.name, taille: f.size, ajoute: ancien ? ancien.ajoute : Date.now(), joue: ancien ? ancien.joue : 0, systeme: await systemeDuFichier(f, f.name), blob: f });
         ajoutes++;
         nouveaux.push(id);
       } catch (e) { sansPlace++; }
@@ -717,7 +764,7 @@
     await afficherApresAjout(nouveaux);
     $("message-haut").textContent = ajoutes === 1 ? "1 jeu ajouté à tes cartouches." : ajoutes + " jeux ajoutés à tes cartouches.";
     const remarques = [];
-    if (ignores) remarques.push(ignores === 1 ? "1 fichier ignoré (ce n'est pas un jeu DS)." : ignores + " fichiers ignorés (ce ne sont pas des jeux DS).");
+    if (ignores) remarques.push(ignores === 1 ? "1 fichier ignoré (ce n'est pas un jeu DS, GBA ou Game Boy)." : ignores + " fichiers ignorés (ce ne sont pas des jeux DS, GBA ou Game Boy).");
     if (sansPlace) remarques.push(sansPlace === 1 ? "1 jeu n'a pas pu être gardé : plus de place sur l'appareil." : sansPlace + " jeux n'ont pas pu être gardés : plus de place sur l'appareil.");
     $("erreur").textContent = remarques.join(" ");
   }
@@ -842,6 +889,7 @@
         const emplacement = document.createElement("div");
         emplacement.className = "emplacement";
         const cart = nouvelleCart(j.nom, "Jouer à " + j.nom, teinte(j.nom));
+        marquerSysteme(cart, j.d ? systemeDuNom(j.d.nom) : systemeDuNom(j.id.split("|")[0]));
         fiche(cart, j.nom + ", ton jeu dans le catalogue de tout le monde. Touche pour jouer : tes potes pourront regarder et prendre la manette.");
         cart.addEventListener("click", () => j.d ? recupererDuCloud(cart, j.d) : jouerCartouche(cart, j.id));
         emplacement.append(cart, boutonCatalogue(j.nom, true, oui => basculerCatalogue(j.d ? { cle: j.d.id } : { id: j.id }, oui)));
@@ -855,6 +903,7 @@
         const emplacement = document.createElement("div");
         emplacement.className = "emplacement";
         const cart = nouvelleCart(jeu.nom, "Demander à " + p.nom + " de lancer " + jeu.nom, teinte(jeu.nom));
+        marquerSysteme(cart, systemeDuNom(String(jeu.id).split("|")[0]));
         const badge = document.createElement("i");
         badge.className = "chez"; badge.textContent = (p.nom[0] || "?").toUpperCase();
         badge.style.setProperty("--teinte-pote", teinte(p.nom));
@@ -872,6 +921,7 @@
         const emplacement = document.createElement("div");
         emplacement.className = "emplacement";
         const cart = nouvelleCart(jeu.nom, "Jouer à " + jeu.nom, Number.isFinite(jeu.teinte) ? jeu.teinte : teinte(jeu.nom));
+        marquerSysteme(cart, systemeDuNom(jeu.fichier));
         const pastille = document.createElement("i");
         pastille.className = "partage"; pastille.title = "Jeu libre";
         cart.appendChild(pastille);
@@ -1234,8 +1284,11 @@
     }
   }
 
-  function demarrer(blob, nomFichier) {
+  async function demarrer(blob, nomFichier) {
     majOnglets();
+    systemeJeu = await systemeDuFichier(blob, nomFichier);
+    const systeme = SYSTEMES[systemeJeu];
+    document.body.classList.add("mode-" + systeme.mode);
 
     let revele = false;
     const reveler = () => {
@@ -1253,13 +1306,13 @@
       $("game").addEventListener("contextmenu", e => { e.preventDefault(); e.stopPropagation(); }, true);
     }
     window.EJS_player = "#game";
-    window.EJS_core = "desmume";
+    window.EJS_core = systeme.coeur;
     window.EJS_gameName = nomLisible(nomFichier);
     window.EJS_gameUrl = URL.createObjectURL(blob);
     window.EJS_pathtodata = CDN;
     window.EJS_startOnLoaded = true;
     window.EJS_defaultControls = construireControles();
-    window.EJS_defaultOptions = { desmume_screens_gap: "64", desmume_screens_layout: "top/bottom" };
+    window.EJS_defaultOptions = systemeJeu === "nds" ? { desmume_screens_gap: "64", desmume_screens_layout: "top/bottom" } : {};
     window.EJS_gameID = PRESETS[presetChoisi].gameId;
     window.EJS_ready = () => setTimeout(reveler, 150);
     window.EJS_onGameStart = () => { reveler(); restaurerSram(); setTimeout(focusJeu, 100); };
@@ -1485,7 +1538,7 @@
     const source = document.querySelector("#game canvas");
     if (!source || !source.width) return;
     if (!toileCapture) { toileCapture = document.createElement("canvas"); toileCapture.width = 256; toileCapture.height = 448; }
-    toileCapture.getContext("2d").drawImage(source, 0, 0, 256, 448);
+    dessinerJeu(toileCapture.getContext("2d"), source);
     encodage = true;
     toileCapture.toBlob(b => { encodage = false; if (b) envoyerSalon(b); }, "image/jpeg", 0.75);
   }, 50);
@@ -1502,7 +1555,7 @@
     touchesDistantes.clear();
   }
   function tactileDistant(m) {
-    if (menuOuvert || !Number.isFinite(m.x) || !Number.isFinite(m.y)) return;
+    if (menuOuvert || systemeJeu !== "nds" || !Number.isFinite(m.x) || !Number.isFinite(m.y)) return;
     const c = document.querySelector("#game canvas");
     if (!c) return;
     const r = c.getBoundingClientRect();
@@ -1515,6 +1568,15 @@
   // ---------- Diffusion directe (WebRTC) : vidéo et son de l'hôte vers chaque spectateur ----------
   // Le salon sert seulement à présenter les deux consoles. Si la connexion directe échoue
   // (réseau, Discord), le spectateur reste sur les images relayées par le serveur, sans le son.
+  // Image du jeu dans une toile 256 × 448 (les deux écrans de la DS, écart compris).
+  // GBA : 240 × 160 au centre de l'écran du haut ; Game Boy : agrandi à la hauteur de l'écran du haut.
+  const ZONES_ECRAN = { gba: [8, 16, 240, 160], gb: [21.333, 0, 213.333, 192] };
+  function dessinerJeu(g, source) {
+    const zone = ZONES_ECRAN[SYSTEMES[systemeJeu].mode];
+    if (!zone) return g.drawImage(source, 0, 0, 256, 448);
+    g.fillStyle = "#000"; g.fillRect(0, 0, 256, 448);
+    g.drawImage(source, ...zone);
+  }
   const ICE = [{ urls: "stun:stun.cloudflare.com:3478" }, { urls: "stun:stun.l.google.com:19302" }];
   const pairs = new Map();          // chez l'hôte : spectateur → connexion
   const echecsDirects = new Set();  // spectateurs pour qui le direct a échoué (on ne réessaie pas en boucle)
@@ -1526,7 +1588,7 @@
     const g = toile.getContext("2d");
     const dessiner = () => {
       const source = document.querySelector("#game canvas");
-      if (source && source.width && !menuOuvert) g.drawImage(source, 0, 0, 256, 448);
+      if (source && source.width && !menuOuvert) dessinerJeu(g, source);
       boucleDirecte = requestAnimationFrame(dessiner);
     };
     dessiner();

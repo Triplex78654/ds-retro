@@ -196,7 +196,7 @@
     const source = document.querySelector("#game canvas");
     if (!source || !source.width) return;
     if (!toileCapture) { toileCapture = document.createElement("canvas"); toileCapture.width = 256; toileCapture.height = 448; }
-    toileCapture.getContext("2d").drawImage(source, 0, 0, 256, 448);
+    dessinerJeu(toileCapture.getContext("2d"), source);
     encodage = true;
     toileCapture.toBlob(b => { encodage = false; if (b) envoyerSalon(b); }, "image/jpeg", 0.75);
   }, 50);
@@ -213,7 +213,7 @@
     touchesDistantes.clear();
   }
   function tactileDistant(m) {
-    if (menuOuvert || !Number.isFinite(m.x) || !Number.isFinite(m.y)) return;
+    if (menuOuvert || systemeJeu !== "nds" || !Number.isFinite(m.x) || !Number.isFinite(m.y)) return;
     const c = document.querySelector("#game canvas");
     if (!c) return;
     const r = c.getBoundingClientRect();
