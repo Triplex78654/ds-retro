@@ -182,6 +182,7 @@
   };
   // Commandes dans les émulateurs externes (réglées par l'appli quand c'est possible).
   const AIDES_EXTERNES = {
+    switch: "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> stick · <kbd>Maj</kbd> marcher · souris caméra · clic gauche ZR · clic droit ZL · <kbd>Entrée</kbd> A · <kbd>Espace</kbd> B · <kbd>I</kbd> X · <kbd>J</kbd> Y · <kbd>A</kbd> <kbd>E</kbd> L / R · <kbd>↑↓←→</kbd> croix · <kbd>P</kbd> + · <kbd>O</kbd> − · <kbd>C</kbd> <kbd>V</kbd> clic des sticks. Manette : règle-la une fois dans Eden, l'appli la remet ensuite toute seule quand elle est branchée (appuie sur un de ses boutons ici avant de lancer).",
     "3ds": "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> stick · <kbd>Maj</kbd> marcher · <kbd>Entrée</kbd> A (valider) · <kbd>Espace</kbd> B (retour) · <kbd>I</kbd> X · <kbd>J</kbd> Y · <kbd>A</kbd> <kbd>E</kbd> L / R · <kbd>↑↓←→</kbd> croix · <kbd>P</kbd> Start · <kbd>O</kbd> Select · souris = écran tactile. Avec une manette branchée (appuie sur un bouton ici avant de lancer), tout passe par la manette.",
   };
   const C = CONSOLES[id];
@@ -447,7 +448,7 @@
     arret();
     occupe = false;
     if (!r.ok) $("etat-emulateur").textContent = "Lancement impossible : " + r.erreur + ".";
-    else majEmulateur();
+    else { await majEmulateur(); if (r.info) $("etat-emulateur").textContent = r.info; }
   }
 
   // ---------- Partie ----------

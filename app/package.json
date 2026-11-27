@@ -1,7 +1,7 @@
 {
   "name": "retro-app",
   "productName": "Rétro",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Rétro : toutes tes consoles dans une seule appli, avec ton cloud et tes potes",
   "author": "Triplex78654",
   "license": "GPL-3.0-or-later",
@@ -10,7 +10,8 @@
   "scripts": {
     "preparer": "node preparer.mjs",
     "demarrer": "npm run preparer && electron .",
-    "construire": "npm run preparer && electron-builder --win nsis portable --publish never"
+    "construire": "npm run preparer && electron-builder --win nsis portable --publish never",
+    "tester": "node --test tests/appli.test.mjs"
   },
   "devDependencies": {
     "electron": "45.5.0",
@@ -28,7 +29,8 @@
       "emulateurs.js",
       "maj.js",
       "azahar.js",
-      "recherche.js"
+      "recherche.js",
+      "eden.js"
     ],
     "directories": {
       "output": "dist",

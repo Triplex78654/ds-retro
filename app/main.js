@@ -124,36 +124,54 @@ function reglagesRecherche() {
   try { return JSON.parse(require("node:fs").readFileSync(fichierRecherche(), "utf8")); } catch (e) { return { dossiers: [] }; }
 }
 function sauverRecherche(r) { require("node:fs").writeFileSync(fichierRecherche(), JSON.stringify(r, null, 1)); }
-function endroitsAFouiller() {
-  const fs = require("node:fs");
+// Un chemin qui ne répond pas vite (lecteur réseau, disque en veille) est laissé de côté.
+const dossierPret = d => Promise.race([
+  require("node:fs/promises").stat(d).then(s => s.isDirectory(), () => false),
+  new Promise(ok => setTimeout(() => ok(false), 2000)),
+]);
+// Les disques locaux (internes et externes), sans les lecteurs réseau ni CD, et sans C: (trop gros, plein de fichiers système).
+function disquesLocaux() {
+  if (process.platform !== "win32") return Promise.resolve([]);
+  return new Promise(ok => {
+    const ps = "[System.IO.DriveInfo]::GetDrives() | Where-Object { ($_.DriveType -eq 'Fixed' -or $_.DriveType -eq 'Removable') -and $_.IsReady } | ForEach-Object { $_.Name }";
+    require("node:child_process").execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", ps], { timeout: 8000, windowsHide: true }, (err, sortie) => {
+      if (err) return ok([]);
+      ok(String(sortie).split(/\r?\n/).map(l => l.trim()).filter(l => /^[D-Z]:\\$/i.test(l)));
+    });
+  });
+}
+async function endroitsAFouiller() {
   const r = reglagesRecherche();
   const endroits = [];
   for (const nom of ["downloads", "desktop", "documents"]) { try { endroits.push(app.getPath(nom)); } catch (e) {} }
   // OneDrive range souvent le Bureau et les Documents ailleurs.
   if (process.env.OneDrive) for (const sous of ["Desktop", "Bureau", "Documents"]) endroits.push(path.join(process.env.OneDrive, sous));
-  // Les autres disques (pas C:, trop gros et plein de fichiers système).
-  if (process.platform === "win32") for (const l of "DEFGHIJKLMNOPQRSTUVWXYZ") { const d = l + ":\\"; try { if (fs.statSync(d).isDirectory()) endroits.push(d); } catch (e) {} }
-  return [...new Set(endroits.concat(r.dossiers || []))].filter(d => { try { return fs.statSync(d).isDirectory(); } catch (e) { return false; } });
+  endroits.push(...(await disquesLocaux()));
+  const uniques = [...new Set(endroits.concat(r.dossiers || []))];
+  const prets = await Promise.all(uniques.map(dossierPret));
+  return uniques.filter((_, i) => prets[i]);
 }
 let rechercheEnCours = null, derniereRecherche = 0;
 const signaler = p => { if (fenetre && !fenetre.isDestroyed()) fenetre.webContents.send("recherche-progression", p); };
-function rechercheAuto(endroits = endroitsAFouiller()) {
+function rechercheAuto(choisis) {
   if (rechercheEnCours) return rechercheEnCours;
   derniereRecherche = Date.now();
   rechercheEnCours = (async () => {
     const fs = require("node:fs");
+    const endroits = choisis || await endroitsAFouiller();
     const sept = require("7zip-bin").path7za.replace("app.asar", "app.asar.unpacked");
     const trouves = await require("./recherche").chercher(endroits, {
       sept, progression: p => signaler({ ...p, auto: true }),
       // Pas les dossiers de jeux de l'appli (déjà au catalogue), ni ses émulateurs, ni l'appli elle-même.
       exclure: Object.values(DOSSIERS).concat([app.getPath("userData"), path.dirname(app.getPath("exe"))]),
     });
-    // Ranger les nouveaux jeux, retirer ceux qui ont disparu.
+    // Ranger les nouveaux jeux, retirer ceux qui ont été supprimés.
+    // Un disque débranché n'efface rien : ses jeux sont juste cachés jusqu'à son retour.
     const b = bibliotheque();
     let retires = 0;
     for (const c of Object.keys(b)) {
       const avant = b[c].length;
-      b[c] = b[c].filter(x => fs.existsSync(x.chemin));
+      b[c] = b[c].filter(x => fs.existsSync(x.chemin) || !fs.existsSync(path.parse(x.chemin).root) || !fs.existsSync(path.dirname(x.chemin)));
       retires += avant - b[c].length;
     }
     const ajoutes = ajouterABibliotheque(trouves);
@@ -208,15 +226,16 @@ ipcMain.handle("lancer-externe", async (e, c, nom, options) => {
   if (!require("node:fs").existsSync(chemin)) return { ok: false, erreur: "Ce jeu n'est plus à sa place sur ton PC" };
   const f = BrowserWindow.fromWebContents(e.sender);
   const envoyer = texte => { if (texte && !e.sender.isDestroyed()) e.sender.send("emulateur-progression", { etape: "lancement", texte }); };
-  let reduite = false;
+  let reduite = false, info = null;
   try {
     await emulateurs.lancer(c, chemin, {
       manette: Boolean(options && options.manette),
+      info: t => { info = t; },
       // Juste avant de lancer le jeu : l'appli se met de côté, elle revient quand l'émulateur se ferme.
       etape: texte => { if (texte) envoyer(texte); else if (f && !reduite) { reduite = true; f.minimize(); } },
     });
     if (f) { f.restore(); f.focus(); }
-    return { ok: true };
+    return { ok: true, info };
   } catch (err) {
     if (f) f.restore();
     return { ok: false, erreur: String(err.message || err) };

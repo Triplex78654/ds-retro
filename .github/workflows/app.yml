@@ -31,6 +31,9 @@ jobs:
       - name: Installer
         working-directory: app
         run: npm ci
+      - name: Tester l'appli (serveur local, recherche des jeux, réglages des émulateurs)
+        working-directory: app
+        run: node --test tests/appli.test.mjs
       - name: Construire l'installateur
         working-directory: app
         run: npm run construire

@@ -106,6 +106,10 @@ function reglerCommandes(avecManette) {
 // ---------- Jeux .cia ----------
 // Un .cia s'installe (comme sur une vraie 3DS), puis on lance le jeu installé.
 function lireCia(chemin) {
+  try { return lireCiaBrut(chemin); }
+  catch (e) { throw new Error(/illisible|ne contient/.test(e.message) ? e.message : "Ce .cia est abîmé ou incomplet"); }
+}
+function lireCiaBrut(chemin) {
   const fd = fs.openSync(chemin, "r");
   try {
     const lire = (pos, n) => { const b = Buffer.alloc(n); fs.readSync(fd, b, 0, n, pos); return b; };
@@ -142,4 +146,7 @@ function trouverInstalle(info) {
 }
 const ERREURS_CIA = { 3: "Azahar n'arrive pas à ouvrir ce .cia", 4: "Fichier introuvable", 5: "Installation annulée", 6: "Ce .cia est abîmé", 7: "Ce .cia est chiffré : Azahar ne lit que les jeux déchiffrés" };
 
-module.exports = { reglerCommandes, lireCia, trouverInstalle, ERREURS_CIA };
+const ecrireIni = sections => sections.filter(s => s.nom !== null || s.lignes.length)
+  .map(s => (s.nom ? "[" + s.nom + "]\n" : "") + s.lignes.join("\n")).join("\n\n") + "\n";
+
+module.exports = { reglerCommandes, lireCia, trouverInstalle, ERREURS_CIA, lireIni, section, ecrireIni, param };

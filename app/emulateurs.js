@@ -63,15 +63,23 @@ async function depuisGithub(depot, motif) {
   const v = await json(`${API_GITHUB}/repos/${depot}/releases/latest`);
   const a = (v.assets || []).find(x => motif.test(x.name));
   if (!a) throw new Error("Pas de version Windows dans la dernière publication");
-  return { version: v.tag_name, url: a.browser_download_url, nom: a.name, taille: a.size };
+  // Empreinte publiée par GitHub (« digest ») ou par le projet (fichier .sha256) : le fichier reçu est vérifié.
+  let sha256 = /^sha256:[0-9a-f]{64}$/i.test(a.digest || "") ? a.digest.slice(7).toLowerCase() : null;
+  const fichierSha = (v.assets || []).find(x => x.name === a.name + ".sha256");
+  if (!sha256 && fichierSha) {
+    try { const t = await (await net.fetch(fichierSha.browser_download_url)).text(); sha256 = (t.match(/\b[0-9a-f]{64}\b/i) || [])[0]?.toLowerCase() || null; } catch (e) {}
+  }
+  return { version: v.tag_name, url: a.browser_download_url, nom: a.name, taille: a.size, sha256 };
 }
 // Eden publie sur son propre serveur (git.eden-emu.dev) ; les fichiers sont sur stable.eden-emu.dev.
 // Version « PGO » amd64 : la plus rapide (processeur avec AVX2, soit à peu près tout PC depuis 2013).
+const fichierCompat = () => path.join(dossierDe("switch"), "processeur-ancien.txt");
 async function sourceEden() {
   const v = await json(`${API_EDEN}/repos/eden-emu/eden/releases/latest`);
   const tag = String(v.tag_name || "");
   if (!/^v[\w.-]+$/.test(tag)) throw new Error("Version d'Eden illisible");
-  const nom = `Eden-Windows-${tag}-amd64-clang-pgo.zip`;
+  const variante = fs.existsSync(fichierCompat()) ? "amd64-msvc-standard" : "amd64-clang-pgo";
+  const nom = `Eden-Windows-${tag}-${variante}.zip`;
   const a = (v.assets || []).find(x => x.name === nom);
   const url = a && (/^https:\/\//.test(a.browser_download_url) || process.env.RETRO_EDEN_API) ? a.browser_download_url : `https://stable.eden-emu.dev/${tag}/${nom}`;
   return { version: tag, url, nom, taille: a ? a.size : 0 };
@@ -99,21 +107,37 @@ function etat(c) {
 const sept = () => require("7zip-bin").path7za.replace("app.asar", "app.asar.unpacked");
 const extraire = (archive, vers) => new Promise((ok, ko) => execFile(sept(), ["x", "-y", "-o" + vers, archive], { maxBuffer: 1 << 24 }, err => (err ? ko(err) : ok())));
 
-async function telecharger(url, vers, progression, texte) {
-  const reponse = await net.fetch(url);
-  if (!reponse.ok || !reponse.body) throw new Error("Téléchargement refusé (" + reponse.status + ")");
-  const total = Number(reponse.headers.get("content-length")) || 0;
+// Si plus rien n'arrive pendant 45 s (connexion coupée), le téléchargement s'arrête avec un message clair.
+const SILENCE_MAX = 45000;
+async function telecharger(url, vers, progression, texte, sha256) {
+  const arret = new AbortController();
+  let minuteur = setTimeout(() => arret.abort(), SILENCE_MAX);
+  const relancer = () => { clearTimeout(minuteur); minuteur = setTimeout(() => arret.abort(), SILENCE_MAX); };
+  const empreinte = require("node:crypto").createHash("sha256");
   const sortie = fs.createWriteStream(vers);
-  let recus = 0, dernier = 0;
-  const lecteur = reponse.body.getReader();
-  for (;;) {
-    const { done, value } = await lecteur.read();
-    if (done) break;
-    recus += value.length;
-    if (!sortie.write(Buffer.from(value))) await new Promise(ok => sortie.once("drain", ok));
-    if (Date.now() - dernier > 200) { dernier = Date.now(); progression({ etape: "telechargement", recus, total, texte }); }
-  }
+  try {
+    const reponse = await net.fetch(url, { signal: arret.signal });
+    if (!reponse.ok || !reponse.body) throw new Error("Téléchargement refusé (" + reponse.status + ")");
+    const total = Number(reponse.headers.get("content-length")) || 0;
+    let recus = 0, dernier = 0;
+    const lecteur = reponse.body.getReader();
+    for (;;) {
+      const { done, value } = await lecteur.read();
+      if (done) break;
+      relancer();
+      recus += value.length;
+      const morceau = Buffer.from(value);
+      empreinte.update(morceau);
+      if (!sortie.write(morceau)) await new Promise(ok => sortie.once("drain", ok));
+      if (Date.now() - dernier > 200) { dernier = Date.now(); progression({ etape: "telechargement", recus, total, texte }); }
+    }
+  } catch (e) {
+    sortie.destroy();
+    if (arret.signal.aborted) throw new Error("La connexion s'est arrêtée pendant le téléchargement. Réessaie");
+    throw e;
+  } finally { clearTimeout(minuteur); }
   await new Promise((ok, ko) => sortie.end(err => (err ? ko(err) : ok())));
+  if (sha256 && empreinte.digest("hex") !== sha256) throw new Error("Le fichier téléchargé est abîmé ou modifié (empreinte différente) : rien n'a été installé");
 }
 
 // Installe ou met à jour : le programme est remplacé, mais ce qui est à côté (clés, firmware, BIOS,
@@ -127,7 +151,7 @@ async function installer(c, progression) {
   fs.mkdirSync(tmp, { recursive: true });
   try {
     const archive = path.join(tmp, path.basename(s.nom).replace(/[^\w.-]/g, "_"));
-    await telecharger(s.url, archive, progression, "Téléchargement de " + e.nom + " " + s.version);
+    await telecharger(s.url, archive, progression, "Téléchargement de " + e.nom + " " + s.version, s.sha256);
     progression({ etape: "extraction", texte: "Installation de " + e.nom + "…" });
     const extrait = path.join(tmp, "extrait");
     await extraire(archive, extrait);
@@ -345,8 +369,26 @@ async function lancer(c, cheminJeu, options = {}) {
       }
     }
   }
+  let info = null;
+  if (c === "switch") {
+    try {
+      const r = require("./eden").reglerCommandes(path.dirname(exe), Boolean(options.manette));
+      if (r.manetteAReglee) info = "Manette : règle-la une seule fois dans Eden (Émulation › Configurer › Contrôles, choisis ta manette dans « Périphérique d'entrée », puis OK). L'appli s'en souviendra.";
+    } catch (x) { /* réglages impossibles : Eden garde les siens */ }
+  }
   if (options.etape) options.etape(null);
-  return executer(exe, e.args(jeu));
+  const debut = Date.now();
+  const code = await executer(exe, e.args(jeu));
+  if (c === "switch") { try { if (require("./eden").retenirManette(path.dirname(exe)) && info) info = "Ta manette est retenue : elle marchera directement aux prochaines parties."; } catch (x) {} }
+  if (options.info && info) options.info(info);
+  // Eden version rapide sur un processeur trop ancien (instruction inconnue) : on passe à la version pour tous les PC.
+  if (c === "switch" && (code === 0xc000001d || code === -1073741795) && Date.now() - debut < 20000 && !fs.existsSync(fichierCompat())) {
+    fs.writeFileSync(fichierCompat(), "Eden PGO ne démarre pas sur ce processeur : version MSVC.");
+    if (options.etape) options.etape("Ton processeur n'accepte pas la version rapide d'Eden : installation de la version pour tous les PC…");
+    await installer(c, p => options.etape && options.etape(p.texte));
+    throw new Error("Eden a été remplacé par une version compatible avec ton processeur. Relance le jeu");
+  }
+  return code;
 }
 
 module.exports = { EMULATEURS, etat, installer, derniereVersion, importerSysteme, importerMod, retirerMod, lancer };

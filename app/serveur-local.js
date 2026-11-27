@@ -22,15 +22,28 @@ function demarrer({ dossier, port, api, dossiers = {}, bibliotheque = () => [] }
   const cheminApi = cibleApi.pathname.replace(/\/$/, "");
   const versApi = url => cheminApi + url.replace(/^\/\.proxy\/api/, "");
 
+  const origineAttendue = "http://" + hoteAttendu;
+  // Seulement l'appli elle-même :
+  // - Host : bloque un site qui viserait ce serveur par un autre nom (rebinding DNS) ;
+  // - Origin / Sec-Fetch-Site : bloque un site web ouvert dans le navigateur qui enverrait des requêtes ici.
+  const autorisee = req => req.headers.host === hoteAttendu
+    && (!req.headers.origin || req.headers.origin === origineAttendue)
+    && !["cross-site", "same-site"].includes(req.headers["sec-fetch-site"]);
+  const decoder = t => { try { return decodeURIComponent(t); } catch (e) { return null; } };
+
   const serveur = http.createServer((req, res) => {
-    // Seulement l'appli elle-même (bloque un site web qui viserait ce serveur par une autre adresse).
-    if (req.headers.host !== hoteAttendu) { res.writeHead(403); return res.end(); }
+    try { repondre(req, res); }
+    catch (e) { if (!res.headersSent) res.writeHead(500); res.end(); }
+  });
+  function repondre(req, res) {
+    if (!autorisee(req)) { res.writeHead(403); return res.end(); }
     // Dossier de jeux d'une console : liste, puis fichiers
     const dj = req.url.match(/^\/jeux-pc\/([a-z0-9]+)\/([^?]*)/);
     if (dj) {
       const racineJeux = dossiers[dj[1]];
       if (!racineJeux) { res.writeHead(404); return res.end(); }
-      const nom = decodeURIComponent(dj[2]);
+      const nom = decoder(dj[2]);
+      if (nom === null) { res.writeHead(400); return res.end(); }
       if (!nom) {
         return fs.readdir(racineJeux, { withFileTypes: true }, (e, liste) => {
           // Fichiers de jeux, et dossiers (jeux PS3 rangés en dossier, avec PS3_GAME ou EBOOT.BIN dedans)
@@ -60,7 +73,7 @@ function demarrer({ dossier, port, api, dossiers = {}, bibliotheque = () => [] }
       return fs.stat(fichier, (e, st) => {
         if (e || !st.isFile()) { res.writeHead(404); return res.end(); }
         res.writeHead(200, { "Content-Type": "application/octet-stream", "Content-Length": st.size, "Cache-Control": "no-cache" });
-        fs.createReadStream(fichier).pipe(res);
+        fs.createReadStream(fichier).on("error", () => res.destroy()).pipe(res);
       });
     }
     // API : relayée telle quelle
@@ -77,20 +90,21 @@ function demarrer({ dossier, port, api, dossiers = {}, bibliotheque = () => [] }
       return req.pipe(sortie);
     }
     // Fichiers de la console
-    const chemin = decodeURIComponent(req.url.split("?")[0]);
+    const chemin = decoder(req.url.split("?")[0]);
+    if (chemin === null) { res.writeHead(400); return res.end(); }
     const fichier = path.normalize(path.join(dossier, chemin === "/" ? "accueil.html" : chemin));
-    if (!fichier.startsWith(dossier)) { res.writeHead(403); return res.end(); }
+    if (!fichier.startsWith(path.resolve(dossier) + path.sep)) { res.writeHead(403); return res.end(); }
     fs.stat(fichier, (e, s) => {
       if (e || !s.isFile()) { res.writeHead(404); return res.end(); }
       res.writeHead(200, { "Content-Type": TYPES[path.extname(fichier)] || "application/octet-stream", "Content-Length": s.size, "Cache-Control": "no-cache" });
-      fs.createReadStream(fichier).pipe(res);
+      fs.createReadStream(fichier).on("error", () => res.destroy()).pipe(res);
     });
-  });
+  }
 
   // WebSocket du salon : on recopie la demande vers le serveur puis on relie les deux connexions
   serveur.on("upgrade", (req, client, tete) => {
     client.on("error", () => {});
-    if (req.headers.host !== hoteAttendu) return client.destroy();
+    if (!autorisee(req)) return client.destroy();
     if (!api || !req.url.startsWith("/.proxy/api")) return client.destroy();
     const distant = securise
       ? tls.connect({ host: cibleApi.hostname, port: portApi, servername: cibleApi.hostname })
