@@ -229,7 +229,7 @@
       const vide = document.createElement("li"); vide.className = "vide"; vide.style.gridColumn = "1 / -1";
       vide.innerHTML = "<strong>Aucun jeu pour l'instant</strong>";
       const p = document.createElement("p");
-      if (cheminDossier) { p.append("Mets tes jeux dans "); const c = document.createElement("code"); c.textContent = cheminDossier; p.append(c, " : ils apparaissent ici tout seuls. Ou clique sur « Ajouter des jeux »."); }
+      if (cheminDossier) { p.append("Mets tes jeux dans "); const c = document.createElement("code"); c.textContent = cheminDossier; p.append(c, C.externe ? " : ils apparaissent ici tout seuls. L'appli cherche aussi tes jeux dans tout ton PC." : " : ils apparaissent ici tout seuls. Ou clique sur « Ajouter des jeux »."); }
       else p.textContent = "Clique sur « Ajouter des jeux » pour choisir des fichiers sur ton PC.";
       vide.appendChild(p); ul.appendChild(vide); return;
     }
