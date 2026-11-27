@@ -3,104 +3,126 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<script src="theme.js"></script>
 <title>Rétro</title>
 <link rel="stylesheet" href="console/styles/00-polices.css">
+<link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="supports.css">
 <style>
-  :root { --fond: #16181d; --panneau: #1f232b; --texte: #eef0f4; --texte-2: #9aa1ad; --h: 0; color-scheme: dark; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; }
-  body { background: var(--fond); color: var(--texte); font: 400 15px/1.45 system-ui, sans-serif; display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
-  header { display: flex; align-items: center; gap: 14px; padding: 14px 24px; border-bottom: 1px solid rgba(255,255,255,.06); }
-  header h1 { margin: 0; font: 600 26px/1 "Pixelify", system-ui, sans-serif; }
-  header .pastille { width: 12px; height: 12px; border-radius: 50%; background: hsl(var(--h) 65% 55%); box-shadow: 0 0 10px hsl(var(--h) 65% 55% / .6); }
-  header .espace { flex: 1; }
-  button, .bouton { font: 600 14px/1 system-ui, sans-serif; color: var(--texte); background: #2b303b; border: 1px solid rgba(255,255,255,.08); border-radius: 9px; padding: 10px 14px; cursor: pointer; }
-  button:hover, .bouton:hover { border-color: hsl(var(--h) 65% 60%); }
-  button:focus-visible, .bouton:focus-visible { outline: 3px solid hsl(var(--h) 65% 60% / .6); outline-offset: 2px; }
-  button.principal { background: hsl(var(--h) 55% 45%); border-color: transparent; }
+  /* --h : teinte propre à la console (pastille, jaquettes) ; le reste suit le thème de l'appli. */
+  :root { --h: 0; }
+  html, body { height: 100%; }
+  body { min-height: 0; display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
+  .barre-app .pastille { width: 12px; height: 12px; border-radius: 50%; background: hsl(var(--h) 70% 58%); box-shadow: 0 0 calc(14px * var(--lueur)) hsl(var(--h) 70% 58%); }
+  .barre-app h1 { margin: 0; font-size: 22px; font-weight: 700; }
   label.volume { display: flex; align-items: center; gap: 8px; color: var(--texte-2); font-size: 13px; }
   label.volume[hidden] { display: none; }
-  label.volume input { accent-color: hsl(var(--h) 65% 55%); width: 110px; }
+  label.volume input { width: 110px; }
   main { min-height: 0; overflow: hidden; }
   /* Catalogue plein écran ; pendant une partie, l'écran prend toute la place */
-  .catalogue { height: 100%; overflow-y: auto; padding: 22px 28px 28px; }
+  .catalogue { height: 100%; overflow-y: auto; padding: 0 32px 32px; }
+  .entete-console {
+    display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: center; margin: 22px 0 18px; padding: 22px 26px;
+    border-radius: 22px; border: 1px solid var(--bord); box-shadow: var(--ombre);
+    background: radial-gradient(500px 220px at 0% 0%, hsl(var(--h) 70% 50% / calc(var(--lueur) * .35)), transparent 70%), var(--fond-2);
+  }
+  .entete-console .jaquette { width: 130px; height: 120px; border-radius: 14px; }
+  .entete-console h2 { margin: 0 0 4px; font-size: 28px; }
+  .entete-console p { margin: 0; color: var(--texte-2); }
   body.en-jeu .catalogue { display: none; }
   body:not(.en-jeu) .scene { display: none; }
-  .barre { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 8px; }
+  body.en-jeu .barre-app .nav-app { display: none; }
+  .barre { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 10px 0; }
   .barre p { margin: 0 0 0 6px; color: var(--texte-2); font-size: 13px; }
-  .grille-jeux { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
-  .jeu { position: relative; }
-  .jeu > button.carte {
-    width: 100%; display: grid; grid-template-rows: 150px auto; padding: 0; overflow: hidden; text-align: left;
-    background: var(--panneau); border: 1px solid rgba(255,255,255,.06); border-radius: 12px; transition: transform .1s, border-color .1s;
-  }
-  .jeu > button.carte:hover, .jeu > button.carte:focus-visible { transform: translateY(-3px); border-color: hsl(var(--h) 65% 60%); }
-  /* Le jeu posé sur l'étagère, dans le support de sa console : cartouche, disque, boîtier, carte. */
-  .jaquette {
-    position: relative; display: grid; place-items: end center; padding-top: 14px; overflow: hidden;
-    background: radial-gradient(120% 90% at 50% 100%, hsl(var(--h) 35% 22%), hsl(var(--h) 25% 12%) 70%);
-  }
+  .barre .espace { flex: 1; }
+  .barre input[type=search] { width: min(280px, 100%); border-radius: 99px; }
+  .filtre[aria-pressed="true"] { background: var(--accent-doux); border-color: var(--accent-bord); }
+  .grille-jeux { margin-top: 16px; }
 
-  /* Fichiers de la console (clés, firmware, BIOS) */
-  .systeme { margin: 18px 0 4px; padding: 16px 18px; border-radius: 12px; background: var(--panneau); border: 1px solid rgba(255,255,255,.06); max-width: 900px; }
-  .systeme h2 { margin: 0 0 4px; font: 600 18px/1.2 "Pixelify", system-ui, sans-serif; }
+  /* Fichiers de la console (clés, firmware, BIOS) et mods */
+  .systeme { margin: 18px 0 4px; padding: 18px 20px; max-width: 980px; }
+  .systeme h2 { margin: 0 0 4px; font-size: 18px; }
   .systeme > p { margin: 0 0 12px; color: var(--texte-2); font-size: 13px; }
   .systeme ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-  .systeme li { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 10px; background: rgba(0,0,0,.18); }
+  .systeme li { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 11px 13px; border-radius: 12px; background: var(--fond-3); border: 1px solid var(--bord); }
   .systeme li strong { display: block; font-size: 14px; }
   .systeme li small { color: var(--texte-2); font-size: 12px; }
-  .systeme .voyant { width: 12px; height: 12px; border-radius: 50%; background: #5b6170; }
-  .systeme li.present .voyant { background: #43c47a; box-shadow: 0 0 8px #43c47a; }
-  .systeme li.manque .voyant { background: #e5a23a; box-shadow: 0 0 8px #e5a23a; }
+  .voyant { width: 12px; height: 12px; border-radius: 50%; background: var(--texte-2); flex: none; }
+  .present .voyant { background: var(--pret); box-shadow: 0 0 8px var(--pret); }
+  .manque .voyant { background: var(--alerte); box-shadow: 0 0 8px var(--alerte); }
   .systeme .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
   .actions-mods { display: flex; gap: 8px; margin-top: 12px; }
   #liste-mods:empty::before { content: "Aucun mod pour l'instant."; color: var(--texte-2); font-size: 13px; }
-  .aide-externe { color: var(--texte-2); font-size: 13px; max-width: 900px; margin: 12px 0 0; line-height: 1.9; }
-  .carte .titre-jeu { padding: 10px 12px 12px; font-weight: 600; font-size: 14px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .carte small { display: block; color: var(--texte-2); font-weight: 400; font-size: 12px; margin-top: 2px; }
-  .jeu .retirer { position: absolute; top: 8px; right: 8px; padding: 6px 9px; font-size: 12px; background: rgba(0,0,0,.55); opacity: 0; }
+  .aide-externe { color: var(--texte-2); font-size: 13px; max-width: 980px; margin: 12px 0 0; line-height: 1.9; }
+  .jeu .retirer { position: absolute; top: 8px; right: 8px; padding: 6px 9px; font-size: 12px; opacity: 0; z-index: 3; }
   .jeu:hover .retirer, .jeu .retirer:focus-visible, .jeu .retirer.arme { opacity: 1; }
-  .jeu .retirer.arme { background: #b3261e; }
-  .vide { color: var(--texte-2); margin-top: 28px; max-width: 560px; }
-  .vide strong { display: block; color: var(--texte); font: 600 22px/1.3 "Pixelify", system-ui, sans-serif; margin-bottom: 8px; }
-  .vide code { background: #2b303b; border-radius: 5px; padding: 2px 6px; color: var(--texte); }
   .message { min-height: 1.4em; color: var(--texte-2); font-size: 13px; }
-  .scene { height: 100%; }
-  .scene { display: grid; place-items: center; padding: 18px; min-height: 0; background: radial-gradient(900px 500px at 50% 0%, hsl(var(--h) 30% 16%), transparent 70%); }
-  .tele { position: relative; width: min(100%, calc((100vh - 120px) * 4 / 3)); aspect-ratio: 4 / 3; background: #000; border-radius: 14px; box-shadow: 0 0 0 10px #0d0f13, 0 20px 50px rgba(0,0,0,.5); overflow: hidden; }
+
+  /* Fiche du jeu */
+  .fiche { display: grid; grid-template-columns: 300px 1fr; }
+  .fiche .jaquette { min-height: 340px; border-radius: 0; place-items: center; padding: 0; }
+  .fiche .jaquette .media { scale: 1.7; }
+  .fiche .jaquette::after { display: none; }
+  .fiche-corps { padding: 28px 30px 26px; display: grid; gap: 16px; align-content: start; }
+  .fiche-corps h2 { margin: 0; font-size: 30px; line-height: 1.15; }
+  .fiche-console { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .fiche dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; margin: 0; font-size: 14px; }
+  .fiche dt { color: var(--texte-2); }
+  .fiche dd { margin: 0; overflow-wrap: anywhere; }
+  .fiche-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .fiche-actions .principal { min-width: 220px; }
+  .fiche .favori[aria-pressed="true"] { color: #ffb703; border-color: color-mix(in oklab, #ffb703 50%, transparent); }
+  .fiche-reglages { display: grid; gap: 10px; padding: 14px 16px; border-radius: 14px; background: var(--fond-3); border: 1px solid var(--bord); font-size: 14px; }
+  .fiche-reglages:empty { display: none; }
+  .fiche-reglages label { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .fiche-reglages small { color: var(--texte-2); }
+  .fermer { position: absolute; top: 12px; right: 12px; z-index: 2; width: 38px; height: 38px; padding: 0; border-radius: 50%; }
+  @media (max-width: 760px) { .fiche { grid-template-columns: 1fr; } .fiche .jaquette { min-height: 200px; } .catalogue { padding: 0 16px 24px; } .entete-console { grid-template-columns: 1fr; } }
+
+  /* Partie */
+  .scene { height: 100%; display: grid; place-items: center; padding: 18px; min-height: 0; background: radial-gradient(900px 500px at 50% 0%, hsl(var(--h) 40% 16% / .8), transparent 70%); }
+  .tele { position: relative; width: min(100%, calc((100vh - 130px) * 4 / 3)); aspect-ratio: 4 / 3; background: #000; border-radius: 16px; box-shadow: 0 0 0 10px #0d0c14, 0 0 calc(60px * var(--lueur)) color-mix(in oklab, var(--accent) 35%, transparent), 0 20px 50px rgb(0 0 0 / .5); overflow: hidden; }
   #game { position: absolute; inset: 0; }
   .aide { color: var(--texte-2); font-size: 13px; margin-top: 14px; text-align: center; }
-  kbd { font: 600 12px/1 system-ui; background: #2b303b; border-radius: 5px; padding: 3px 6px; border: 1px solid rgba(255,255,255,.1); }
-  .pause { position: absolute; inset: 0; background: rgba(10,12,16,.82); display: none; place-items: center; z-index: 10; }
+  .pause { position: absolute; inset: 0; background: rgb(8 7 14 / .84); backdrop-filter: blur(6px); display: none; place-items: center; z-index: 10; }
   body.en-pause .pause { display: grid; }
   .pause div { display: grid; gap: 10px; min-width: 260px; }
-  .pause h2 { margin: 0 0 6px; font: 600 24px/1 "Pixelify", system-ui, sans-serif; text-align: center; }
+  .pause h2 { margin: 0 0 6px; font: 600 26px/1 var(--police-logo); text-align: center; }
   .pause small { color: var(--texte-2); text-align: center; }
   #game .ejs_menu_bar, #game .ejs_context_menu { display: none !important; }
-  .message { min-height: 1.4em; color: var(--texte-2); font-size: 13px; }
 </style>
 </head>
 <body>
-<header>
-  <a class="bouton" href="accueil.html" id="accueil">← Accueil</a>
+<header class="barre-app">
+  <a class="btn" href="accueil.html" id="accueil">← Accueil</a>
   <span class="pastille" aria-hidden="true"></span>
   <h1 id="titre">Console</h1>
+  <nav class="nav-app" aria-label="Navigation principale">
+    <a href="bibliotheque.html">Bibliothèque</a>
+    <a href="reglages.html">Paramètres</a>
+  </nav>
   <span class="espace"></span>
   <label class="volume">Son <input type="range" id="volume" min="0" max="100" step="5" aria-label="Volume du son"></label>
-  <button type="button" id="menu-jeu" hidden>Pause</button>
+  <button type="button" class="btn" id="menu-jeu" hidden>Pause</button>
 </header>
 <main>
   <section class="catalogue" aria-label="Catalogue de jeux">
-    <div class="barre">
-      <button type="button" class="principal" id="ajouter">Ajouter des jeux</button>
-      <button type="button" id="dossier" hidden>Ouvrir mon dossier de jeux</button>
-      <p id="formats"></p>
+    <div class="entete-console apparait">
+      <span class="jaquette" id="visuel-console"><span class="media"><span class="etiquette" id="sigle-console"></span></span></span>
+      <div>
+        <h2 id="nom-console"></h2>
+        <p id="formats"></p>
+        <div class="barre">
+          <button type="button" class="btn principal" id="ajouter">Ajouter des jeux</button>
+          <button type="button" class="btn" id="dossier" hidden>Ouvrir mon dossier de jeux</button>
+        </div>
+      </div>
     </div>
     <div class="barre" id="barre-emulateur" hidden>
-      <button type="button" id="installer-emulateur" hidden></button>
-      <button type="button" id="maj-emulateur" hidden></button>
-      <p id="etat-emulateur" role="status"></p>
+      <button type="button" class="btn principal" id="installer-emulateur" hidden></button>
+      <button type="button" class="btn" id="maj-emulateur" hidden></button>
+      <p class="statut" id="etat-emulateur" role="status"></p>
     </div>
     <section class="systeme" id="systeme" hidden aria-labelledby="titre-systeme">
       <h2 id="titre-systeme">Fichiers de ta console</h2>
@@ -111,12 +133,36 @@
       <h2 id="titre-mods">Mods</h2>
       <p>Un mod change un jeu (2 joueurs, nouveaux costumes…). Donne l'archive du mod telle quelle : l'appli la range pour Eden. Le jeu lui-même reste à part.</p>
       <ul id="liste-mods"></ul>
-      <div class="actions-mods"><button type="button" id="ajouter-mod">Ajouter un mod</button><button type="button" id="ajouter-mod-dossier">Choisir un dossier de mod</button></div>
+      <div class="actions-mods"><button type="button" class="btn" id="ajouter-mod">Ajouter un mod</button><button type="button" class="btn" id="ajouter-mod-dossier">Choisir un dossier de mod</button></div>
     </section>
     <p class="aide-externe" id="aide-externe" hidden></p>
-    <p class="message" id="message" role="status"></p>
-    <ul class="grille-jeux" id="jeux"></ul>
+    <div class="barre" role="search">
+      <label class="masque" for="q">Chercher dans les jeux de cette console</label>
+      <input id="q" type="search" placeholder="Chercher un jeu…" autocomplete="off" data-recherche>
+      <button type="button" class="btn filtre" id="filtre-favoris" aria-pressed="false">★ Favoris</button>
+      <span class="espace"></span>
+      <p class="message" id="message" role="status"></p>
+    </div>
+    <ul class="grille-jeux" id="jeux"><li class="squelette"></li><li class="squelette"></li><li class="squelette"></li></ul>
   </section>
+  <dialog class="fenetre" id="fiche" aria-labelledby="fiche-titre">
+    <form method="dialog"><button class="btn fermer" aria-label="Fermer la fiche" value="fermer">✕</button></form>
+    <div class="fiche">
+      <span class="jaquette" id="fiche-jaquette"><span class="media"><span class="etiquette"></span></span></span>
+      <div class="fiche-corps">
+        <div class="fiche-console"><span class="badge accent sans-point" id="fiche-console"></span><span class="badge" id="fiche-etat"></span></div>
+        <h2 id="fiche-titre"></h2>
+        <dl id="fiche-infos"></dl>
+        <div class="fiche-reglages" id="fiche-reglages"></div>
+        <div class="fiche-actions">
+          <button type="button" class="btn principal grand" id="fiche-lancer">▶ Lancer le jeu</button>
+          <button type="button" class="btn grand favori" id="fiche-favori" aria-pressed="false">☆ Favori</button>
+          <button type="button" class="btn danger" id="fiche-retirer" hidden>Retirer de l'appli</button>
+        </div>
+        <p class="statut" id="fiche-message" role="status"></p>
+      </div>
+    </div>
+  </dialog>
   <section class="scene">
     <div>
       <div class="tele">
@@ -124,11 +170,11 @@
         <div class="pause" role="dialog" aria-label="Pause">
           <div>
             <h2>Pause</h2>
-            <button type="button" class="principal" id="reprendre">Reprendre</button>
-            <button type="button" id="sauver-etat">Sauver l'état</button>
-            <button type="button" id="charger-etat">Charger l'état</button>
-            <button type="button" id="pistolet" hidden></button>
-            <button type="button" id="quitter">Retour au catalogue</button>
+            <button type="button" class="btn principal" id="reprendre">Reprendre</button>
+            <button type="button" class="btn" id="sauver-etat">Sauver l'état</button>
+            <button type="button" class="btn" id="charger-etat">Charger l'état</button>
+            <button type="button" class="btn" id="pistolet" hidden></button>
+            <button type="button" class="btn" id="quitter">Retour au catalogue</button>
             <small>Échap ou Select + Start pour revenir au jeu</small>
           </div>
         </div>
@@ -139,6 +185,7 @@
   </section>
 </main>
 <input type="file" id="fichier" multiple hidden>
+<script src="jeux.js"></script>
 <script src="commandes.js"></script>
 <script>
 // L'image du jeu reste lisible (capture, diffusion aux potes) : comme dans la console DS.
@@ -152,18 +199,7 @@
 (function () {
   "use strict";
   // Une page pour toutes les consoles de salon. Le cœur de chaque console est hébergé avec l'appli.
-  const CONSOLES = {
-    nes: { nom: "NES", support: "cartouche", coeur: "fceumm", h: 0, extensions: [".nes", ".zip", ".7z"], formats: "Fichiers .nes (ou un .zip / .7z qui en contient un)." },
-    snes: { nom: "Super Nintendo", support: "cartouche", coeur: "snes9x", h: 265, extensions: [".sfc", ".smc", ".zip", ".7z"], formats: "Fichiers .sfc ou .smc (ou un .zip / .7z)." },
-    n64: { nom: "Nintendo 64", support: "cartouche", coeur: "mupen64plus_next", h: 140, extensions: [".z64", ".n64", ".v64", ".zip", ".7z"], formats: "Fichiers .z64, .n64 ou .v64 (ou un .zip / .7z)." },
-    psx: { nom: "PlayStation", support: "disque", coeur: "pcsx_rearmed", h: 210, extensions: [".chd", ".pbp", ".zip", ".7z", ".iso"], formats: "Un fichier .chd ou .pbp, ou un .zip avec le .cue et les .bin du jeu." },
-    // Consoles lancées avec un émulateur externe (téléchargé au premier jeu)
-    "3ds": { nom: "3DS", support: "carte", externe: "Azahar", h: 350, extensions: [".cci", ".3ds", ".cxi", ".cia", ".3dsx", ".zcci", ".zcxi", ".z3dsx"], formats: "Tes jeux 3DS déchiffrés : .cia, .cci, .cxi ou .3dsx (un .3ds déchiffré renommé en .cci marche)." },
-    switch: { nom: "Switch", support: "carte", externe: "Eden", h: 355, extensions: [".nsp", ".xci", ".nca", ".nro", ".nso"], formats: "Tes jeux Switch : .nsp ou .xci (avec tes clés et ton firmware)." },
-    psp: { nom: "PSP", support: "umd", externe: "PPSSPP", h: 200, extensions: [".iso", ".cso", ".chd", ".pbp"], formats: "Tes jeux PSP : .iso, .cso, .chd ou .pbp." },
-    ps2: { nom: "PlayStation 2", support: "boitier", externe: "PCSX2", h: 230, extensions: [".iso", ".chd", ".cso", ".zso", ".cue"], formats: "Tes jeux PS2 : .iso, .chd, .cso ou .cue (avec le BIOS de ta PS2)." },
-    ps3: { nom: "PlayStation 3", support: "boitier", externe: "RPCS3", h: 0, dossiers: true, extensions: [".iso"], formats: "Tes jeux PS3 : un dossier de jeu (avec PS3_GAME ou EBOOT.BIN dedans) ou un .iso." },
-  };
+  const R = RetroJeux, CONSOLES = R.CONSOLES;
   // Pistolet à la souris : un pistolet branché sur le port 2, visé avec la souris (clic = tir).
   // L'émulateur web lit la souris comme un écran tactile : visée exacte, sans dérive.
   const PROFIL_SOURIS = { n64: true, psx: true };
@@ -174,25 +210,16 @@
       jeux: /super scope|yoshi'?s safari|battle clash|metal combat|terminator 2.*arcade|t2.*arcade|x-zone|lamborghini|tin star|hunt for red october|bazooka blitzkrieg|operation thunderbolt/i },
   };
   const id = new URLSearchParams(location.search).get("console");
-  const AIDES = {
-    nes: "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> bouger · <kbd>Espace</kbd> ou <kbd>K</kbd> A · <kbd>J</kbd> B · <kbd>Entrée</kbd> Start · <kbd>Retour</kbd> Select. Manette : stick ou croix, A/B, gâchettes RT = B (tir) et LT = A.",
-    snes: "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> bouger · <kbd>K</kbd> B · <kbd>L</kbd> A · <kbd>J</kbd> Y · <kbd>I</kbd> X · <kbd>A</kbd> <kbd>E</kbd> L / R · <kbd>Entrée</kbd> Start. Manette : stick ou croix, gâchettes et bumpers = L / R.",
-    n64: "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> stick · souris caméra (boutons C) · clic gauche Z (tir) · clic droit R (viser) · <kbd>Espace</kbd> A · <kbd>J</kbd> B · <kbd>Maj</kbd> Z · <kbd>A</kbd> <kbd>E</kbd> L / R · <kbd>↑↓←→</kbd> boutons C · <kbd>Entrée</kbd> Start. Manette : stick gauche, stick droit = boutons C, gâchettes = Z, bumpers = L / R.",
-    psx: "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> bouger · souris caméra · clic gauche R2 · clic droit L2 · <kbd>Espace</kbd> ✕ · <kbd>L</kbd> ○ · <kbd>J</kbd> □ · <kbd>I</kbd> △ · <kbd>A</kbd> <kbd>E</kbd> L1 / R1 · <kbd>Maj</kbd> L2 · <kbd>R</kbd> R2 · <kbd>Entrée</kbd> Start. Manette DualShock : deux sticks, gâchettes L2 / R2.",
-  };
-  // Commandes dans les émulateurs externes (réglées par l'appli quand c'est possible).
-  const AIDES_EXTERNES = {
-    switch: "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> stick · <kbd>Maj</kbd> marcher · souris caméra · clic gauche ZR · clic droit ZL · <kbd>Entrée</kbd> A · <kbd>Espace</kbd> B · <kbd>I</kbd> X · <kbd>J</kbd> Y · <kbd>A</kbd> <kbd>E</kbd> L / R · <kbd>↑↓←→</kbd> croix · <kbd>P</kbd> + · <kbd>O</kbd> − · <kbd>C</kbd> <kbd>V</kbd> clic des sticks. Manette : règle-la une fois dans Eden, l'appli la remet ensuite toute seule quand elle est branchée (appuie sur un de ses boutons ici avant de lancer).",
-    "3ds": "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> stick · <kbd>Maj</kbd> marcher · <kbd>Entrée</kbd> A (valider) · <kbd>Espace</kbd> B (retour) · <kbd>I</kbd> X · <kbd>J</kbd> Y · <kbd>A</kbd> <kbd>E</kbd> L / R · <kbd>↑↓←→</kbd> croix · <kbd>P</kbd> Start · <kbd>O</kbd> Select · souris = écran tactile. Avec une manette branchée (appuie sur un bouton ici avant de lancer), tout passe par la manette.",
-  };
   const C = CONSOLES[id];
   const $ = x => document.getElementById(x);
   if (!C) { location.href = "accueil.html"; return; }
   document.title = "Rétro · " + C.nom;
   document.documentElement.style.setProperty("--h", C.h);
   $("titre").textContent = C.nom;
-  document.body.dataset.support = C.support;
-  document.querySelector("header .pastille").dataset.support = C.support;
+  $("nom-console").textContent = C.nom;
+  $("sigle-console").textContent = C.sigle;
+  $("visuel-console").dataset.support = C.support;
+  $("visuel-console").style.setProperty("--t", C.h);
   $("formats").textContent = C.formats;
   $("fichier").accept = C.extensions.join(",");
   if (C.externe) {
@@ -201,74 +228,123 @@
     $("barre-emulateur").hidden = false;
   }
 
-  // ---------- Stockage local (IndexedDB) ----------
-  let base;
-  const ouvrir = () => base || (base = new Promise((ok, ko) => {
-    const r = indexedDB.open("retro-salon", 1);
-    r.onupgradeneeded = () => { for (const s of ["jeux", "sauvegardes", "etats"]) r.result.createObjectStore(s, { keyPath: "id" }); };
-    r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error);
-  }));
-  const magasin = async (s, mode, f) => { const db = await ouvrir(); return new Promise((ok, ko) => { const t = db.transaction(s, mode); const q = f(t.objectStore(s)); t.oncomplete = () => ok(q && q.result); t.onerror = () => ko(t.error); }); };
-  const lire = (s, k) => magasin(s, "readonly", o => o.get(k));
-  const ecrire = (s, v) => magasin(s, "readwrite", o => o.put(v));
-  const effacer = (s, k) => magasin(s, "readwrite", o => o.delete(k));
-  const tous = s => magasin(s, "readonly", o => o.getAll());
-  const nomLisible = n => n.replace(/\.(nes|sfc|smc|z64|n64|v64|chd|pbp|zip|7z|iso|cci|3ds|cxi|cia|3dsx|zcci|zcxi|z3dsx|nsp|xci|nca|nro|nso|cso|zso|cue)$/i, "").replace(/[_]+/g, " ");
+  // ---------- Stockage local (IndexedDB, partagé avec la bibliothèque) ----------
+  const { lire, ecrire, effacer, tous } = R.db;
+  const nomLisible = R.nomLisible;
 
   // ---------- Catalogue : le dossier de jeux du PC + les jeux ajoutés à la main ----------
-  const teinte = t => { let h = 0; for (const c of t) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
-  const initiales = t => nomLisible(t).split(/\s+/).filter(Boolean).slice(0, 2).map(m => m[0]).join("").toUpperCase() || "?";
-  const accepte = n => C.extensions.some(x => n.toLowerCase().endsWith(x));
-  let cheminDossier = null;
-  async function jeuxDuDossier() {
-    try {
-      const r = await fetch("jeux-pc/" + id + "/", { cache: "no-store" });
-      if (!r.ok) return [];
-      return (await r.json()).filter(f => (f.dossier ? C.dossiers : accepte(f.nom))).map(f => ({ id: id + ":" + f.nom + "|" + f.taille, console: id, nom: f.nom, taille: f.taille, source: "pc", dossier: Boolean(f.dossier), trouve: Boolean(f.trouve) }));
-    } catch (e) { return []; }
-  }
+  const accepte = n => R.accepte(C, n);
+  const jeuxDuDossier = () => R.jeuxDuDossier(id);
+  let cheminDossier = null, listeJeux = [], seulementFavoris = false;
   async function afficherJeux() {
-    const ajoutes = (await tous("jeux")).filter(j => j.console === id).map(j => ({ ...j, source: "ajoute" }));
-    const pc = await jeuxDuDossier();
-    const vus = new Set(pc.map(j => j.id));
-    const liste = pc.concat(ajoutes.filter(j => !vus.has(j.id))).sort((a, b) => nomLisible(a.nom).localeCompare(nomLisible(b.nom), "fr"));
+    listeJeux = await R.lister(id);
+    dessinerJeux();
+  }
+  function dessinerJeux() {
+    const q = $("q").value.trim().toLowerCase(), fav = R.favoris();
+    const liste = listeJeux.filter(j => (!q || nomLisible(j.nom).toLowerCase().includes(q)) && (!seulementFavoris || fav.has(R.cle(j))));
     const ul = $("jeux"); ul.innerHTML = "";
-    $("message").textContent = liste.length ? liste.length + (liste.length > 1 ? " jeux" : " jeu") : "";
+    const n = listeJeux.length;
+    $("message").textContent = !n ? "" : liste.length === n ? n + (n > 1 ? " jeux" : " jeu") : liste.length + " sur " + n + " jeux";
     if (!liste.length) {
-      const vide = document.createElement("li"); vide.className = "vide"; vide.style.gridColumn = "1 / -1";
-      vide.innerHTML = "<strong>Aucun jeu pour l'instant</strong>";
-      const p = document.createElement("p");
-      if (cheminDossier) { p.append("Mets tes jeux dans "); const c = document.createElement("code"); c.textContent = cheminDossier; p.append(c, C.externe ? " : ils apparaissent ici tout seuls. L'appli cherche aussi tes jeux dans tout ton PC." : " : ils apparaissent ici tout seuls. Ou clique sur « Ajouter des jeux »."); }
-      else p.textContent = "Clique sur « Ajouter des jeux » pour choisir des fichiers sur ton PC.";
-      vide.appendChild(p); ul.appendChild(vide); return;
+      const vide = document.createElement("li"); vide.className = "vide";
+      const titre = document.createElement("strong"), p = document.createElement("p");
+      if (n) { titre.textContent = "Aucun jeu ne correspond"; p.textContent = seulementFavoris ? "Aucun favori ici pour l'instant : ouvre un jeu et touche l'étoile." : "Essaie un autre nom."; }
+      else {
+        titre.textContent = "Aucun jeu " + C.nom + " pour l'instant";
+        if (cheminDossier) { p.append("Mets tes jeux dans "); const c = document.createElement("code"); c.textContent = cheminDossier; p.append(c, C.externe ? " : ils apparaissent ici tout seuls. Rétro cherche aussi tes jeux dans tout ton PC." : " : ils apparaissent ici tout seuls. Ou clique sur « Ajouter des jeux »."); }
+        else p.textContent = "Clique sur « Ajouter des jeux » pour choisir des fichiers sur ton PC.";
+      }
+      vide.append(titre, p); ul.appendChild(vide); return;
     }
     for (const j of liste) {
       const li = document.createElement("li"); li.className = "jeu";
-      const carte = document.createElement("button"); carte.type = "button"; carte.className = "carte";
-      carte.style.setProperty("--t", teinte(j.nom));
-      carte.setAttribute("aria-label", "Jouer à " + nomLisible(j.nom));
-      const jaq = document.createElement("span"); jaq.className = "jaquette"; jaq.dataset.support = C.support;
-      jaq.innerHTML = '<span class="media"><span class="etiquette"></span></span>';
-      jaq.querySelector(".etiquette").textContent = initiales(j.nom);
-      const t = document.createElement("span"); t.className = "titre-jeu"; t.textContent = nomLisible(j.nom);
-      const sous = document.createElement("small"); sous.textContent = j.source === "pc" ? (j.trouve ? "Trouvé sur ton PC" : j.dossier ? "Dossier de jeu" : "Dans ton dossier") : "Ajouté à l'appli";
-      t.appendChild(sous);
-      carte.append(jaq, t);
-      carte.addEventListener("click", () => lancer(j));
+      const carte = R.carte(j);
+      carte.addEventListener("click", () => ouvrirFiche(j));
       li.appendChild(carte);
-      if (j.source === "ajoute") {
-        const retirer = document.createElement("button"); retirer.type = "button"; retirer.className = "retirer"; retirer.textContent = "Retirer";
-        retirer.setAttribute("aria-label", "Retirer " + nomLisible(j.nom));
-        let arme = false;
-        retirer.addEventListener("click", async () => {
-          if (!arme) { arme = true; retirer.classList.add("arme"); retirer.textContent = "Sûr ?"; setTimeout(() => { arme = false; retirer.classList.remove("arme"); retirer.textContent = "Retirer"; }, 3000); return; }
-          await effacer("jeux", j.id); afficherJeux();
-        });
-        li.appendChild(retirer);
-      }
       ul.appendChild(li);
     }
   }
+  $("q").addEventListener("input", dessinerJeux);
+  $("q").addEventListener("keydown", e => { if (e.key === "ArrowDown" || e.key === "Enter") { e.preventDefault(); const c = document.querySelector(".carte"); if (c) c.focus(); } });
+  $("filtre-favoris").addEventListener("click", () => { seulementFavoris = !seulementFavoris; $("filtre-favoris").setAttribute("aria-pressed", String(seulementFavoris)); dessinerJeux(); });
+
+  // ---------- Fiche du jeu : jaquette, infos, favori, réglages utiles, état de l'émulateur, LANCER ----------
+  let jeuFiche = null;
+  const fiche = $("fiche");
+  function ouvrirFiche(j) {
+    jeuFiche = j;
+    const jaq = $("fiche-jaquette");
+    jaq.dataset.support = C.support; jaq.style.setProperty("--t", R.teinte(j.nom)); jaq.style.setProperty("--h", C.h);
+    jaq.querySelector(".etiquette").textContent = R.initiales(j.nom);
+    $("fiche-titre").textContent = nomLisible(j.nom);
+    $("fiche-console").textContent = C.nom;
+    const dl = $("fiche-infos"); dl.innerHTML = "";
+    const info = (t, v) => { if (!v) return; const dt = document.createElement("dt"); dt.textContent = t; const dd = document.createElement("dd"); dd.textContent = v; dl.append(dt, dd); };
+    info("Fichier", j.nom + (j.dossier ? " (dossier)" : ""));
+    info("Taille", R.taille(j.taille));
+    info("Provenance", R.provenance(j));
+    const derniere = R.dernierLancement(j);
+    info("Dernière partie", derniere ? R.ilYA(derniere) : "jamais lancé");
+    info("Lancé avec", C.externe ? C.externe + " (émulateur Windows)" : "l'émulateur intégré à Rétro");
+    majFavori();
+    // Réglages utiles pour ce jeu
+    const reg = $("fiche-reglages"); reg.innerHTML = "";
+    if (PISTOLETS[id]) {
+      const l = document.createElement("label");
+      l.innerHTML = "<span><strong></strong><br><small>Vise avec la souris, clic gauche pour tirer.</small></span><select></select>";
+      l.querySelector("strong").textContent = PISTOLETS[id].nom + " à la souris";
+      const sel = l.querySelector("select");
+      for (const [v, t] of [["auto", "Automatique" + (PISTOLETS[id].jeux.test(j.nom) ? " (activé)" : " (désactivé)")], ["oui", "Activé"], ["non", "Désactivé"]]) sel.add(new Option(t, v));
+      sel.value = choixPistolet(j);
+      sel.addEventListener("change", () => localStorage.setItem("retro-pistolet:" + j.id, sel.value));
+      reg.appendChild(l);
+    }
+    if (!C.externe) {
+      const l = document.createElement("label");
+      l.innerHTML = "<span><strong>Volume</strong><br><small>Le même pour tous les jeux de l'appli.</small></span>";
+      const r = $("volume").cloneNode(); r.id = "fiche-volume"; r.value = volume;
+      r.addEventListener("input", () => { $("volume").value = r.value; $("volume").dispatchEvent(new Event("input")); });
+      l.appendChild(r); reg.appendChild(l);
+    }
+    $("fiche-retirer").hidden = j.source !== "ajoute";
+    $("fiche-retirer").textContent = "Retirer de l'appli"; $("fiche-retirer").classList.remove("arme");
+    $("fiche-message").textContent = "";
+    majEtatFiche();
+    if (!fiche.open) fiche.showModal();
+    $("fiche-lancer").focus();
+  }
+  function majFavori() {
+    if (!jeuFiche) return;
+    const f = R.estFavori(jeuFiche);
+    $("fiche-favori").setAttribute("aria-pressed", String(f));
+    $("fiche-favori").textContent = (f ? "★" : "☆") + " Favori";
+  }
+  function majEtatFiche() {
+    const b = $("fiche-etat");
+    if (!C.externe) { b.className = "badge pret"; b.textContent = "Prêt à jouer"; return; }
+    if (!window.retroApp) { b.className = "badge alerte"; b.textContent = "Appli Windows nécessaire"; return; }
+    const manque = manqueSysteme(etatEmulateur);
+    if (!etatEmulateur || !etatEmulateur.installe) { b.className = "badge alerte"; b.textContent = C.externe + " s'installe au lancement"; }
+    else if (manque) { b.className = "badge alerte"; b.textContent = "À ajouter : " + manque.titre; }
+    else { b.className = "badge pret"; b.textContent = etatEmulateur.nom + " " + (etatEmulateur.version || "") + " prêt"; }
+  }
+  $("fiche-favori").addEventListener("click", () => { if (jeuFiche) { R.basculerFavori(jeuFiche); majFavori(); dessinerJeux(); } });
+  // Le lancement garde son fonctionnement : jeu dans l'appli, ou émulateur Windows (messages dans la barre de l'émulateur).
+  $("fiche-lancer").addEventListener("click", () => { if (!jeuFiche) return; const j = jeuFiche; fiche.close(); lancer(j); });
+  let retraitArme = false;
+  $("fiche-retirer").addEventListener("click", async () => {
+    const b = $("fiche-retirer");
+    if (!retraitArme) { retraitArme = true; b.classList.add("arme"); b.textContent = "Sûr ? Clique encore"; setTimeout(() => { retraitArme = false; b.classList.remove("arme"); b.textContent = "Retirer de l'appli"; }, 3000); return; }
+    retraitArme = false;
+    await effacer("jeux", jeuFiche.id); fiche.close(); afficherJeux();
+  });
+  fiche.addEventListener("close", () => {
+    if (partie || !jeuFiche) return;
+    const c = [...document.querySelectorAll(".carte")].find(x => x.getAttribute("aria-label") === nomLisible(jeuFiche.nom) + ", " + C.nom);
+    if (c) c.focus();
+  });
+
   $("ajouter").addEventListener("click", () => $("fichier").click());
   $("fichier").addEventListener("change", async e => {
     const fichiers = [...e.target.files].filter(f => accepte(f.name));
@@ -307,7 +383,7 @@
     if (meilleure) { meilleure.focus(); meilleure.scrollIntoView({ block: "nearest" }); }
   }
   addEventListener("keydown", e => {
-    if (partie) return;
+    if (partie || fiche.open || e.target === $("q")) return;
     const t = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
     if (t) { e.preventDefault(); deplacer(...t); }
     if (e.key === "Escape" || e.key === "Backspace") location.href = "accueil.html";
@@ -398,7 +474,8 @@
     etatEmulateur = e;
     dessinerSysteme(e && e.systeme);
     dessinerMods(e && e.mods);
-    if (AIDES_EXTERNES[id]) { $("aide-externe").hidden = false; $("aide-externe").innerHTML = AIDES_EXTERNES[id]; }
+    if (C.aide) { $("aide-externe").hidden = false; $("aide-externe").innerHTML = C.aide; }
+    majEtatFiche();
     // Nouvelle version de l'émulateur : bouton pour mettre à jour (clés, BIOS et sauvegardes gardés).
     if (emulateurPret && retroApp.derniereVersionEmulateur && !verifiee) {
       verifiee = true;
@@ -442,6 +519,7 @@
       return;
     }
     occupe = true;
+    R.noterLancement(jeu);
     $("etat-emulateur").textContent = nomLisible(jeu.nom) + " est lancé dans " + C.externe + ". Ferme " + C.externe + " pour revenir ici.";
     const arret = retroApp.surProgression(p => { $("etat-emulateur").textContent = p.texte; });
     const r = await retroApp.lancerExterne(id, jeu.nom, { manette: manetteVue });
@@ -459,6 +537,7 @@
   async function lancer(jeu) {
     if (C.externe) return lancerExterne(jeu);
     if (partie) return;
+    R.noterLancement(jeu);
     if (!jeu.blob) {
       $("message").textContent = "Chargement de " + nomLisible(jeu.nom) + "…";
       try { const r = await fetch("jeux-pc/" + id + "/" + encodeURIComponent(jeu.nom)); if (!r.ok) throw new Error(r.status); jeu = { ...jeu, blob: await r.blob() }; }
@@ -480,7 +559,7 @@
     window.EJS_defaultOptions = pistolet ? pistolet.options : {};
     $("game").style.cursor = pistolet ? "crosshair" : "";
     $("aide-pistolet").hidden = !pistolet;
-    $("aide-commandes").innerHTML = (AIDES[id] || "") + (PROFIL_SOURIS[id] && !pistolet ? " Clique dans le jeu pour prendre la souris, <kbd>Échap</kbd> pour la rendre." : "");
+    $("aide-commandes").innerHTML = (C.aide || "") + (PROFIL_SOURIS[id] && !pistolet ? " Clique dans le jeu pour prendre la souris, <kbd>Échap</kbd> pour la rendre." : "");
     if (PISTOLETS[id]) {
       $("pistolet").hidden = false;
       $("pistolet").textContent = PISTOLETS[id].nom + " à la souris : " + (pistolet ? "activé" : "désactivé");
@@ -553,7 +632,15 @@
       const b = i => Boolean(m.buttons[i] && m.buttons[i].pressed);
       const e = { g: b(14) || m.axes[0] < -0.6, d: b(15) || m.axes[0] > 0.6, h: b(12) || m.axes[1] < -0.6, bas: b(13) || m.axes[1] > 0.6, a: b(0), b: b(1), pause: b(8) && b(9) };
       if (partie) { if (e.pause && !avant.pause) pause(!enPause()); }
-      else {
+      else if (fiche.open) {
+        const boutons = [...fiche.querySelectorAll("button:not([hidden]), select")];
+        const i = boutons.indexOf(document.activeElement);
+        if ((e.d && !avant.d) || (e.bas && !avant.bas)) boutons[(i + 1) % boutons.length].focus();
+        if ((e.g && !avant.g) || (e.h && !avant.h)) boutons[(i - 1 + boutons.length) % boutons.length].focus();
+        if (e.a && !avant.a && document.activeElement && document.activeElement.tagName === "BUTTON") document.activeElement.click();
+        if (e.b && !avant.b) fiche.close();
+      }
+      else if (document.hasFocus()) {
         if (e.g && !avant.g) deplacer(-1, 0);
         if (e.d && !avant.d) deplacer(1, 0);
         if (e.h && !avant.h) deplacer(0, -1);
@@ -574,6 +661,11 @@
       const j = (await tous("jeux")).find(x => x.id === relancer) || (await jeuxDuDossier()).find(x => x.id === relancer);
       if (j) return lancer(j);
     }
+    // Arrivée depuis la bibliothèque ou l'accueil : la fiche du jeu demandé s'ouvre.
+    const demande = new URLSearchParams(location.search).get("jeu");
+    const j = demande && listeJeux.find(x => x.nom === demande);
+    if (j) return ouvrirFiche(j);
+    if (demande) $("message").textContent = "« " + nomLisible(demande) + " » n'est plus sur ton PC.";
     const c = document.querySelector(".carte"); if (c) c.focus();
   });
 })();

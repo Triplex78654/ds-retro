@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<script src="theme.js"></script>
+<title>Rétro · Paramètres</title>
+<link rel="stylesheet" href="console/styles/00-polices.css">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="supports.css">
+<style>
+  .mise-en-page { display: grid; grid-template-columns: 230px 1fr; gap: 34px; max-width: 1200px; margin: 0 auto; padding: 26px 40px 60px; }
+  .sommaire { position: sticky; top: 86px; align-self: start; display: grid; gap: 2px; }
+  .sommaire h1 { margin: 0 0 12px 12px; font-size: 26px; }
+  .sommaire a { padding: 9px 12px; border-radius: 10px; color: var(--texte-2); text-decoration: none; font-weight: 600; font-size: 14px; }
+  .sommaire a:hover { background: var(--fond-3); color: var(--texte); }
+  .sommaire a.actif { background: var(--accent-doux); color: var(--texte); box-shadow: inset 3px 0 0 var(--accent); }
+  .sections { display: grid; gap: 22px; min-width: 0; }
+  section.panneau { padding: 24px 26px; scroll-margin-top: 80px; }
+  section h2 { margin: 0 0 4px; font-size: 21px; }
+  section > p.intro { margin: 0 0 18px; color: var(--texte-2); }
+  .ligne { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 0; border-top: 1px solid var(--bord); }
+  .ligne:first-of-type { border-top: 0; }
+  .ligne > div:first-child { min-width: 0; }
+  .ligne strong { display: block; font-size: 15px; }
+  .ligne small { color: var(--texte-2); font-size: 13px; }
+  .ligne input[type=range] { width: 200px; }
+  .ligne .actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+  /* Palettes */
+  .palettes { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; margin-bottom: 8px; }
+  .palette { position: relative; display: grid; gap: 10px; padding: 12px; border-radius: 14px; border: 1px solid var(--bord); background: var(--fond-3); cursor: pointer; font-weight: 600; font-size: 13px; }
+  .palette input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .palette i { display: block; height: 44px; border-radius: 10px; background: linear-gradient(135deg, var(--c), color-mix(in oklab, var(--c), #000 45%)); box-shadow: 0 0 calc(22px * var(--lueur)) color-mix(in oklab, var(--c) 60%, transparent); }
+  .palette:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .palette:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .palette input[type=color] { position: static; opacity: 1; width: 100%; height: 44px; padding: 0; border: 0; border-radius: 10px; background: none; cursor: pointer; }
+  .apercu { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; padding: 16px; border-radius: 14px; border: 1px dashed var(--bord-fort); }
+  /* Listes (manettes, dossiers, émulateurs) */
+  .liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .liste li { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 12px 14px; border-radius: 12px; background: var(--fond-3); border: 1px solid var(--bord); }
+  .liste li strong { display: block; }
+  .liste li small { color: var(--texte-2); font-size: 12.5px; overflow-wrap: anywhere; }
+  .voyant { width: 12px; height: 12px; border-radius: 50%; background: var(--texte-2); }
+  .ok .voyant { background: var(--pret); box-shadow: 0 0 8px var(--pret); }
+  .attente .voyant { background: var(--alerte); }
+  .boutons-manette { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .boutons-manette span { min-width: 24px; padding: 3px 5px; border-radius: 6px; background: var(--fond-2); border: 1px solid var(--bord); font-size: 11px; text-align: center; color: var(--texte-2); }
+  .boutons-manette span.appuye { background: var(--accent); color: var(--sur-accent); border-color: transparent; }
+  .commandes { display: grid; gap: 10px; }
+  .commandes details { border-radius: 12px; background: var(--fond-3); border: 1px solid var(--bord); padding: 12px 16px; }
+  .commandes summary { cursor: pointer; font-weight: 650; }
+  .commandes p { color: var(--texte-2); line-height: 2; margin: 10px 0 0; font-size: 14px; }
+  .faq details { border-top: 1px solid var(--bord); padding: 12px 0; }
+  .faq summary { cursor: pointer; font-weight: 600; }
+  .faq p { margin: 8px 0 0; color: var(--texte-2); }
+  @media (max-width: 860px) { .mise-en-page { grid-template-columns: 1fr; padding: 18px; } .sommaire { position: static; display: flex; flex-wrap: wrap; } .sommaire h1 { width: 100%; } .ligne { flex-wrap: wrap; } }
+</style>
+</head>
+<body>
+<header class="barre-app">
+  <a class="logo" href="accueil.html">Rétro</a>
+  <nav class="nav-app" aria-label="Navigation principale">
+    <a href="accueil.html">Accueil</a>
+    <a href="bibliotheque.html">Bibliothèque</a>
+    <a href="reglages.html" aria-current="page">Paramètres</a>
+  </nav>
+</header>
+<div class="mise-en-page">
+  <nav class="sommaire" aria-label="Sections des paramètres">
+    <h1>Paramètres</h1>
+    <a href="#apparence">Apparence</a>
+    <a href="#affichage">Affichage</a>
+    <a href="#manettes">Manettes</a>
+    <a href="#commandes">Commandes</a>
+    <a href="#dossiers">Dossiers de jeux</a>
+    <a href="#emulateurs">Émulateurs</a>
+    <a href="#mises-a-jour">Mises à jour</a>
+    <a href="#aide">Aide et dépannage</a>
+  </nav>
+  <div class="sections">
+    <section class="panneau" id="apparence" aria-labelledby="t-apparence">
+      <h2 id="t-apparence">Apparence</h2>
+      <p class="intro">Les changements s'appliquent tout de suite, dans toutes les pages de Rétro.</p>
+      <div class="palettes" id="palettes" role="radiogroup" aria-label="Couleur du thème"></div>
+      <div class="ligne">
+        <div><strong>Mode</strong><small>Sombre, clair, ou comme Windows.</small></div>
+        <div class="segments" role="radiogroup" aria-label="Mode">
+          <label><input type="radio" name="schema" value="dark">Sombre</label>
+          <label><input type="radio" name="schema" value="light">Clair</label>
+          <label><input type="radio" name="schema" value="light dark">Windows</label>
+        </div>
+      </div>
+      <div class="ligne">
+        <div><strong>Effets lumineux</strong><small>Intensité des halos et des lueurs.</small></div>
+        <input type="range" id="lueur" min="0" max="100" step="5" aria-label="Intensité des effets lumineux">
+      </div>
+      <div class="ligne">
+        <div><strong>Animations</strong><small>Transitions et mouvements de l'interface. Si Windows demande moins d'animations, elles restent coupées.</small></div>
+        <input type="checkbox" class="interrupteur" id="animations" aria-label="Animations">
+      </div>
+      <div class="apercu" aria-label="Aperçu">
+        <button type="button" class="btn principal">Bouton principal</button>
+        <button type="button" class="btn">Bouton</button>
+        <span class="badge accent">Accent</span><span class="badge pret">Prêt</span><span class="badge alerte">À faire</span>
+      </div>
+      <div class="ligne"><div><strong>Revenir à l'apparence d'origine</strong><small>Violet néon, mode sombre.</small></div><button type="button" class="btn" id="reinit-theme">Réinitialiser</button></div>
+    </section>
+
+    <section class="panneau" id="affichage" aria-labelledby="t-affichage">
+      <h2 id="t-affichage">Affichage</h2>
+      <p class="intro">Organisation des pages de l'appli.</p>
+      <div class="ligne">
+        <div><strong>Taille des jaquettes</strong><small>Bibliothèque et catalogues des consoles.</small></div>
+        <input type="range" id="taille" min="140" max="280" step="10" aria-label="Taille des jaquettes">
+      </div>
+      <div class="ligne"><div><strong>Accueil : « Reprendre »</strong><small>Tes derniers jeux lancés en haut de l'accueil.</small></div><input type="checkbox" class="interrupteur" id="accueilRecents" aria-label="Afficher Reprendre sur l'accueil"></div>
+      <div class="ligne"><div><strong>Accueil : chiffres de ta collection</strong><small>Jeux détectés, favoris, parties lancées.</small></div><input type="checkbox" class="interrupteur" id="accueilStats" aria-label="Afficher les chiffres sur l'accueil"></div>
+      <div class="ligne"><div><strong>Plein écran</strong><small>Aussi avec <kbd>F11</kbd> dans les émulateurs.</small></div><button type="button" class="btn" id="plein-ecran" hidden>Basculer en plein écran</button></div>
+    </section>
+
+    <section class="panneau" id="manettes" aria-labelledby="t-manettes">
+      <h2 id="t-manettes">Manettes</h2>
+      <p class="intro">Rétro reconnaît les manettes Xbox, PlayStation, Switch Pro et la plupart des manettes USB ou Bluetooth. Appuie sur un bouton pour que Windows la montre à l'appli.</p>
+      <ul class="liste" id="liste-manettes"></ul>
+    </section>
+
+    <section class="panneau" id="commandes" aria-labelledby="t-commandes">
+      <h2 id="t-commandes">Commandes</h2>
+      <p class="intro">Touches du clavier et boutons de la manette pour chaque console. Pour la DS, elles se règlent dans la console DS (son menu, onglet Touches).</p>
+      <div class="commandes" id="liste-commandes"></div>
+    </section>
+
+    <section class="panneau" id="dossiers" aria-labelledby="t-dossiers">
+      <h2 id="t-dossiers">Dossiers de jeux</h2>
+      <p class="intro">Rétro cherche tes jeux tout seul (Téléchargements, Bureau, Documents, autres disques) et dans les dossiers ajoutés ici. Rien n'est copié : les jeux restent où ils sont.</p>
+      <div class="ligne"><div><strong>Recherche automatique</strong><small id="etat-recherche" role="status">—</small></div><div class="actions"><button type="button" class="btn" id="relancer">Chercher maintenant</button><button type="button" class="btn principal" id="ajouter-dossier">Ajouter un dossier</button></div></div>
+      <ul class="liste" id="dossiers-ajoutes"></ul>
+      <h3>Dossiers des consoles</h3>
+      <ul class="liste" id="dossiers-consoles"></ul>
+    </section>
+
+    <section class="panneau" id="emulateurs" aria-labelledby="t-emulateurs">
+      <h2 id="t-emulateurs">Émulateurs</h2>
+      <p class="intro">NES, Super Nintendo, Nintendo 64, PlayStation et DS tournent dans Rétro. Les autres consoles utilisent un émulateur Windows libre, téléchargé depuis son site officiel (empreinte vérifiée quand elle est publiée).</p>
+      <ul class="liste" id="liste-emulateurs"></ul>
+    </section>
+
+    <section class="panneau" id="mises-a-jour" aria-labelledby="t-maj">
+      <h2 id="t-maj">Mises à jour</h2>
+      <div class="ligne"><div><strong id="version">Rétro</strong><small>Les nouvelles versions viennent de la page officielle du projet sur GitHub.</small></div><button type="button" class="btn" id="maj" hidden>Chercher une mise à jour</button></div>
+      <div class="ligne"><div><strong>Nouveautés</strong><small>Liste des changements de chaque version.</small></div><a class="btn" href="https://github.com/Triplex78654/ds-retro/releases" target="_blank" rel="noopener">Voir les versions</a></div>
+    </section>
+
+    <section class="panneau" id="aide" aria-labelledby="t-aide">
+      <h2 id="t-aide">Aide et dépannage</h2>
+      <div class="faq">
+        <details><summary>Un jeu n'apparaît pas</summary><p>Vérifie son format dans la page de sa console (les formats acceptés sont écrits en haut). Mets-le dans <code>Documents\Rétro\&lt;console&gt;</code>, ou ajoute son dossier ci-dessus puis clique sur « Chercher maintenant ». Les jeux DS se chargent depuis la console DS.</p></details>
+        <details><summary>Le jeu ne se lance pas (3DS, Switch, PS2, PS3)</summary><p>Ouvre la page de la console : la liste « Fichiers de ta console » dit ce qui manque (clés et firmware Switch, BIOS PS2, firmware PS3). Ces fichiers viennent de ta propre console : Rétro ne les fournit pas.</p></details>
+        <details><summary>Ma manette ne fait rien</summary><p>Appuie sur un de ses boutons dans l'appli pour que Windows la montre à Rétro, puis regarde la section Manettes ci-dessus. Dans Eden (Switch), règle la manette une fois : Rétro la remet ensuite toute seule.</p></details>
+        <details><summary>Windows affiche un avertissement au premier lancement</summary><p>Rétro n'est pas signé numériquement. Clique sur « Informations complémentaires », puis « Exécuter quand même ». Télécharge Rétro uniquement depuis la page officielle des versions.</p></details>
+        <details><summary>« Rétro est peut-être déjà ouvert »</summary><p>Rétro utilise le port local 53134. Ferme l'autre fenêtre de Rétro (regarde aussi près de l'horloge), puis relance.</p></details>
+      </div>
+      <div class="ligne"><div><strong>Guides et tutoriels</strong><small>Installation, manettes, émulateurs, FAQ complète.</small></div><a class="btn" href="https://triplex78654.github.io/ds-retro/vitrine/guides.html" target="_blank" rel="noopener">Ouvrir les guides</a></div>
+      <div class="ligne"><div><strong>Signaler un problème</strong><small>Sur GitHub, avec ta version de Rétro et ce que tu faisais.</small></div><a class="btn" href="https://github.com/Triplex78654/ds-retro/issues" target="_blank" rel="noopener">Signaler</a></div>
+      <div class="ligne"><div><strong>Effacer l'historique</strong><small>Jeux récents et compteur de parties. Tes jeux, favoris et sauvegardes ne sont pas touchés.</small></div><button type="button" class="btn danger" id="effacer-historique">Effacer</button></div>
+    </section>
+  </div>
+</div>
+<script src="jeux.js"></script>
+<script>
+(function () {
+  "use strict";
+  const R = RetroJeux, $ = x => document.getElementById(x);
+  let p = RetroTheme.lire();
+  const sauver = changement => { p = RetroTheme.enregistrer(changement); };
+
+  // ---------- Apparence ----------
+  const palettes = $("palettes");
+  for (const [id, pal] of Object.entries(RetroTheme.PALETTES)) {
+    const l = document.createElement("label"); l.className = "palette"; l.style.setProperty("--c", pal.couleur);
+    l.innerHTML = '<input type="radio" name="palette"><i aria-hidden="true"></i><span></span>';
+    l.querySelector("input").value = id; l.querySelector("span").textContent = pal.nom;
+    palettes.appendChild(l);
+  }
+  const perso = document.createElement("label"); perso.className = "palette";
+  perso.innerHTML = '<input type="radio" name="palette" value="perso" aria-label="Thème personnalisé"><input type="color" id="couleur-perso" aria-label="Couleur d\'accent personnalisée"><span>Personnalisé</span>';
+  palettes.appendChild(perso);
+  function remplir() {
+    for (const r of document.querySelectorAll("input[name=palette]")) r.checked = r.value === p.palette;
+    for (const r of document.querySelectorAll("input[name=schema]")) r.checked = r.value === p.schema;
+    $("couleur-perso").value = p.perso;
+    $("lueur").value = p.lueur; $("animations").checked = p.animations; $("taille").value = p.taille;
+    $("accueilRecents").checked = p.accueilRecents; $("accueilStats").checked = p.accueilStats;
+  }
+  remplir();
+  palettes.addEventListener("change", e => { if (e.target.name === "palette") sauver({ palette: e.target.value }); });
+  $("couleur-perso").addEventListener("input", e => { perso.querySelector("input[type=radio]").checked = true; sauver({ palette: "perso", perso: e.target.value }); });
+  for (const r of document.querySelectorAll("input[name=schema]")) r.addEventListener("change", e => sauver({ schema: e.target.value }));
+  $("lueur").addEventListener("input", e => sauver({ lueur: Number(e.target.value) }));
+  $("animations").addEventListener("change", e => sauver({ animations: e.target.checked }));
+  $("taille").addEventListener("input", e => sauver({ taille: Number(e.target.value) }));
+  $("accueilRecents").addEventListener("change", e => sauver({ accueilRecents: e.target.checked }));
+  $("accueilStats").addEventListener("change", e => sauver({ accueilStats: e.target.checked }));
+  $("reinit-theme").addEventListener("click", () => { RetroTheme.reinitialiser(); p = RetroTheme.lire(); remplir(); });
+  addEventListener("storage", e => { if (e.key === "retro-theme") { p = RetroTheme.lire(); remplir(); } });
+  if (window.retroApp) { $("plein-ecran").hidden = false; $("plein-ecran").addEventListener("click", () => retroApp.pleinEcran()); }
+
+  // ---------- Manettes (détectées en direct) ----------
+  const NOMS_BOUTONS = ["A", "B", "X", "Y", "LB", "RB", "LT", "RT", "Select", "Start", "L3", "R3", "↑", "↓", "←", "→", "Home"];
+  let signature = "";
+  function dessinerManettes() {
+    const manettes = [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean);
+    const sig = manettes.map(m => m.index + m.id).join("|");
+    const ul = $("liste-manettes");
+    if (sig !== signature) {
+      signature = sig; ul.innerHTML = "";
+      if (!manettes.length) {
+        const li = document.createElement("li"); li.className = "attente";
+        li.innerHTML = '<span class="voyant"></span><div><strong>Aucune manette vue pour l\'instant</strong><small>Branche-la, puis appuie sur un de ses boutons.</small></div><span></span>';
+        ul.appendChild(li);
+      }
+      for (const m of manettes) {
+        const li = document.createElement("li"); li.className = "ok"; li.dataset.index = m.index;
+        li.innerHTML = '<span class="voyant"></span><div><strong></strong><small></small><div class="boutons-manette"></div></div><span class="badge pret"></span>';
+        li.querySelector("strong").textContent = m.id.replace(/\s*\(.*?Vendor.*?\)\s*/i, " ").trim() || "Manette";
+        li.querySelector("small").textContent = "Joueur " + (m.index + 1) + " · " + (m.mapping === "standard" ? "disposition standard reconnue" : "disposition non standard : certains boutons peuvent être décalés") + " · appuie sur les boutons pour les tester";
+        li.querySelector(".badge").textContent = "Connectée";
+        const zone = li.querySelector(".boutons-manette");
+        m.buttons.forEach((_, i) => { const s = document.createElement("span"); s.textContent = NOMS_BOUTONS[i] || i; zone.appendChild(s); });
+        ul.appendChild(li);
+      }
+    }
+    for (const m of manettes) {
+      const li = ul.querySelector(`li[data-index="${m.index}"]`);
+      if (li) li.querySelectorAll(".boutons-manette span").forEach((s, i) => s.classList.toggle("appuye", Boolean(m.buttons[i] && m.buttons[i].pressed)));
+    }
+    requestAnimationFrame(dessinerManettes);
+  }
+  dessinerManettes();
+
+  // ---------- Commandes ----------
+  for (const c of Object.values(R.CONSOLES)) {
+    const d = document.createElement("details");
+    d.innerHTML = "<summary></summary><p></p>";
+    d.querySelector("summary").textContent = c.nom + (c.externe ? " · " + c.externe : "");
+    if (c.aide) d.querySelector("p").innerHTML = c.aide; // texte fixe défini dans jeux.js
+    else d.querySelector("p").textContent = "Les commandes se règlent dans " + c.externe + " (menu Paramètres › Commandes). Rétro le lance avec ses réglages par défaut.";
+    $("liste-commandes").appendChild(d);
+  }
+
+  // ---------- Dossiers de jeux ----------
+  async function dossiers() {
+    if (!window.retroApp) { $("etat-recherche").textContent = "Disponible dans l'appli Windows."; for (const b of ["relancer", "ajouter-dossier"]) $(b).disabled = true; return; }
+    const e = await retroApp.rechercheEtat();
+    $("etat-recherche").textContent = e.enCours ? "Recherche en cours…" : e.derniere ? "Dernière recherche " + R.ilYA(e.derniere) + "." : "Pas encore lancée depuis l'ouverture de Rétro.";
+    const ul = $("dossiers-ajoutes"); ul.innerHTML = "";
+    for (const d of e.dossiers) {
+      const li = document.createElement("li"); li.className = "ok";
+      li.innerHTML = '<span class="voyant"></span><div><strong>Dossier ajouté</strong><small></small></div><span></span>';
+      li.querySelector("small").textContent = d;
+      ul.appendChild(li);
+    }
+    const uc = $("dossiers-consoles"); uc.innerHTML = "";
+    for (const c of Object.values(R.CONSOLES)) {
+      const chemin = await retroApp.cheminDossier(c.id);
+      if (!chemin) continue;
+      const li = document.createElement("li");
+      li.innerHTML = '<span class="voyant"></span><div><strong></strong><small></small></div><button type="button" class="btn">Ouvrir</button>';
+      li.querySelector("strong").textContent = c.nom; li.querySelector("small").textContent = chemin;
+      li.querySelector("button").addEventListener("click", () => retroApp.ouvrirDossier(c.id));
+      uc.appendChild(li);
+    }
+  }
+  dossiers();
+  if (window.retroApp) {
+    retroApp.surRecherche(pr => { $("etat-recherche").textContent = pr.etape === "fini" ? (pr.resultat && pr.resultat.ok ? pr.resultat.trouves + " jeux trouvés." : "Recherche impossible : " + ((pr.resultat && pr.resultat.erreur) || pr.texte)) : "Recherche en cours… " + (pr.texte || ""); });
+    $("relancer").addEventListener("click", async () => { $("relancer").disabled = true; await retroApp.relancerRecherche(); $("relancer").disabled = false; dossiers(); });
+    $("ajouter-dossier").addEventListener("click", async () => { $("ajouter-dossier").disabled = true; await retroApp.chercherJeux(); $("ajouter-dossier").disabled = false; dossiers(); });
+  }
+
+  // ---------- Émulateurs ----------
+  async function emulateurs() {
+    const ul = $("liste-emulateurs"); ul.innerHTML = "";
+    for (const c of Object.values(R.CONSOLES).filter(c => c.externe)) {
+      const li = document.createElement("li");
+      li.innerHTML = '<span class="voyant"></span><div><strong></strong><small></small></div><span class="actions"></span>';
+      li.querySelector("strong").textContent = c.externe + " · " + c.nom;
+      const small = li.querySelector("small"), actions = li.querySelector(".actions");
+      const lien = document.createElement("a"); lien.className = "btn"; lien.href = c.page; lien.textContent = "Fichiers et jeux";
+      ul.appendChild(li);
+      if (!window.retroApp) { small.textContent = "Disponible dans l'appli Windows."; continue; }
+      const e = await retroApp.emulateurEtat(c.id).catch(() => null);
+      const manque = e && e.systeme && Object.values(e.systeme).find(f => f.obligatoire && !f.present);
+      li.className = e && e.installe && !manque ? "ok" : "attente";
+      small.textContent = !e ? "État inconnu." : !e.installe ? "Pas encore installé : il se télécharge au premier jeu." : "Version " + (e.version || "?") + " installée" + (manque ? " · à ajouter : " + manque.titre : " · prêt");
+      const b = document.createElement("button"); b.type = "button"; b.className = "btn" + (e && e.installe ? "" : " principal");
+      b.textContent = e && e.installe ? "Vérifier les mises à jour" : "Installer";
+      b.addEventListener("click", async () => {
+        b.disabled = true;
+        if (e && e.installe) {
+          const v = await retroApp.derniereVersionEmulateur(c.id).catch(() => null);
+          if (!v) { small.textContent = "Impossible de joindre le site de " + c.externe + "."; b.disabled = false; return; }
+          if (v === e.version) { small.textContent = "Version " + e.version + " : c'est la dernière."; b.disabled = false; return; }
+        }
+        const arret = retroApp.surProgression(pr => { small.textContent = pr.etape === "telechargement" && pr.total ? pr.texte + " : " + Math.round(pr.recus / pr.total * 100) + " %" : pr.texte; });
+        const r = await retroApp.installerEmulateur(c.id);
+        arret();
+        if (!r.ok) { small.textContent = "Installation impossible : " + r.erreur; b.disabled = false; return; }
+        emulateurs();
+      });
+      actions.append(b, lien);
+    }
+  }
+  emulateurs();
+
+  // ---------- Mises à jour ----------
+  if (window.retroApp) retroApp.version().then(v => { $("version").textContent = "Rétro " + v; });
+  R.boutonMaj($("maj"));
+
+  // ---------- Aide ----------
+  let arme = false;
+  $("effacer-historique").addEventListener("click", () => {
+    const b = $("effacer-historique");
+    if (!arme) { arme = true; b.classList.add("arme"); b.textContent = "Sûr ? Clique encore"; setTimeout(() => { arme = false; b.classList.remove("arme"); b.textContent = "Effacer"; }, 3000); return; }
+    try { localStorage.removeItem("retro-recents"); localStorage.removeItem("retro-lancements"); } catch (e) {}
+    arme = false; b.classList.remove("arme"); b.textContent = "Historique effacé"; b.disabled = true;
+  });
+
+  // Sommaire : section visible mise en avant
+  const liens = [...document.querySelectorAll(".sommaire a")];
+  const obs = new IntersectionObserver(es => {
+    for (const e of es) if (e.isIntersecting) liens.forEach(l => l.classList.toggle("actif", l.hash === "#" + e.target.id));
+  }, { rootMargin: "-30% 0px -60% 0px" });
+  document.querySelectorAll(".sections > section").forEach(s => obs.observe(s));
+  R.navigation(".sommaire a, .palette input:checked, .sections .btn, .interrupteur", { retour: () => history.length > 1 ? history.back() : (location.href = "accueil.html") });
+})();
+</script>
+</body>
+</html>

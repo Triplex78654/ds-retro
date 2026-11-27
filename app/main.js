@@ -8,6 +8,10 @@ const emulateurs = require("./emulateurs");
 const maj = require("./maj");
 const ORIGINE = `http://127.0.0.1:${PORT}`;
 
+// Mode démonstration (captures d'écran, essais) : données et dossiers de jeux à part, aucune recherche sur le PC.
+const DEMO = process.env.RETRO_DEMO ? path.resolve(process.env.RETRO_DEMO) : null;
+if (DEMO) { app.setPath("userData", path.join(DEMO, "donnees")); app.setPath("documents", path.join(DEMO, "documents")); }
+
 if (!app.requestSingleInstanceLock()) app.quit();
 
 let fenetre = null;
@@ -154,6 +158,7 @@ async function endroitsAFouiller() {
 let rechercheEnCours = null, derniereRecherche = 0;
 const signaler = p => { if (fenetre && !fenetre.isDestroyed()) fenetre.webContents.send("recherche-progression", p); };
 function rechercheAuto(choisis) {
+  if (DEMO) return Promise.resolve({ ok: true, trouves: 0, ajoutes: {}, retires: 0 });
   if (rechercheEnCours) return rechercheEnCours;
   derniereRecherche = Date.now();
   rechercheEnCours = (async () => {
