@@ -6,5 +6,6 @@ hébergée avec la console pour ne rien charger depuis un autre site.
 - `loader.js`, `emulator.css`, `src/`, `compression/`, `localization/` : dossier `data/` du dépôt EmulatorJS.
 - `cores/desmume-*.data` et `cores/reports/desmume.json` : paquet npm `@emulatorjs/core-desmume@4.2.3` (DS).
 - `cores/mgba-*.data` et `cores/reports/mgba.json` : paquet npm `@emulatorjs/core-mgba@4.2.3` (GBA, GB, GBC).
+- `cores/fceumm`, `snes9x`, `mupen64plus_next`, `pcsx_rearmed` : paquets npm `@emulatorjs/core-*@4.2.3` (NES, Super Nintendo, N64, PlayStation), utilisés par l'appli Rétro.
 
 Licence : GPL-3.0 (voir `LICENSE`). Pour changer de version, remplacer tout le dossier par la nouvelle version.

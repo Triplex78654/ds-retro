@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rétro</title>
+<link rel="stylesheet" href="console/styles/00-polices.css">
+<style>
+  :root { --fond: #16181d; --panneau: #1f232b; --texte: #eef0f4; --texte-2: #9aa1ad; --h: 0; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--fond); color: var(--texte); font: 400 15px/1.45 system-ui, sans-serif; display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
+  header { display: flex; align-items: center; gap: 14px; padding: 14px 24px; border-bottom: 1px solid rgba(255,255,255,.06); }
+  header h1 { margin: 0; font: 600 26px/1 "Pixelify", system-ui, sans-serif; }
+  header .pastille { width: 12px; height: 12px; border-radius: 50%; background: hsl(var(--h) 65% 55%); box-shadow: 0 0 10px hsl(var(--h) 65% 55% / .6); }
+  header .espace { flex: 1; }
+  button, .bouton { font: 600 14px/1 system-ui, sans-serif; color: var(--texte); background: #2b303b; border: 1px solid rgba(255,255,255,.08); border-radius: 9px; padding: 10px 14px; cursor: pointer; }
+  button:hover, .bouton:hover { border-color: hsl(var(--h) 65% 60%); }
+  button:focus-visible, .bouton:focus-visible { outline: 3px solid hsl(var(--h) 65% 60% / .6); outline-offset: 2px; }
+  button.principal { background: hsl(var(--h) 55% 45%); border-color: transparent; }
+  label.volume { display: flex; align-items: center; gap: 8px; color: var(--texte-2); font-size: 13px; }
+  label.volume input { accent-color: hsl(var(--h) 65% 55%); width: 110px; }
+  main { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; min-height: 0; }
+  body.en-jeu main { grid-template-columns: 1fr; }
+  body.en-jeu .bibliotheque { display: none; }
+  .bibliotheque { border-right: 1px solid rgba(255,255,255,.06); padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+  .bibliotheque h2 { margin: 0; font-size: 15px; color: var(--texte-2); font-weight: 600; }
+  .bibliotheque p { margin: 0; color: var(--texte-2); font-size: 13px; }
+  .jeux { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .jeux li { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; background: var(--panneau); border-radius: 10px; padding: 8px 8px 8px 12px; }
+  .jeux li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .jeux li button { padding: 8px 10px; }
+  .jeux li button.retirer { background: transparent; color: var(--texte-2); }
+  .jeux li button.retirer.arme { background: #b3261e; color: #fff; }
+  .scene { display: grid; place-items: center; padding: 24px; min-height: 0; background: radial-gradient(900px 500px at 50% 0%, hsl(var(--h) 30% 16%), transparent 70%); }
+  .tele { position: relative; width: min(100%, calc((100vh - 140px) * 4 / 3)); aspect-ratio: 4 / 3; background: #000; border-radius: 14px; box-shadow: 0 0 0 10px #0d0f13, 0 20px 50px rgba(0,0,0,.5); overflow: hidden; }
+  #game { position: absolute; inset: 0; }
+  .ecran-vide { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--texte-2); padding: 24px; }
+  .ecran-vide strong { display: block; font: 600 30px/1.2 "Pixelify", system-ui, sans-serif; color: var(--texte); margin-bottom: 8px; }
+  .aide { color: var(--texte-2); font-size: 13px; margin-top: 14px; text-align: center; }
+  kbd { font: 600 12px/1 system-ui; background: #2b303b; border-radius: 5px; padding: 3px 6px; border: 1px solid rgba(255,255,255,.1); }
+  .pause { position: absolute; inset: 0; background: rgba(10,12,16,.82); display: none; place-items: center; z-index: 10; }
+  body.en-pause .pause { display: grid; }
+  .pause div { display: grid; gap: 10px; min-width: 260px; }
+  .pause h2 { margin: 0 0 6px; font: 600 24px/1 "Pixelify", system-ui, sans-serif; text-align: center; }
+  .pause small { color: var(--texte-2); text-align: center; }
+  #game .ejs_menu_bar, #game .ejs_context_menu { display: none !important; }
+  .message { min-height: 1.4em; color: var(--texte-2); font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <a class="bouton" href="accueil.html" id="accueil">← Accueil</a>
+  <span class="pastille" aria-hidden="true"></span>
+  <h1 id="titre">Console</h1>
+  <span class="espace"></span>
+  <label class="volume">Son <input type="range" id="volume" min="0" max="100" step="5" aria-label="Volume du son"></label>
+  <button type="button" id="menu-jeu" hidden>Pause</button>
+</header>
+<main>
+  <section class="bibliotheque" aria-label="Tes jeux">
+    <h2>Tes jeux</h2>
+    <button type="button" class="principal" id="ajouter">Ajouter des jeux</button>
+    <p id="formats"></p>
+    <ul class="jeux" id="jeux"></ul>
+    <p class="message" id="message" role="status"></p>
+  </section>
+  <section class="scene">
+    <div>
+      <div class="tele">
+        <div id="game"></div>
+        <div class="ecran-vide" id="ecran-vide"><div><strong id="titre-ecran"></strong>Choisis un jeu dans ta liste.</div></div>
+        <div class="pause" role="dialog" aria-label="Pause">
+          <div>
+            <h2>Pause</h2>
+            <button type="button" class="principal" id="reprendre">Reprendre</button>
+            <button type="button" id="sauver-etat">Sauver l'état</button>
+            <button type="button" id="charger-etat">Charger l'état</button>
+            <button type="button" id="quitter">Quitter le jeu</button>
+            <small>Échap pour revenir au jeu</small>
+          </div>
+        </div>
+      </div>
+      <p class="aide">Clavier : <kbd>↑↓←→</kbd> <kbd>Z</kbd> A · <kbd>X</kbd> B · <kbd>A</kbd> X · <kbd>S</kbd> Y · <kbd>Q</kbd> <kbd>E</kbd> L / R · <kbd>Entrée</kbd> Start · <kbd>V</kbd> Select · <kbd>Échap</kbd> pause. Une manette marche toute seule.</p>
+    </div>
+  </section>
+</main>
+<input type="file" id="fichier" multiple hidden>
+<script>
+// L'image du jeu reste lisible (capture, diffusion aux potes) : comme dans la console DS.
+(function () {
+  const avant = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (type, options) {
+    if (type === "webgl" || type === "webgl2" || type === "experimental-webgl") options = Object.assign({}, options, { preserveDrawingBuffer: true });
+    return avant.call(this, type, options);
+  };
+})();
+(function () {
+  "use strict";
+  // Une page pour toutes les consoles de salon. Le cœur de chaque console est hébergé avec l'appli.
+  const CONSOLES = {
+    nes: { nom: "NES", coeur: "fceumm", h: 0, extensions: [".nes", ".zip", ".7z"], formats: "Fichiers .nes (ou un .zip / .7z qui en contient un)." },
+    snes: { nom: "Super Nintendo", coeur: "snes9x", h: 265, extensions: [".sfc", ".smc", ".zip", ".7z"], formats: "Fichiers .sfc ou .smc (ou un .zip / .7z)." },
+    n64: { nom: "Nintendo 64", coeur: "mupen64plus_next", h: 140, extensions: [".z64", ".n64", ".v64", ".zip", ".7z"], formats: "Fichiers .z64, .n64 ou .v64 (ou un .zip / .7z)." },
+    psx: { nom: "PlayStation", coeur: "pcsx_rearmed", h: 210, extensions: [".chd", ".pbp", ".zip", ".7z", ".iso"], formats: "Un fichier .chd ou .pbp, ou un .zip avec le .cue et les .bin du jeu." },
+  };
+  const id = new URLSearchParams(location.search).get("console");
+  const C = CONSOLES[id];
+  const $ = x => document.getElementById(x);
+  if (!C) { location.href = "accueil.html"; return; }
+  document.title = "Rétro · " + C.nom;
+  document.documentElement.style.setProperty("--h", C.h);
+  $("titre").textContent = C.nom; $("titre-ecran").textContent = C.nom;
+  $("formats").textContent = C.formats + " Tes jeux restent sur ton PC.";
+  $("fichier").accept = C.extensions.join(",");
+
+  // ---------- Stockage local (IndexedDB) ----------
+  let base;
+  const ouvrir = () => base || (base = new Promise((ok, ko) => {
+    const r = indexedDB.open("retro-salon", 1);
+    r.onupgradeneeded = () => { for (const s of ["jeux", "sauvegardes", "etats"]) r.result.createObjectStore(s, { keyPath: "id" }); };
+    r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error);
+  }));
+  const magasin = async (s, mode, f) => { const db = await ouvrir(); return new Promise((ok, ko) => { const t = db.transaction(s, mode); const q = f(t.objectStore(s)); t.oncomplete = () => ok(q && q.result); t.onerror = () => ko(t.error); }); };
+  const lire = (s, k) => magasin(s, "readonly", o => o.get(k));
+  const ecrire = (s, v) => magasin(s, "readwrite", o => o.put(v));
+  const effacer = (s, k) => magasin(s, "readwrite", o => o.delete(k));
+  const tous = s => magasin(s, "readonly", o => o.getAll());
+  const nomLisible = n => n.replace(/\.[^.]+$/, "").replace(/[_]+/g, " ");
+
+  // ---------- Bibliothèque ----------
+  async function afficherJeux() {
+    const liste = (await tous("jeux")).filter(j => j.console === id).sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+    const ul = $("jeux"); ul.innerHTML = "";
+    if (!liste.length) { const li = document.createElement("li"); li.textContent = "Aucun jeu pour l'instant."; li.style.gridTemplateColumns = "1fr"; ul.appendChild(li); return; }
+    for (const j of liste) {
+      const li = document.createElement("li");
+      const nom = document.createElement("span"); nom.textContent = nomLisible(j.nom); nom.title = j.nom;
+      const jouer = document.createElement("button"); jouer.type = "button"; jouer.textContent = "Jouer"; jouer.className = "principal";
+      jouer.addEventListener("click", () => lancer(j));
+      const retirer = document.createElement("button"); retirer.type = "button"; retirer.className = "retirer"; retirer.textContent = "×"; retirer.setAttribute("aria-label", "Retirer " + nomLisible(j.nom));
+      let arme = false;
+      retirer.addEventListener("click", async () => {
+        if (!arme) { arme = true; retirer.classList.add("arme"); retirer.textContent = "Retirer ?"; setTimeout(() => { arme = false; retirer.classList.remove("arme"); retirer.textContent = "×"; }, 3000); return; }
+        await effacer("jeux", j.id); afficherJeux();
+      });
+      li.append(nom, jouer, retirer); ul.appendChild(li);
+    }
+  }
+  $("ajouter").addEventListener("click", () => $("fichier").click());
+  $("fichier").addEventListener("change", async e => {
+    const fichiers = [...e.target.files].filter(f => C.extensions.some(x => f.name.toLowerCase().endsWith(x)));
+    const ignores = e.target.files.length - fichiers.length;
+    for (const f of fichiers) await ecrire("jeux", { id: id + ":" + f.name + "|" + f.size, console: id, nom: f.name, taille: f.size, ajoute: Date.now(), blob: f });
+    e.target.value = "";
+    $("message").textContent = (fichiers.length ? fichiers.length + (fichiers.length > 1 ? " jeux ajoutés." : " jeu ajouté.") : "") + (ignores ? " " + ignores + " fichier(s) ignoré(s) : format non reconnu pour la " + C.nom + "." : "");
+    afficherJeux();
+  });
+
+  // ---------- Volume ----------
+  let volume = Number(localStorage.getItem("ds-retro-volume") || 70);
+  const appliquerVolume = () => {
+    $("volume").value = volume;
+    try { if (window.EJS_emulator && EJS_emulator.setVolume) { EJS_emulator.volume = volume / 100; EJS_emulator.setVolume(volume / 100); } } catch (e) {}
+  };
+  $("volume").addEventListener("input", e => { volume = Number(e.target.value); localStorage.setItem("ds-retro-volume", String(volume)); appliquerVolume(); });
+  appliquerVolume();
+
+  // ---------- Partie ----------
+  let partie = null, empreinte = "";
+  const empreinteDe = o => { let h = 2166136261; for (let i = 0; i < o.length; i++) h = Math.imul(h ^ o[i], 16777619); return o.length + ":" + (h >>> 0); };
+  function lancer(jeu) {
+    if (partie) return;
+    partie = jeu;
+    document.body.classList.add("en-jeu");
+    $("ecran-vide").hidden = true; $("menu-jeu").hidden = false;
+    $("game").addEventListener("contextmenu", e => { e.preventDefault(); e.stopPropagation(); }, true);
+    Object.assign(window, {
+      EJS_player: "#game", EJS_core: C.coeur, EJS_gameName: nomLisible(jeu.nom), EJS_gameUrl: URL.createObjectURL(jeu.blob),
+      EJS_pathtodata: "emulateur/", EJS_startOnLoaded: true, EJS_volume: volume / 100, EJS_color: "#2b303b",
+      EJS_Buttons: Object.fromEntries(["playPause", "restart", "mute", "settings", "fullscreen", "saveState", "loadState", "screenRecord", "gamepad", "cheat", "volumeSlider", "saveSavFiles", "loadSavFiles", "quickSave", "quickLoad", "screenshot", "cacheManager", "exitEmulation", "netplay", "diskButton"].map(b => [b, false])),
+      EJS_onGameStart: () => { restaurer(); appliquerVolume(); },
+    });
+    const s = document.createElement("script"); s.src = "emulateur/loader.js";
+    s.onerror = () => { $("message").textContent = "L'émulateur n'a pas pu se charger."; };
+    document.body.appendChild(s);
+  }
+  async function restaurer() {
+    try {
+      const sv = await lire("sauvegardes", partie.id);
+      if (!sv) return;
+      const gm = EJS_emulator.gameManager;
+      gm.FS.writeFile(gm.getSaveFilePath(), sv.donnees); gm.loadSaveFiles();
+      empreinte = empreinteDe(sv.donnees);
+    } catch (e) {}
+  }
+  async function sauver() {
+    try {
+      if (!partie || !window.EJS_emulator || !EJS_emulator.gameManager) return;
+      const d = EJS_emulator.gameManager.getSaveFile();
+      if (!d || !d.length) return;
+      const o = new Uint8Array(d), e = empreinteDe(o);
+      if (e === empreinte) return;
+      empreinte = e;
+      await ecrire("sauvegardes", { id: partie.id, donnees: o, maj: Date.now() });
+    } catch (e) {}
+  }
+  setInterval(sauver, 15000);
+  addEventListener("pagehide", sauver);
+  addEventListener("visibilitychange", () => { if (document.hidden) sauver(); });
+
+  // ---------- Pause ----------
+  const enPause = () => document.body.classList.contains("en-pause");
+  function pause(oui) {
+    if (!partie || !window.EJS_emulator) return;
+    document.body.classList.toggle("en-pause", oui);
+    try { oui ? EJS_emulator.pause() : EJS_emulator.play(); } catch (e) {}
+    if (oui) { sauver(); $("reprendre").focus(); } else { const c = document.querySelector("#game canvas"); if (c) { c.tabIndex = -1; c.focus(); } }
+  }
+  $("menu-jeu").addEventListener("click", () => pause(!enPause()));
+  $("reprendre").addEventListener("click", () => pause(false));
+  addEventListener("keydown", e => { if (e.key === "Escape" && partie) { e.preventDefault(); pause(!enPause()); } }, true);
+  $("sauver-etat").addEventListener("click", async () => {
+    try { await ecrire("etats", { id: partie.id, etat: new Uint8Array(EJS_emulator.gameManager.getState()), maj: Date.now() }); $("sauver-etat").textContent = "État sauvé"; setTimeout(() => { $("sauver-etat").textContent = "Sauver l'état"; }, 1500); } catch (e) {}
+  });
+  $("charger-etat").addEventListener("click", async () => {
+    const e = await lire("etats", partie.id).catch(() => null);
+    if (!e) { $("charger-etat").textContent = "Aucun état sauvé"; setTimeout(() => { $("charger-etat").textContent = "Charger l'état"; }, 1500); return; }
+    EJS_emulator.gameManager.loadState(e.etat); pause(false);
+  });
+  $("quitter").addEventListener("click", async () => { await sauver(); location.reload(); });
+  $("accueil").addEventListener("click", async e => { if (partie) { e.preventDefault(); await sauver(); location.href = "accueil.html"; } });
+
+  // Manette : Select + Start = pause
+  (function boucle() {
+    const m = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(Boolean);
+    if (m && partie && m.buttons[8] && m.buttons[9] && m.buttons[8].pressed && m.buttons[9].pressed) {
+      if (!boucle.avant) pause(!enPause());
+      boucle.avant = true;
+    } else boucle.avant = false;
+    requestAnimationFrame(boucle);
+  })();
+
+  afficherJeux();
+})();
+</script>
+</body>
+</html>

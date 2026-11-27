@@ -26,6 +26,15 @@
   const CDN = "emulateur/";
   let discordPret = Promise.resolve();
 
+  // Dans l'appli Rétro pour PC : un bouton pour revenir au menu d'accueil.
+  if (window.retroApp) {
+    const retour = document.createElement("a");
+    retour.href = "accueil.html"; retour.textContent = "← Accueil";
+    retour.setAttribute("style", "position:fixed;left:14px;top:12px;z-index:50;font:600 14px/1 system-ui,sans-serif;color:#eef0f4;background:#2b303bcc;border:1px solid #ffffff22;border-radius:9px;padding:9px 12px;text-decoration:none");
+    retour.addEventListener("click", e => { if (typeof jeuActif !== "undefined" && jeuActif) { e.preventDefault(); Promise.resolve(typeof sauverSram === "function" && sauverSram(true)).finally(() => { location.href = "accueil.html"; }); } });
+    document.body.appendChild(retour);
+  }
+
   if (DANS_DISCORD) {
     document.getElementById("lieu").textContent = "Discord";
     if (window.DiscordEmbedded && CONFIG.discordApplicationId) {

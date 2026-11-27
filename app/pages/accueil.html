@@ -61,15 +61,16 @@
   // Consoles de l'appli. « page » = console prête ; les autres arrivent dans les prochaines versions.
   const CONSOLES = [
     { nom: "DS, GBA et Game Boy", detail: "DS Lite : jeux DS, GBA, Game Boy, Game Boy Color", sigle: "DS", h: 220, page: "index.html" },
-    { nom: "NES", detail: "1983", sigle: "NES", h: 0 },
-    { nom: "Super Nintendo", detail: "1990", sigle: "SNES", h: 265 },
-    { nom: "Nintendo 64", detail: "1996", sigle: "N64", h: 140 },
-    { nom: "PlayStation", detail: "1994", sigle: "PS1", h: 210 },
+    { nom: "NES", detail: "1983", sigle: "NES", h: 0, page: "salon.html?console=nes" },
+    { nom: "Super Nintendo", detail: "1990", sigle: "SNES", h: 265, page: "salon.html?console=snes" },
+    { nom: "Nintendo 64", detail: "1996", sigle: "N64", h: 140, page: "salon.html?console=n64" },
+    { nom: "PlayStation", detail: "1994", sigle: "PS1", h: 210, page: "salon.html?console=psx" },
     { nom: "3DS", detail: "avec Azahar", sigle: "3DS", h: 350 },
     { nom: "GameCube et Wii", detail: "avec Dolphin", sigle: "GC", h: 255 },
     { nom: "PSP", detail: "avec PPSSPP", sigle: "PSP", h: 200 },
     { nom: "PlayStation 2", detail: "avec PCSX2", sigle: "PS2", h: 230 },
     { nom: "PlayStation 3", detail: "avec RPCS3", sigle: "PS3", h: 0 },
+    { nom: "Switch", detail: "avec Eden : il faut les clés de ta propre Switch", sigle: "NX", h: 355 },
   ];
   const tuile = c => {
     const b = document.createElement("button");
