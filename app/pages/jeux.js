@@ -6,26 +6,26 @@
   // ---------- Consoles ----------
   // coeur : cœur EmulatorJS (jeu dans l'appli) ; externe : émulateur Windows téléchargé au premier jeu.
   const CONSOLES = {
-    nes: { nom: "NES", annee: 1983, sigle: "NES", support: "cartouche", coeur: "fceumm", h: 0, extensions: [".nes", ".zip", ".7z"], formats: "Fichiers .nes (ou un .zip / .7z qui en contient un).",
+    nes: { nom: "NES", annee: 1983, sigle: "NES", support: "nes", coeur: "fceumm", h: 0, extensions: [".nes", ".zip", ".7z"], formats: "Fichiers .nes (ou un .zip / .7z qui en contient un).",
       aide: "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> bouger · <kbd>Espace</kbd> ou <kbd>K</kbd> A · <kbd>J</kbd> B · <kbd>Entrée</kbd> Start · <kbd>Retour</kbd> Select. Manette : stick ou croix, A/B, gâchettes RT = B (tir) et LT = A." },
-    snes: { nom: "Super Nintendo", annee: 1990, sigle: "SNES", support: "cartouche", coeur: "snes9x", h: 265, extensions: [".sfc", ".smc", ".zip", ".7z"], formats: "Fichiers .sfc ou .smc (ou un .zip / .7z).",
+    snes: { nom: "Super Nintendo", annee: 1990, sigle: "SNES", support: "snes", coeur: "snes9x", h: 265, extensions: [".sfc", ".smc", ".zip", ".7z"], formats: "Fichiers .sfc ou .smc (ou un .zip / .7z).",
       aide: "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> bouger · <kbd>K</kbd> B · <kbd>L</kbd> A · <kbd>J</kbd> Y · <kbd>I</kbd> X · <kbd>A</kbd> <kbd>E</kbd> L / R · <kbd>Entrée</kbd> Start. Manette : stick ou croix, gâchettes et bumpers = L / R." },
-    n64: { nom: "Nintendo 64", annee: 1996, sigle: "N64", support: "cartouche", coeur: "mupen64plus_next", h: 140, extensions: [".z64", ".n64", ".v64", ".zip", ".7z"], formats: "Fichiers .z64, .n64 ou .v64 (ou un .zip / .7z).",
+    n64: { nom: "Nintendo 64", annee: 1996, sigle: "N64", support: "n64", coeur: "mupen64plus_next", h: 140, extensions: [".z64", ".n64", ".v64", ".zip", ".7z"], formats: "Fichiers .z64, .n64 ou .v64 (ou un .zip / .7z).",
       aide: "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> stick · souris caméra (boutons C) · clic gauche Z (tir) · clic droit R (viser) · <kbd>Espace</kbd> A · <kbd>J</kbd> B · <kbd>Maj</kbd> Z · <kbd>A</kbd> <kbd>E</kbd> L / R · <kbd>↑↓←→</kbd> boutons C · <kbd>Entrée</kbd> Start. Manette : stick gauche, stick droit = boutons C, gâchettes = Z, bumpers = L / R." },
-    psx: { nom: "PlayStation", annee: 1994, sigle: "PS1", support: "disque", coeur: "pcsx_rearmed", h: 210, extensions: [".chd", ".pbp", ".zip", ".7z", ".iso"], formats: "Un fichier .chd ou .pbp, ou un .zip avec le .cue et les .bin du jeu.",
+    psx: { nom: "PlayStation", annee: 1994, sigle: "PS1", support: "cd", coeur: "pcsx_rearmed", h: 210, extensions: [".chd", ".pbp", ".zip", ".7z", ".iso"], formats: "Un fichier .chd ou .pbp, ou un .zip avec le .cue et les .bin du jeu.",
       aide: "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> bouger · souris caméra · clic gauche R2 · clic droit L2 · <kbd>Espace</kbd> ✕ · <kbd>L</kbd> ○ · <kbd>J</kbd> □ · <kbd>I</kbd> △ · <kbd>A</kbd> <kbd>E</kbd> L1 / R1 · <kbd>Maj</kbd> L2 · <kbd>R</kbd> R2 · <kbd>Entrée</kbd> Start. Manette DualShock : deux sticks, gâchettes L2 / R2." },
-    "3ds": { nom: "3DS", annee: 2011, sigle: "3DS", support: "carte", externe: "Azahar", h: 350, extensions: [".cci", ".3ds", ".cxi", ".cia", ".3dsx", ".zcci", ".zcxi", ".z3dsx"], formats: "Tes jeux 3DS déchiffrés : .cia, .cci, .cxi ou .3dsx (un .3ds déchiffré renommé en .cci marche).",
+    "3ds": { nom: "3DS", annee: 2011, sigle: "3DS", support: "carte3ds", externe: "Azahar", h: 350, extensions: [".cci", ".3ds", ".cxi", ".cia", ".3dsx", ".zcci", ".zcxi", ".z3dsx"], formats: "Tes jeux 3DS déchiffrés : .cia, .cci, .cxi ou .3dsx (un .3ds déchiffré renommé en .cci marche).",
       aide: "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> stick · <kbd>Maj</kbd> marcher · <kbd>Entrée</kbd> A (valider) · <kbd>Espace</kbd> B (retour) · <kbd>I</kbd> X · <kbd>J</kbd> Y · <kbd>A</kbd> <kbd>E</kbd> L / R · <kbd>↑↓←→</kbd> croix · <kbd>P</kbd> Start · <kbd>O</kbd> Select · souris = écran tactile. Avec une manette branchée (appuie sur un bouton ici avant de lancer), tout passe par la manette." },
-    switch: { nom: "Switch", annee: 2017, sigle: "NX", support: "carte", externe: "Eden", h: 355, extensions: [".nsp", ".xci", ".nca", ".nro", ".nso"], formats: "Tes jeux Switch : .nsp ou .xci (avec tes clés et ton firmware).",
+    switch: { nom: "Switch", annee: 2017, sigle: "NX", support: "switch", externe: "Eden", h: 355, extensions: [".nsp", ".xci", ".nca", ".nro", ".nso"], formats: "Tes jeux Switch : .nsp ou .xci (avec tes clés et ton firmware).",
       aide: "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> stick · <kbd>Maj</kbd> marcher · souris caméra · clic gauche ZR · clic droit ZL · <kbd>Entrée</kbd> A · <kbd>Espace</kbd> B · <kbd>I</kbd> X · <kbd>J</kbd> Y · <kbd>A</kbd> <kbd>E</kbd> L / R · <kbd>↑↓←→</kbd> croix · <kbd>P</kbd> + · <kbd>O</kbd> − · <kbd>C</kbd> <kbd>V</kbd> clic des sticks. Manette : règle-la une fois dans Eden, l'appli la remet ensuite toute seule quand elle est branchée (appuie sur un de ses boutons ici avant de lancer)." },
     psp: { nom: "PSP", annee: 2004, sigle: "PSP", support: "umd", externe: "PPSSPP", h: 200, extensions: [".iso", ".cso", ".chd", ".pbp"], formats: "Tes jeux PSP : .iso, .cso, .chd ou .pbp." },
-    ps2: { nom: "PlayStation 2", annee: 2000, sigle: "PS2", support: "boitier", externe: "PCSX2", h: 230, extensions: [".iso", ".chd", ".cso", ".zso", ".cue"], formats: "Tes jeux PS2 : .iso, .chd, .cso ou .cue (avec le BIOS de ta PS2)." },
-    ps3: { nom: "PlayStation 3", annee: 2006, sigle: "PS3", support: "boitier", externe: "RPCS3", h: 0, dossiers: true, extensions: [".iso"], formats: "Tes jeux PS3 : un dossier de jeu (avec PS3_GAME ou EBOOT.BIN dedans) ou un .iso." },
+    ps2: { nom: "PlayStation 2", annee: 2000, sigle: "PS2", support: "dvd", externe: "PCSX2", h: 230, extensions: [".iso", ".chd", ".cso", ".zso", ".cue"], formats: "Tes jeux PS2 : .iso, .chd, .cso ou .cue (avec le BIOS de ta PS2)." },
+    ps3: { nom: "PlayStation 3", annee: 2006, sigle: "PS3", support: "bluray", externe: "RPCS3", h: 0, dossiers: true, extensions: [".iso"], formats: "Tes jeux PS3 : un dossier de jeu (avec PS3_GAME ou EBOOT.BIN dedans) ou un .iso." },
   };
   for (const [id, c] of Object.entries(CONSOLES)) { c.id = id; c.page = "salon.html?console=" + encodeURIComponent(id); }
   // La console DS a sa propre page (partagée avec l'Activité Discord) et garde ses jeux à part.
-  const DS = { id: "ds", nom: "DS, GBA et Game Boy", sigle: "DS", support: "carte", h: 220, page: "index.html", detail: "DS Lite : jeux DS, GBA, Game Boy, Game Boy Color" };
-  const BIENTOT = [{ id: "gc", nom: "GameCube et Wii", sigle: "GC", support: "disque", h: 255, detail: "avec Dolphin" }];
+  const DS = { id: "ds", nom: "DS, GBA et Game Boy", sigle: "DS", support: "carteds", h: 220, page: "index.html", detail: "DS Lite : jeux DS, GBA, Game Boy, Game Boy Color" };
+  const BIENTOT = [{ id: "gc", nom: "GameCube et Wii", sigle: "GC", support: "minidisque", h: 255, detail: "avec Dolphin" }];
 
   // ---------- Stockage local (IndexedDB) : jeux ajoutés à la main, sauvegardes, états ----------
   let base;
@@ -108,7 +108,7 @@
     b.style.setProperty("--t", teinte(j.nom));
     b.style.setProperty("--h", C ? C.h : 260);
     b.setAttribute("aria-label", nomLisible(j.nom) + (C ? ", " + C.nom : ""));
-    const jaq = document.createElement("span"); jaq.className = "jaquette"; jaq.dataset.support = C ? C.support : "cartouche";
+    const jaq = document.createElement("span"); jaq.className = "jaquette"; jaq.dataset.support = C ? C.support : "nes";
     jaq.innerHTML = '<span class="media"><span class="etiquette"></span></span>';
     jaq.querySelector(".etiquette").textContent = initiales(j.nom);
     const t = document.createElement("span"); t.className = "titre-jeu";

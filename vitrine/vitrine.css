@@ -57,8 +57,8 @@ section { scroll-margin-top: 80px; }
 .consoles-site { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
 .console-site { overflow: hidden; }
 .console-site .visuel { height: 130px; display: grid; place-items: end center; position: relative; overflow: hidden; background: radial-gradient(120% 90% at 50% 100%, hsl(var(--h) 50% 28%), hsl(var(--h) 35% 11%) 70%); }
-.console-site .visuel .etiquette { font-size: 18px; }
-.console-site .visuel::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 8px; background: linear-gradient(#3a3227, #241e17); }
+.console-site .visuel { place-items: center; }
+.console-site .visuel svg { width: 80%; height: 110px; filter: drop-shadow(0 8px 10px rgb(0 0 0 / .5)); }
 .console-site div.texte { padding: 14px 16px 16px; }
 .console-site strong { display: block; }
 .console-site small { color: var(--texte-2); }

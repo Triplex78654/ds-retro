@@ -27,7 +27,8 @@
     border-radius: 22px; border: 1px solid var(--bord); box-shadow: var(--ombre);
     background: radial-gradient(500px 220px at 0% 0%, hsl(var(--h) 70% 50% / calc(var(--lueur) * .35)), transparent 70%), var(--fond-2);
   }
-  .entete-console .jaquette { width: 130px; height: 120px; border-radius: 14px; }
+  .visuel-console { display: grid; place-items: center; width: 170px; height: 120px; border-radius: 14px; background: radial-gradient(120% 90% at 50% 100%, hsl(var(--h) 50% 28%), hsl(var(--h) 35% 11%) 70%); }
+  .visuel-console svg { width: 88%; filter: drop-shadow(0 8px 10px rgb(0 0 0 / .5)); }
   .entete-console h2 { margin: 0 0 4px; font-size: 28px; }
   .entete-console p { margin: 0; color: var(--texte-2); }
   body.en-jeu .catalogue { display: none; }
@@ -109,7 +110,7 @@
 <main>
   <section class="catalogue" aria-label="Catalogue de jeux">
     <div class="entete-console apparait">
-      <span class="jaquette" id="visuel-console"><span class="media"><span class="etiquette" id="sigle-console"></span></span></span>
+      <span class="visuel-console" id="visuel-console"></span>
       <div>
         <h2 id="nom-console"></h2>
         <p id="formats"></p>
@@ -186,6 +187,7 @@
 </main>
 <input type="file" id="fichier" multiple hidden>
 <script src="jeux.js"></script>
+<script src="consoles-dessins.js"></script>
 <script src="commandes.js"></script>
 <script>
 // L'image du jeu reste lisible (capture, diffusion aux potes) : comme dans la console DS.
@@ -217,9 +219,7 @@
   document.documentElement.style.setProperty("--h", C.h);
   $("titre").textContent = C.nom;
   $("nom-console").textContent = C.nom;
-  $("sigle-console").textContent = C.sigle;
-  $("visuel-console").dataset.support = C.support;
-  $("visuel-console").style.setProperty("--t", C.h);
+  $("visuel-console").innerHTML = RetroDessins.console(id); // SVG fixe de consoles-dessins.js
   $("formats").textContent = C.formats;
   $("fichier").accept = C.extensions.join(",");
   if (C.externe) {

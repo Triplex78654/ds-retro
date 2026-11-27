@@ -111,19 +111,20 @@
     <p class="mentions">Rétro est distribué sous licence GPL-3.0. Aucun jeu, BIOS ni firmware n'est fourni : utilise uniquement des copies de jeux que tu possèdes. Les noms de consoles sont des marques de leurs propriétaires.</p>
   </div>
 </footer>
+<script src="../app/pages/consoles-dessins.js"></script>
 <script>
   // Consoles compatibles (dessin du support comme dans l'appli).
   const CONSOLES = [
-    ["DS, GBA, Game Boy", "Dans Rétro", "DS", "carte", 220], ["NES", "Dans Rétro", "NES", "cartouche", 0], ["Super Nintendo", "Dans Rétro", "SNES", "cartouche", 265],
-    ["Nintendo 64", "Dans Rétro", "N64", "cartouche", 140], ["PlayStation", "Dans Rétro", "PS1", "disque", 210], ["3DS", "avec Azahar", "3DS", "carte", 350],
-    ["Switch", "avec Eden", "NX", "carte", 355], ["PSP", "avec PPSSPP", "PSP", "umd", 200], ["PlayStation 2", "avec PCSX2", "PS2", "boitier", 230], ["PlayStation 3", "avec RPCS3", "PS3", "boitier", 0],
+    ["DS, GBA, Game Boy", "Dans Rétro", "ds", 220], ["NES", "Dans Rétro", "nes", 0], ["Super Nintendo", "Dans Rétro", "snes", 265],
+    ["Nintendo 64", "Dans Rétro", "n64", 140], ["PlayStation", "Dans Rétro", "psx", 210], ["3DS", "avec Azahar", "3ds", 350],
+    ["Switch", "avec Eden", "switch", 355], ["PSP", "avec PPSSPP", "psp", 200], ["PlayStation 2", "avec PCSX2", "ps2", 230], ["PlayStation 3", "avec RPCS3", "ps3", 0],
   ];
   const liste = document.getElementById("liste-consoles");
-  for (const [nom, detail, sigle, support, h] of CONSOLES) {
-    const a = document.createElement("article"); a.className = "panneau console-site"; a.style.setProperty("--h", h); a.style.setProperty("--t", h);
-    a.innerHTML = '<div class="visuel"><span class="media"><span class="etiquette"></span></span></div><div class="texte"><strong></strong><small></small></div>';
-    a.querySelector(".visuel").dataset.support = support;
-    a.querySelector(".etiquette").textContent = sigle; a.querySelector("strong").textContent = nom; a.querySelector("small").textContent = detail;
+  for (const [nom, detail, id, h] of CONSOLES) {
+    const a = document.createElement("article"); a.className = "panneau console-site"; a.style.setProperty("--h", h);
+    a.innerHTML = '<div class="visuel"></div><div class="texte"><strong></strong><small></small></div>';
+    a.querySelector(".visuel").innerHTML = RetroDessins.console(id); // SVG fixe de consoles-dessins.js
+    a.querySelector("strong").textContent = nom; a.querySelector("small").textContent = detail;
     liste.appendChild(a);
   }
 </script>

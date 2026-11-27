@@ -48,8 +48,8 @@
   .console[aria-disabled="true"] { cursor: default; opacity: .5; }
   .console[aria-disabled="true"]:hover { translate: none; box-shadow: none; border-color: var(--bord); }
   .visuel { position: relative; display: grid; place-items: end center; overflow: hidden; background: radial-gradient(120% 90% at 50% 100%, hsl(var(--h) 50% 28%), hsl(var(--h) 35% 11%) 70%); }
-  .visuel .etiquette { font-size: 20px; }
-  .visuel::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 9px; background: linear-gradient(#3a3227, #241e17); }
+  .visuel svg { width: 82%; height: 122px; margin-bottom: 8px; filter: drop-shadow(0 10px 12px rgb(0 0 0 / .5)); transition: transform .25s var(--courbe); }
+  @media (prefers-reduced-motion: no-preference) { :root[data-animations="oui"] .console:is(:hover, :focus-visible) .visuel svg { transform: translateY(-4px) scale(1.04); } }
   .infos { padding: 13px 15px 15px; display: grid; gap: 3px; }
   .infos strong { font-size: 16px; }
   .infos small { color: var(--texte-2); font-size: 12.5px; }
@@ -124,6 +124,7 @@
   <span class="maj"><span id="version"></span> <button type="button" class="btn" id="maj" hidden>Chercher une mise à jour</button></span>
 </footer>
 <script src="jeux.js"></script>
+<script src="consoles-dessins.js"></script>
 <script>
 (function () {
   "use strict";
@@ -137,9 +138,8 @@
     const b = document.createElement("button");
     b.type = "button"; b.className = "console apparait";
     b.style.setProperty("--h", c.h); b.style.setProperty("--t", c.h); b.style.setProperty("--i", i);
-    b.innerHTML = '<div class="visuel"><span class="media"><span class="etiquette"></span></span></div><div class="infos"><strong></strong><small class="detail"></small><small class="emu"></small></div><span class="badge"></span>';
-    b.querySelector(".visuel").dataset.support = c.support;
-    b.querySelector(".etiquette").textContent = c.sigle;
+    b.innerHTML = '<div class="visuel"></div><div class="infos"><strong></strong><small class="detail"></small><small class="emu"></small></div><span class="badge"></span>';
+    b.querySelector(".visuel").innerHTML = RetroDessins.console(c.id); // SVG fixe de consoles-dessins.js
     b.querySelector("strong").textContent = c.nom;
     b.querySelector(".detail").textContent = c.detail || (c.externe ? "avec " + c.externe : "jeux dans l'appli") + (c.annee ? " · " + c.annee : "");
     const badge = b.querySelector(".badge");
