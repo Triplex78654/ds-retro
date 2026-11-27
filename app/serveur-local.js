@@ -12,7 +12,9 @@ const TYPES = {
   ".wasm": "application/wasm", ".data": "application/octet-stream", ".txt": "text/plain; charset=utf-8",
 };
 
-function demarrer({ dossier, port, api }) {
+// dossiers : { nes: "C:\\Users\\…\\Documents\\Rétro\\NES", … } — les jeux posés là apparaissent dans le catalogue.
+function demarrer({ dossier, port, api, dossiers = {} }) {
+  const hoteAttendu = "127.0.0.1:" + port;
   const cibleApi = new URL(api);                  // ex. https://ds-retro-serveur.….workers.dev/api
   const securise = cibleApi.protocol === "https:";
   const portApi = Number(cibleApi.port) || (securise ? 443 : 80);
@@ -20,6 +22,31 @@ function demarrer({ dossier, port, api }) {
   const versApi = url => cheminApi + url.replace(/^\/\.proxy\/api/, "");
 
   const serveur = http.createServer((req, res) => {
+    // Seulement l'appli elle-même (bloque un site web qui viserait ce serveur par une autre adresse).
+    if (req.headers.host !== hoteAttendu) { res.writeHead(403); return res.end(); }
+    // Dossier de jeux d'une console : liste, puis fichiers
+    const dj = req.url.match(/^\/jeux-pc\/([a-z0-9]+)\/([^?]*)/);
+    if (dj) {
+      const racineJeux = dossiers[dj[1]];
+      if (!racineJeux) { res.writeHead(404); return res.end(); }
+      const nom = decodeURIComponent(dj[2]);
+      if (!nom) {
+        return fs.readdir(racineJeux, { withFileTypes: true }, (e, liste) => {
+          const fichiers = e ? [] : liste.filter(f => f.isFile()).map(f => {
+            try { const st = fs.statSync(path.join(racineJeux, f.name)); return { nom: f.name, taille: st.size, maj: st.mtimeMs }; } catch (x) { return null; }
+          }).filter(Boolean);
+          res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+          res.end(JSON.stringify(fichiers));
+        });
+      }
+      const fichier = path.join(racineJeux, nom);
+      if (nom.includes("/") || nom.includes("\\") || path.dirname(fichier) !== path.resolve(racineJeux)) { res.writeHead(403); return res.end(); }
+      return fs.stat(fichier, (e, st) => {
+        if (e || !st.isFile()) { res.writeHead(404); return res.end(); }
+        res.writeHead(200, { "Content-Type": "application/octet-stream", "Content-Length": st.size, "Cache-Control": "no-cache" });
+        fs.createReadStream(fichier).pipe(res);
+      });
+    }
     // API : relayée telle quelle
     if (req.url.startsWith("/.proxy/api")) {
       const module = securise ? require("node:https") : http;
@@ -46,6 +73,7 @@ function demarrer({ dossier, port, api }) {
   // WebSocket du salon : on recopie la demande vers le serveur puis on relie les deux connexions
   serveur.on("upgrade", (req, client, tete) => {
     client.on("error", () => {});
+    if (req.headers.host !== hoteAttendu) return client.destroy();
     if (!req.url.startsWith("/.proxy/api")) return client.destroy();
     const distant = securise
       ? tls.connect({ host: cibleApi.hostname, port: portApi, servername: cibleApi.hostname })
@@ -73,6 +101,7 @@ module.exports = { demarrer };
 
 // Lancé seul (tests) : node serveur-local.js <dossier> <port> <api>
 if (require.main === module) {
-  const [dossier, port, api] = process.argv.slice(2);
-  demarrer({ dossier: path.resolve(dossier), port: Number(port), api }).then(() => console.log("Serveur local prêt sur " + port));
+  const [dossier, port, api, jeux] = process.argv.slice(2);
+  const dossiers = jeux ? Object.fromEntries(["ds", "nes", "snes", "n64", "psx"].map(c => [c, path.join(path.resolve(jeux), c)])) : {};
+  demarrer({ dossier: path.resolve(dossier), port: Number(port), api, dossiers }).then(() => console.log("Serveur local prêt sur " + port));
 }

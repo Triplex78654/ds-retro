@@ -20,23 +20,34 @@
   button.principal { background: hsl(var(--h) 55% 45%); border-color: transparent; }
   label.volume { display: flex; align-items: center; gap: 8px; color: var(--texte-2); font-size: 13px; }
   label.volume input { accent-color: hsl(var(--h) 65% 55%); width: 110px; }
-  main { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; min-height: 0; }
-  body.en-jeu main { grid-template-columns: 1fr; }
-  body.en-jeu .bibliotheque { display: none; }
-  .bibliotheque { border-right: 1px solid rgba(255,255,255,.06); padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
-  .bibliotheque h2 { margin: 0; font-size: 15px; color: var(--texte-2); font-weight: 600; }
-  .bibliotheque p { margin: 0; color: var(--texte-2); font-size: 13px; }
-  .jeux { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-  .jeux li { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; background: var(--panneau); border-radius: 10px; padding: 8px 8px 8px 12px; }
-  .jeux li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .jeux li button { padding: 8px 10px; }
-  .jeux li button.retirer { background: transparent; color: var(--texte-2); }
-  .jeux li button.retirer.arme { background: #b3261e; color: #fff; }
-  .scene { display: grid; place-items: center; padding: 24px; min-height: 0; background: radial-gradient(900px 500px at 50% 0%, hsl(var(--h) 30% 16%), transparent 70%); }
-  .tele { position: relative; width: min(100%, calc((100vh - 140px) * 4 / 3)); aspect-ratio: 4 / 3; background: #000; border-radius: 14px; box-shadow: 0 0 0 10px #0d0f13, 0 20px 50px rgba(0,0,0,.5); overflow: hidden; }
+  main { min-height: 0; overflow: hidden; }
+  /* Catalogue plein écran ; pendant une partie, l'écran prend toute la place */
+  .catalogue { height: 100%; overflow-y: auto; padding: 22px 28px 28px; }
+  body.en-jeu .catalogue { display: none; }
+  body:not(.en-jeu) .scene { display: none; }
+  .barre { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .barre p { margin: 0 0 0 6px; color: var(--texte-2); font-size: 13px; }
+  .grille-jeux { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+  .jeu { position: relative; }
+  .jeu > button.carte {
+    width: 100%; display: grid; grid-template-rows: 130px auto; padding: 0; overflow: hidden; text-align: left;
+    background: var(--panneau); border: 1px solid rgba(255,255,255,.06); border-radius: 12px; transition: transform .1s, border-color .1s;
+  }
+  .jeu > button.carte:hover, .jeu > button.carte:focus-visible { transform: translateY(-3px); border-color: hsl(var(--h) 65% 60%); }
+  .jaquette { display: grid; place-items: center; background: linear-gradient(160deg, hsl(var(--t) 50% 38%), hsl(var(--t) 45% 20%)); font: 600 38px/1 "Pixelify", system-ui, sans-serif; color: rgba(255,255,255,.92); text-shadow: 0 2px 0 rgba(0,0,0,.25); }
+  .carte .titre-jeu { padding: 10px 12px 12px; font-weight: 600; font-size: 14px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .carte small { display: block; color: var(--texte-2); font-weight: 400; font-size: 12px; margin-top: 2px; }
+  .jeu .retirer { position: absolute; top: 8px; right: 8px; padding: 6px 9px; font-size: 12px; background: rgba(0,0,0,.55); opacity: 0; }
+  .jeu:hover .retirer, .jeu .retirer:focus-visible, .jeu .retirer.arme { opacity: 1; }
+  .jeu .retirer.arme { background: #b3261e; }
+  .vide { color: var(--texte-2); margin-top: 28px; max-width: 560px; }
+  .vide strong { display: block; color: var(--texte); font: 600 22px/1.3 "Pixelify", system-ui, sans-serif; margin-bottom: 8px; }
+  .vide code { background: #2b303b; border-radius: 5px; padding: 2px 6px; color: var(--texte); }
+  .message { min-height: 1.4em; color: var(--texte-2); font-size: 13px; }
+  .scene { height: 100%; }
+  .scene { display: grid; place-items: center; padding: 18px; min-height: 0; background: radial-gradient(900px 500px at 50% 0%, hsl(var(--h) 30% 16%), transparent 70%); }
+  .tele { position: relative; width: min(100%, calc((100vh - 120px) * 4 / 3)); aspect-ratio: 4 / 3; background: #000; border-radius: 14px; box-shadow: 0 0 0 10px #0d0f13, 0 20px 50px rgba(0,0,0,.5); overflow: hidden; }
   #game { position: absolute; inset: 0; }
-  .ecran-vide { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--texte-2); padding: 24px; }
-  .ecran-vide strong { display: block; font: 600 30px/1.2 "Pixelify", system-ui, sans-serif; color: var(--texte); margin-bottom: 8px; }
   .aide { color: var(--texte-2); font-size: 13px; margin-top: 14px; text-align: center; }
   kbd { font: 600 12px/1 system-ui; background: #2b303b; border-radius: 5px; padding: 3px 6px; border: 1px solid rgba(255,255,255,.1); }
   .pause { position: absolute; inset: 0; background: rgba(10,12,16,.82); display: none; place-items: center; z-index: 10; }
@@ -58,26 +69,27 @@
   <button type="button" id="menu-jeu" hidden>Pause</button>
 </header>
 <main>
-  <section class="bibliotheque" aria-label="Tes jeux">
-    <h2>Tes jeux</h2>
-    <button type="button" class="principal" id="ajouter">Ajouter des jeux</button>
-    <p id="formats"></p>
-    <ul class="jeux" id="jeux"></ul>
+  <section class="catalogue" aria-label="Catalogue de jeux">
+    <div class="barre">
+      <button type="button" class="principal" id="ajouter">Ajouter des jeux</button>
+      <button type="button" id="dossier" hidden>Ouvrir mon dossier de jeux</button>
+      <p id="formats"></p>
+    </div>
     <p class="message" id="message" role="status"></p>
+    <ul class="grille-jeux" id="jeux"></ul>
   </section>
   <section class="scene">
     <div>
       <div class="tele">
         <div id="game"></div>
-        <div class="ecran-vide" id="ecran-vide"><div><strong id="titre-ecran"></strong>Choisis un jeu dans ta liste.</div></div>
         <div class="pause" role="dialog" aria-label="Pause">
           <div>
             <h2>Pause</h2>
             <button type="button" class="principal" id="reprendre">Reprendre</button>
             <button type="button" id="sauver-etat">Sauver l'état</button>
             <button type="button" id="charger-etat">Charger l'état</button>
-            <button type="button" id="quitter">Quitter le jeu</button>
-            <small>Échap pour revenir au jeu</small>
+            <button type="button" id="quitter">Retour au catalogue</button>
+            <small>Échap ou Select + Start pour revenir au jeu</small>
           </div>
         </div>
       </div>
@@ -110,8 +122,8 @@
   if (!C) { location.href = "accueil.html"; return; }
   document.title = "Rétro · " + C.nom;
   document.documentElement.style.setProperty("--h", C.h);
-  $("titre").textContent = C.nom; $("titre-ecran").textContent = C.nom;
-  $("formats").textContent = C.formats + " Tes jeux restent sur ton PC.";
+  $("titre").textContent = C.nom;
+  $("formats").textContent = C.formats;
   $("fichier").accept = C.extensions.join(",");
 
   // ---------- Stockage local (IndexedDB) ----------
@@ -128,33 +140,98 @@
   const tous = s => magasin(s, "readonly", o => o.getAll());
   const nomLisible = n => n.replace(/\.[^.]+$/, "").replace(/[_]+/g, " ");
 
-  // ---------- Bibliothèque ----------
+  // ---------- Catalogue : le dossier de jeux du PC + les jeux ajoutés à la main ----------
+  const teinte = t => { let h = 0; for (const c of t) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+  const initiales = t => nomLisible(t).split(/\s+/).filter(Boolean).slice(0, 2).map(m => m[0]).join("").toUpperCase() || "?";
+  const accepte = n => C.extensions.some(x => n.toLowerCase().endsWith(x));
+  let cheminDossier = null;
+  async function jeuxDuDossier() {
+    try {
+      const r = await fetch("jeux-pc/" + id + "/", { cache: "no-store" });
+      if (!r.ok) return [];
+      return (await r.json()).filter(f => accepte(f.nom)).map(f => ({ id: id + ":" + f.nom + "|" + f.taille, console: id, nom: f.nom, taille: f.taille, source: "pc" }));
+    } catch (e) { return []; }
+  }
   async function afficherJeux() {
-    const liste = (await tous("jeux")).filter(j => j.console === id).sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+    const ajoutes = (await tous("jeux")).filter(j => j.console === id).map(j => ({ ...j, source: "ajoute" }));
+    const pc = await jeuxDuDossier();
+    const vus = new Set(pc.map(j => j.id));
+    const liste = pc.concat(ajoutes.filter(j => !vus.has(j.id))).sort((a, b) => nomLisible(a.nom).localeCompare(nomLisible(b.nom), "fr"));
     const ul = $("jeux"); ul.innerHTML = "";
-    if (!liste.length) { const li = document.createElement("li"); li.textContent = "Aucun jeu pour l'instant."; li.style.gridTemplateColumns = "1fr"; ul.appendChild(li); return; }
+    $("message").textContent = liste.length ? liste.length + (liste.length > 1 ? " jeux" : " jeu") : "";
+    if (!liste.length) {
+      const vide = document.createElement("li"); vide.className = "vide"; vide.style.gridColumn = "1 / -1";
+      vide.innerHTML = "<strong>Aucun jeu pour l'instant</strong>";
+      const p = document.createElement("p");
+      if (cheminDossier) { p.append("Mets tes jeux dans "); const c = document.createElement("code"); c.textContent = cheminDossier; p.append(c, " : ils apparaissent ici tout seuls. Ou clique sur « Ajouter des jeux »."); }
+      else p.textContent = "Clique sur « Ajouter des jeux » pour choisir des fichiers sur ton PC.";
+      vide.appendChild(p); ul.appendChild(vide); return;
+    }
     for (const j of liste) {
-      const li = document.createElement("li");
-      const nom = document.createElement("span"); nom.textContent = nomLisible(j.nom); nom.title = j.nom;
-      const jouer = document.createElement("button"); jouer.type = "button"; jouer.textContent = "Jouer"; jouer.className = "principal";
-      jouer.addEventListener("click", () => lancer(j));
-      const retirer = document.createElement("button"); retirer.type = "button"; retirer.className = "retirer"; retirer.textContent = "×"; retirer.setAttribute("aria-label", "Retirer " + nomLisible(j.nom));
-      let arme = false;
-      retirer.addEventListener("click", async () => {
-        if (!arme) { arme = true; retirer.classList.add("arme"); retirer.textContent = "Retirer ?"; setTimeout(() => { arme = false; retirer.classList.remove("arme"); retirer.textContent = "×"; }, 3000); return; }
-        await effacer("jeux", j.id); afficherJeux();
-      });
-      li.append(nom, jouer, retirer); ul.appendChild(li);
+      const li = document.createElement("li"); li.className = "jeu";
+      const carte = document.createElement("button"); carte.type = "button"; carte.className = "carte";
+      carte.style.setProperty("--t", teinte(j.nom));
+      carte.setAttribute("aria-label", "Jouer à " + nomLisible(j.nom));
+      const jaq = document.createElement("span"); jaq.className = "jaquette"; jaq.textContent = initiales(j.nom);
+      const t = document.createElement("span"); t.className = "titre-jeu"; t.textContent = nomLisible(j.nom);
+      const sous = document.createElement("small"); sous.textContent = j.source === "pc" ? "Dans ton dossier" : "Ajouté à l'appli";
+      t.appendChild(sous);
+      carte.append(jaq, t);
+      carte.addEventListener("click", () => lancer(j));
+      li.appendChild(carte);
+      if (j.source === "ajoute") {
+        const retirer = document.createElement("button"); retirer.type = "button"; retirer.className = "retirer"; retirer.textContent = "Retirer";
+        retirer.setAttribute("aria-label", "Retirer " + nomLisible(j.nom));
+        let arme = false;
+        retirer.addEventListener("click", async () => {
+          if (!arme) { arme = true; retirer.classList.add("arme"); retirer.textContent = "Sûr ?"; setTimeout(() => { arme = false; retirer.classList.remove("arme"); retirer.textContent = "Retirer"; }, 3000); return; }
+          await effacer("jeux", j.id); afficherJeux();
+        });
+        li.appendChild(retirer);
+      }
+      ul.appendChild(li);
     }
   }
   $("ajouter").addEventListener("click", () => $("fichier").click());
   $("fichier").addEventListener("change", async e => {
-    const fichiers = [...e.target.files].filter(f => C.extensions.some(x => f.name.toLowerCase().endsWith(x)));
+    const fichiers = [...e.target.files].filter(f => accepte(f.name));
     const ignores = e.target.files.length - fichiers.length;
     for (const f of fichiers) await ecrire("jeux", { id: id + ":" + f.name + "|" + f.size, console: id, nom: f.name, taille: f.size, ajoute: Date.now(), blob: f });
     e.target.value = "";
-    $("message").textContent = (fichiers.length ? fichiers.length + (fichiers.length > 1 ? " jeux ajoutés." : " jeu ajouté.") : "") + (ignores ? " " + ignores + " fichier(s) ignoré(s) : format non reconnu pour la " + C.nom + "." : "");
-    afficherJeux();
+    await afficherJeux();
+    if (ignores) $("message").textContent += " · " + ignores + " fichier(s) ignoré(s) : format non reconnu pour la " + C.nom + ".";
+  });
+  if (window.retroApp) {
+    $("dossier").hidden = false;
+    $("dossier").addEventListener("click", () => retroApp.ouvrirDossier(id));
+    retroApp.cheminDossier(id).then(c => { cheminDossier = c; afficherJeux(); });
+    // Le dossier change pendant que l'appli est ouverte : on relit quand on revient sur la fenêtre.
+    addEventListener("focus", () => { if (!partie) afficherJeux(); });
+  }
+
+  // Navigation dans la grille au clavier et à la manette
+  function deplacer(dx, dy) {
+    const cartes = [...document.querySelectorAll(".carte")];
+    if (!cartes.length) return;
+    const actuelle = cartes.includes(document.activeElement) ? document.activeElement : null;
+    if (!actuelle) return cartes[0].focus();
+    const r = actuelle.getBoundingClientRect();
+    let meilleure = null, score = Infinity;
+    for (const c of cartes) {
+      if (c === actuelle) continue;
+      const s2 = c.getBoundingClientRect(), x = s2.left - r.left, y = s2.top - r.top;
+      if (dx && (Math.sign(x) !== dx || Math.abs(y) > r.height / 2)) continue;
+      if (dy && Math.sign(y) !== dy) continue;
+      const d = Math.abs(x) + Math.abs(y) * 2;
+      if (d < score) { score = d; meilleure = c; }
+    }
+    if (meilleure) { meilleure.focus(); meilleure.scrollIntoView({ block: "nearest" }); }
+  }
+  addEventListener("keydown", e => {
+    if (partie) return;
+    const t = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (t) { e.preventDefault(); deplacer(...t); }
+    if (e.key === "Escape" || e.key === "Backspace") location.href = "accueil.html";
   });
 
   // ---------- Volume ----------
@@ -169,11 +246,16 @@
   // ---------- Partie ----------
   let partie = null, empreinte = "";
   const empreinteDe = o => { let h = 2166136261; for (let i = 0; i < o.length; i++) h = Math.imul(h ^ o[i], 16777619); return o.length + ":" + (h >>> 0); };
-  function lancer(jeu) {
+  async function lancer(jeu) {
     if (partie) return;
+    if (!jeu.blob) {
+      $("message").textContent = "Chargement de " + nomLisible(jeu.nom) + "…";
+      try { const r = await fetch("jeux-pc/" + id + "/" + encodeURIComponent(jeu.nom)); if (!r.ok) throw new Error(r.status); jeu = { ...jeu, blob: await r.blob() }; }
+      catch (e) { $("message").textContent = "Ce jeu n'est plus dans ton dossier."; return afficherJeux(); }
+    }
     partie = jeu;
     document.body.classList.add("en-jeu");
-    $("ecran-vide").hidden = true; $("menu-jeu").hidden = false;
+    $("menu-jeu").hidden = false;
     $("game").addEventListener("contextmenu", e => { e.preventDefault(); e.stopPropagation(); }, true);
     Object.assign(window, {
       EJS_player: "#game", EJS_core: C.coeur, EJS_gameName: nomLisible(jeu.nom), EJS_gameUrl: URL.createObjectURL(jeu.blob),
@@ -231,17 +313,28 @@
   $("quitter").addEventListener("click", async () => { await sauver(); location.reload(); });
   $("accueil").addEventListener("click", async e => { if (partie) { e.preventDefault(); await sauver(); location.href = "accueil.html"; } });
 
-  // Manette : Select + Start = pause
+  // Manette : dans le catalogue, croix pour choisir, A pour jouer, B pour l'accueil ; en jeu, Select + Start = pause
+  let avant = {};
   (function boucle() {
     const m = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(Boolean);
-    if (m && partie && m.buttons[8] && m.buttons[9] && m.buttons[8].pressed && m.buttons[9].pressed) {
-      if (!boucle.avant) pause(!enPause());
-      boucle.avant = true;
-    } else boucle.avant = false;
+    if (m) {
+      const b = i => Boolean(m.buttons[i] && m.buttons[i].pressed);
+      const e = { g: b(14) || m.axes[0] < -0.6, d: b(15) || m.axes[0] > 0.6, h: b(12) || m.axes[1] < -0.6, bas: b(13) || m.axes[1] > 0.6, a: b(0), b: b(1), pause: b(8) && b(9) };
+      if (partie) { if (e.pause && !avant.pause) pause(!enPause()); }
+      else {
+        if (e.g && !avant.g) deplacer(-1, 0);
+        if (e.d && !avant.d) deplacer(1, 0);
+        if (e.h && !avant.h) deplacer(0, -1);
+        if (e.bas && !avant.bas) deplacer(0, 1);
+        if (e.a && !avant.a && document.activeElement && document.activeElement.classList.contains("carte")) document.activeElement.click();
+        if (e.b && !avant.b) location.href = "accueil.html";
+      }
+      avant = e;
+    }
     requestAnimationFrame(boucle);
   })();
 
-  afficherJeux();
+  afficherJeux().then(() => { const c = document.querySelector(".carte"); if (c) c.focus(); });
 })();
 </script>
 </body>

@@ -10,9 +10,24 @@ const ORIGINE = `http://127.0.0.1:${PORT}`;
 if (!app.requestSingleInstanceLock()) app.quit();
 
 let fenetre = null;
+// Un dossier de jeux par console, dans Documents\\Rétro : ce qui est posé là apparaît dans le catalogue.
+const NOMS_DOSSIERS = { ds: "DS", nes: "NES", snes: "Super Nintendo", n64: "Nintendo 64", psx: "PlayStation" };
+function dossiersDeJeux() {
+  const fs = require("node:fs");
+  const racine = path.join(app.getPath("documents"), "Rétro");
+  const dossiers = {};
+  for (const [c, nom] of Object.entries(NOMS_DOSSIERS)) {
+    dossiers[c] = path.join(racine, nom);
+    try { fs.mkdirSync(dossiers[c], { recursive: true }); } catch (e) {}
+  }
+  return dossiers;
+}
+let DOSSIERS = {};
+
 async function lancer() {
+  DOSSIERS = dossiersDeJeux();
   try {
-    await demarrer({ dossier: path.join(__dirname, "site"), port: PORT, api: API });
+    await demarrer({ dossier: path.join(__dirname, "site"), port: PORT, api: API, dossiers: DOSSIERS });
   } catch (e) {
     const { dialog } = require("electron");
     dialog.showErrorBox("Rétro", "Rétro est peut-être déjà ouvert (le port " + PORT + " est occupé).");
@@ -34,6 +49,8 @@ async function lancer() {
 }
 
 ipcMain.handle("version", () => app.getVersion());
+ipcMain.handle("ouvrir-dossier", (_e, c) => { if (DOSSIERS[c]) shell.openPath(DOSSIERS[c]); return DOSSIERS[c] || null; });
+ipcMain.handle("chemin-dossier", (_e, c) => DOSSIERS[c] || null);
 ipcMain.handle("plein-ecran", e => { const f = BrowserWindow.fromWebContents(e.sender); f.setFullScreen(!f.isFullScreen()); return f.isFullScreen(); });
 app.on("second-instance", () => { if (fenetre) { if (fenetre.isMinimized()) fenetre.restore(); fenetre.focus(); } });
 app.whenReady().then(lancer);

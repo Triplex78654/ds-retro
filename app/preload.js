@@ -3,4 +3,6 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("retroApp", {
   version: () => ipcRenderer.invoke("version"),
   pleinEcran: () => ipcRenderer.invoke("plein-ecran"),
+  ouvrirDossier: c => ipcRenderer.invoke("ouvrir-dossier", String(c)),
+  cheminDossier: c => ipcRenderer.invoke("chemin-dossier", String(c)),
 });
