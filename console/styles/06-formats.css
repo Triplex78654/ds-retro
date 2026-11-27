@@ -22,11 +22,13 @@
     .menu-phys { left: 50%; top: calc(var(--by) + 116px); }
     .menu-phys button { width: 26px; }
     .menu-phys span { font-size: 9px; }
-    .gravure { top: calc(var(--by) + 178px); font-size: 13px; }
+    .gravure { top: calc(var(--by) + 184px); font-size: 13px; }
+    .volume-phys { left: 50%; top: calc(var(--by) + 161px); }
+    .volume-phys span { font-size: 9px; }
   }
   /* Fenêtre minuscule (mode incrusté de Discord) */
   @media (max-height: 300px) {
-    .hp, .gravure, .menu-phys { display: none; }
+    .hp, .gravure, .menu-phys, .volume-phys { display: none; }
   }
 
   @keyframes clignote { 50% { opacity: 0; } }

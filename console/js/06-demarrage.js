@@ -58,7 +58,8 @@
     window.EJS_defaultOptions = systemeJeu === "nds" ? { desmume_screens_gap: "64", desmume_screens_layout: "top/bottom" } : {};
     window.EJS_gameID = PRESETS[presetChoisi].gameId;
     window.EJS_ready = () => setTimeout(reveler, 150);
-    window.EJS_onGameStart = () => { reveler(); restaurerSram(); setTimeout(focusJeu, 100); };
+    window.EJS_volume = volume / 100;
+    window.EJS_onGameStart = () => { reveler(); restaurerSram(); appliquerVolume(); setTimeout(focusJeu, 100); };
     // Tout se règle depuis la console : on masque les boutons et le menu clic droit d'EmulatorJS.
     window.EJS_Buttons = Object.fromEntries(["playPause", "restart", "mute", "settings", "fullscreen", "saveState", "loadState",
       "screenRecord", "gamepad", "cheat", "volumeSlider", "saveSavFiles", "loadSavFiles", "quickSave", "quickLoad", "screenshot",

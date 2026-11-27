@@ -146,3 +146,28 @@
   majHorloge();
   setInterval(majHorloge, 5000);
 
+
+  // ---------- Volume : curseur sur la coque (jeu et partie regardée), gardé sur l'appareil ----------
+  let volume = Math.min(100, Math.max(0, Number(lire("ds-retro-volume", "70"))));
+  if (!Number.isFinite(volume)) volume = 70;
+  function appliquerVolume() {
+    $("volume").value = volume;
+    $("volume").style.setProperty("--niveau", volume + "%");
+    try {
+      if (window.EJS_emulator && typeof EJS_emulator.setVolume === "function") {
+        EJS_emulator.volume = volume / 100;   // gardé par l'émulateur pour les sons à venir
+        EJS_emulator.setVolume(volume / 100);
+      }
+    } catch (e) {}
+    $("video-distante").volume = volume / 100;
+  }
+  $("volume").addEventListener("input", e => {
+    volume = Number(e.target.value);
+    ecrire("ds-retro-volume", String(volume));
+    appliquerVolume();
+  });
+  $("volume").addEventListener("change", e => {
+    bulle(volume ? "Son : " + volume + " %" : "Son coupé");
+    if (jeuActif && !menuOuvert) { e.target.blur(); focusJeu(); }
+  });
+  appliquerVolume();

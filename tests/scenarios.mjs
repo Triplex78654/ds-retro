@@ -155,6 +155,9 @@ export async function lancerScenarios({ site }) {
     const boite = await p.locator("#game").boundingBox();
     await p.mouse.click(boite.x + boite.width / 2, boite.y + boite.height * 0.8, { button: "right" });
     assert.equal(await p.evaluate(() => [...document.querySelectorAll("#game .ejs_context_menu, #game .ejs_menu_bar")].filter(e => getComputedStyle(e).display !== "none").length), 0);
+    // Curseur de volume : appliqué à l'émulateur et gardé sur l'appareil
+    await p.evaluate(() => { const v = document.getElementById("volume"); v.value = 30; v.dispatchEvent(new Event("input")); });
+    assert.equal(await p.evaluate(() => [EJS_emulator.volume, localStorage.getItem("ds-retro-volume")].join(",")), "0.3,30");
     await p.screenshot({ path: path.join(captures, "emulateur.png") });
     // État : sauvé, envoyé dans le cloud, puis rechargé sur un appareil qui ne l'a pas
     await p.evaluate(() => { ouvrirPause(); afficherOnglet("partie"); });
