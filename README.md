@@ -23,6 +23,12 @@ Site : https://triplex78654.github.io/ds-retro/
 | `tests/` | Scénarios de bout en bout, lancés par GitHub avant chaque publication (`tests/roms/` : petite ROM GBA écrite pour les tests) |
 | `emulateur/` | EmulatorJS 4.2.3 et les cœurs DS et GBA |
 | `catalogue/` | Jeux libres pour tout le monde |
+| `app/` | Appli Windows Rétro (Electron). Pages dans `app/pages/` ; thèmes dans `theme.css` / `theme.js`, données des consoles dans `jeux.js` |
+| `vitrine/` | Site officiel de Rétro (présentation, téléchargement, guides, aide) ; même identité que l'appli |
 
 Après une modification dans `console/js/`, lance `node outils-depot/assembler.mjs` pour mettre `console.js` à jour
 (les tests le vérifient). Tests en local : `cd tests && npm install && npx playwright install chromium && node lancer.mjs`.
+
+Appli : `cd app && npm ci && node --test tests/appli.test.mjs` (tests unitaires), `node tests/captures.mjs`
+(lance la vraie appli en mode démo, vérifie les parcours, prend des captures dans `app/captures/`).
+Site : `node outils-depot/verifier-vitrine.mjs` vérifie tous ses liens.
