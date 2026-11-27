@@ -36,6 +36,8 @@ const dossierDs = path.join(demo, "documents", "Rétro", "DS");
 fs.mkdirSync(dossierDs, { recursive: true });
 fs.copyFileSync(path.join(appli, "..", "catalogue", "SpaceImpaktoDS.nds"), path.join(dossierDs, "SpaceImpaktoDS.nds"));
 fs.copyFileSync(path.join(appli, "..", "tests", "roms", "test-rouge.gba"), path.join(dossierDs, "Test rouge.gba"));
+// NES : la ROM de test des tests de bout en bout, pour vérifier que les touches réglées arrivent bien au jeu.
+fs.copyFileSync(path.join(appli, "..", "tests", "roms", "test-rouge.nes"), path.join(demo, "documents", "Rétro", "NES", "Test rouge.nes"));
 
 execFileSync(process.execPath, ["preparer.mjs"], { cwd: appli, stdio: "inherit" });
 const electron = createRequire(import.meta.url)(path.join(appli, "node_modules", "electron"));
@@ -90,7 +92,7 @@ try {
   await taille(1440, 900);
   await aller("accueil.html");
   verifier(await evaluer("document.querySelectorAll('.console').length") >= 11, "l'accueil affiche les consoles");
-  verifier(await evaluer("[...document.querySelectorAll('.console .badge')].some(b => b.textContent === '5 jeux')"), "l'accueil compte les jeux NES du dossier");
+  verifier(await evaluer("[...document.querySelectorAll('.console .badge')].some(b => b.textContent === '6 jeux')"), "l'accueil compte les jeux NES du dossier");
   // Historique de démonstration : quelques lancements et favoris.
   await evaluer(`localStorage.setItem("retro-recents", JSON.stringify([
     { cle: "nes:Super Tilt Bro.nes", console: "nes", nom: "Super Tilt Bro.nes", date: Date.now() - 3e5 },
@@ -103,7 +105,7 @@ try {
   await capture("accueil");
 
   await aller("bibliotheque.html");
-  verifier(await evaluer("document.querySelectorAll('#jeux .carte').length") === 13, "la bibliothèque liste les 13 jeux (DS compris)");
+  verifier(await evaluer("document.querySelectorAll('#jeux .carte').length") === 14, "la bibliothèque liste les 14 jeux (DS compris)");
   await capture("bibliotheque");
   await evaluer("const q = document.getElementById('q'); q.value = 'demo'; q.dispatchEvent(new Event('input')); true");
   verifier(await evaluer("document.querySelectorAll('#jeux .carte').length") === 6, "la recherche filtre instantanément");
@@ -129,7 +131,7 @@ try {
   verifier(await evaluer("[...document.querySelectorAll('#grille .cart .nom')].map(n => n.textContent).sort().join(',')") === "SpaceImpaktoDS,Test rouge", "la console DS montre aussi les jeux du PC");
 
   await aller("salon.html?console=nes");
-  verifier(await evaluer("document.querySelectorAll('#jeux .carte').length") === 5, "le catalogue NES liste ses jeux");
+  verifier(await evaluer("document.querySelectorAll('#jeux .carte').length") === 6, "le catalogue NES liste ses jeux");
   await capture("console-nes");
   await aller("salon.html?console=nes&jeu=" + encodeURIComponent("Alter Ego.nes"));
   verifier(await evaluer("document.getElementById('fiche').open && document.getElementById('fiche-titre').textContent === 'Alter Ego'"), "la fiche du jeu s'ouvre depuis un lien");
@@ -142,6 +144,24 @@ try {
   await aller("salon.html?console=3ds");
   await pause(600);
   await capture("console-3ds");
+
+  // Commandes : on règle « A » de la NES sur une autre touche, puis on vérifie que le jeu la reçoit.
+  const touche = async (code, key) => { for (const type of ["keyDown", "keyUp"]) await cdp("Input.dispatchKeyEvent", { type, code, key, windowsVirtualKeyCode: key.toUpperCase().charCodeAt(0) }); };
+  await aller("reglages.html");
+  await evaluer("const d = [...document.querySelectorAll('#liste-commandes details')].find(x => x.querySelector('summary').textContent.startsWith('NES')); d.open = true; d.querySelector('[data-cle=\"a:clavier\"]').click(); true");
+  await touche("KeyP", "p");
+  verifier(JSON.parse(await evaluer("localStorage.getItem('retro-commandes')")).nes.a.clavier.join() === "KeyP", "Paramètres › Commandes enregistre la nouvelle touche");
+  await evaluer("document.querySelector('#commandes').scrollIntoView(); true");
+  await capture("parametres-commandes");
+  await aller("salon.html?console=nes&jeu=" + encodeURIComponent("Test rouge.nes"));
+  await evaluer("document.getElementById('fiche-lancer').click(); true");
+  await pause(7000);
+  await evaluer("window.__entrees = []; const gm = EJS_emulator.gameManager, s = gm.simulateInput.bind(gm); gm.simulateInput = (j, i, v) => { __entrees.push([j, i, v]); return s(j, i, v); }; true");
+  await cdp("Input.dispatchKeyEvent", { type: "keyDown", code: "KeyP", key: "p", windowsVirtualKeyCode: 80 });
+  await pause(300);
+  verifier(await evaluer("__entrees.some(([j, i, v]) => j === 0 && i === 8 && v === 1)"), "la touche réglée appuie bien sur A dans le jeu NES");
+  await cdp("Input.dispatchKeyEvent", { type: "keyUp", code: "KeyP", key: "p", windowsVirtualKeyCode: 80 });
+  await evaluer("localStorage.removeItem('retro-commandes'); true");
 
   await aller("reglages.html");
   await capture("parametres");

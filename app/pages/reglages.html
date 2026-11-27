@@ -51,6 +51,16 @@
   .commandes details { border-radius: 12px; background: var(--fond-3); border: 1px solid var(--bord); padding: 12px 16px; }
   .commandes summary { cursor: pointer; font-weight: 650; }
   .commandes p { color: var(--texte-2); line-height: 2; margin: 10px 0 0; font-size: 14px; }
+  table.touches { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+  table.touches th, table.touches td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--bord); }
+  table.touches thead th { color: var(--texte-2); font-weight: 600; font-size: 12px; }
+  table.touches tbody th { font-weight: 600; white-space: nowrap; }
+  .lien-touche { width: 100%; justify-content: flex-start; padding: 7px 10px; font-size: 13px; background: var(--fond-2); }
+  .lien-touche.modifie { border-color: var(--accent-bord); }
+  .lien-touche.attente { background: var(--accent); color: var(--sur-accent); border-color: transparent; }
+  .pied-touches { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-top: 12px; }
+  .pied-touches small { color: var(--texte-2); }
+  .pied-touches .btn { white-space: nowrap; }
   .faq details { border-top: 1px solid var(--bord); padding: 12px 0; }
   .faq summary { cursor: pointer; font-weight: 600; }
   .faq p { margin: 8px 0 0; color: var(--texte-2); }
@@ -127,7 +137,7 @@
 
     <section class="panneau" id="commandes" aria-labelledby="t-commandes">
       <h2 id="t-commandes">Commandes</h2>
-      <p class="intro">Touches du clavier et boutons de la manette pour chaque console. Pour la DS, elles se règlent dans la console DS (son menu, onglet Touches).</p>
+      <p class="intro">Change chaque touche et chaque bouton des consoles qui tournent dans Rétro. Les boutons de manette sont nommés par leur position : « Bas » = A sur Xbox, ✕ sur PlayStation, B sur Nintendo. Ça marche donc avec toutes les manettes.</p>
       <div class="commandes" id="liste-commandes"></div>
     </section>
 
@@ -168,6 +178,7 @@
   </div>
 </div>
 <script src="jeux.js"></script>
+<script src="commandes.js"></script>
 <script>
 (function () {
   "use strict";
@@ -240,12 +251,82 @@
   dessinerManettes();
 
   // ---------- Commandes ----------
+  // Consoles qui tournent dans Rétro : chaque action se règle (clavier et manette). Les autres : leur émulateur.
+  const RC = window.RetroCommandes;
+  let capture = null; // { arreter } pendant qu'on attend une touche ou un bouton
+  function tableCommandes(c, conteneur) {
+    conteneur.innerHTML = "";
+    const table = document.createElement("table"); table.className = "touches";
+    table.innerHTML = '<thead><tr><th scope="col">Action</th><th scope="col">Clavier</th><th scope="col">Manette</th></tr></thead><tbody></tbody>';
+    for (const a of RC.actions(c.id)) {
+      const tr = document.createElement("tr");
+      const th = document.createElement("th"); th.scope = "row"; th.textContent = a.nom; tr.appendChild(th);
+      for (const sorte of ["clavier", "manette"]) {
+        const td = document.createElement("td"), b = document.createElement("button");
+        b.type = "button"; b.className = "btn lien-touche" + (a.modifie ? " modifie" : "");
+        b.textContent = a[sorte].length ? a[sorte].map(v => sorte === "clavier" ? RC.nomTouche(v) : RC.NOMS_BOUTONS[v]).join(" · ") : "—";
+        b.setAttribute("aria-label", a.nom + ", " + sorte + " : " + b.textContent + ". Cliquer pour changer");
+        b.dataset.cle = a.id + ":" + sorte;
+        b.addEventListener("click", () => attendre(c, a, sorte, b, conteneur));
+        td.appendChild(b); tr.appendChild(td);
+      }
+      table.tBodies[0].appendChild(tr);
+    }
+    const pied = document.createElement("div"); pied.className = "pied-touches";
+    pied.innerHTML = '<small>Clique sur une case puis appuie sur la touche ou le bouton voulu. <kbd>Suppr</kbd> vide la case, <kbd>Échap</kbd> annule. Les sticks de la manette restent analogiques.</small>';
+    const defaut = document.createElement("button"); defaut.type = "button"; defaut.className = "btn"; defaut.textContent = "Par défaut";
+    defaut.addEventListener("click", () => { RC.parDefaut(c.id); tableCommandes(c, conteneur); });
+    pied.appendChild(defaut);
+    conteneur.append(table, pied);
+  }
+  function attendre(c, a, sorte, bouton, conteneur) {
+    if (capture) capture.arreter();
+    bouton.classList.add("attente"); bouton.textContent = sorte === "clavier" ? "Appuie sur une touche…" : "Appuie sur un bouton de la manette…";
+    const fin = valeurs => {
+      capture.arreter();
+      if (valeurs) RC.changer(c.id, a.id, sorte, valeurs);
+      tableCommandes(c, conteneur);
+      const b = conteneur.querySelector(`[data-cle="${a.id}:${sorte}"]`); if (b) b.focus(); // utile à la manette
+    };
+    if (sorte === "clavier") {
+      const touche = e => {
+        e.preventDefault(); e.stopImmediatePropagation();
+        if (e.code === "Escape") return fin(null);
+        fin(e.code === "Delete" ? [] : [e.code]);
+      };
+      addEventListener("keydown", touche, true);
+      capture = { arreter: () => { removeEventListener("keydown", touche, true); capture = null; } };
+    } else {
+      // Bouton qui vient d'être enfoncé (par rapport à l'état de départ), sur n'importe quelle manette.
+      const noms = Object.keys(RC.BOUTONS);
+      const appuyes = () => [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean)
+        .flatMap(m => noms.filter(n => m.buttons[RC.BOUTONS[n]] && m.buttons[RC.BOUTONS[n]].pressed));
+      const depart = new Set(appuyes());
+      let fini = false;
+      const echap = e => { if (e.code === "Escape" || e.code === "Delete") { e.preventDefault(); e.stopImmediatePropagation(); fin(e.code === "Delete" ? [] : null); } };
+      addEventListener("keydown", echap, true);
+      const minuteur = setTimeout(() => fin(null), 10000);
+      (function guetter() {
+        if (fini) return;
+        const nouveau = appuyes().find(n => !depart.has(n));
+        if (nouveau) return fin([nouveau]);
+        requestAnimationFrame(guetter);
+      })();
+      capture = { arreter: () => { fini = true; clearTimeout(minuteur); removeEventListener("keydown", echap, true); capture = null; } };
+    }
+  }
   for (const c of Object.values(R.CONSOLES)) {
     const d = document.createElement("details");
-    d.innerHTML = "<summary></summary><p></p>";
-    d.querySelector("summary").textContent = c.nom + (c.externe ? " · " + c.externe : "");
-    if (c.aide) d.querySelector("p").innerHTML = c.aide; // texte fixe défini dans jeux.js
-    else d.querySelector("p").textContent = "Les commandes se règlent dans " + c.externe + " (menu Paramètres › Commandes). Rétro le lance avec ses réglages par défaut.";
+    d.innerHTML = "<summary></summary><div class=\"contenu-touches\"></div>";
+    d.querySelector("summary").textContent = c.nom + (c.externe ? " · " + c.externe : RC.profils[c.id] ? " · dans Rétro" : "");
+    const zone = d.querySelector(".contenu-touches");
+    if (RC.profils[c.id]) tableCommandes(c, zone);
+    else {
+      const p = document.createElement("p");
+      if (c.aide) p.innerHTML = c.aide; // texte fixe défini dans jeux.js
+      else p.textContent = "Les commandes se règlent dans " + c.externe + " (menu Paramètres › Commandes).";
+      zone.appendChild(p);
+    }
     $("liste-commandes").appendChild(d);
   }
 
@@ -333,7 +414,7 @@
     for (const e of es) if (e.isIntersecting) liens.forEach(l => l.classList.toggle("actif", l.hash === "#" + e.target.id));
   }, { rootMargin: "-30% 0px -60% 0px" });
   document.querySelectorAll(".sections > section").forEach(s => obs.observe(s));
-  R.navigation(".sommaire a, .palette input:checked, .sections .btn, .interrupteur", { retour: () => history.length > 1 ? history.back() : (location.href = "accueil.html") });
+  R.navigation(".sommaire a, .palette input:checked, .sections .btn, .interrupteur, .commandes summary", { actif: () => !capture, retour: () => history.length > 1 ? history.back() : (location.href = "accueil.html") });
 })();
 </script>
 </body>

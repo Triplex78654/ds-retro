@@ -567,7 +567,7 @@
     window.EJS_defaultOptions = pistolet ? pistolet.options : {};
     $("game").style.cursor = pistolet ? "crosshair" : "";
     $("aide-pistolet").hidden = !pistolet;
-    $("aide-commandes").innerHTML = (C.aide || "") + (PROFIL_SOURIS[id] && !pistolet ? " Clique dans le jeu pour prendre la souris, <kbd>Échap</kbd> pour la rendre." : "");
+    $("aide-commandes").innerHTML = RetroCommandes.resume(id) + (PROFIL_SOURIS[id] && !pistolet ? " Clique dans le jeu pour prendre la souris, <kbd>Échap</kbd> pour la rendre." : "");
     if (PISTOLETS[id]) {
       $("pistolet").hidden = false;
       $("pistolet").textContent = PISTOLETS[id].nom + " à la souris : " + (pistolet ? "activé" : "désactivé");
