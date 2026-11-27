@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fr" data-animations="oui">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Télécharger Rétro pour Windows</title>
+<meta name="description" content="Télécharge Rétro pour Windows 10 et 11 : installateur ou version portable, configuration requise.">
+<link rel="icon" href="../images/icone-180.png">
+<link rel="stylesheet" href="../console/styles/00-polices.css">
+<link rel="stylesheet" href="../app/pages/theme.css">
+<link rel="stylesheet" href="vitrine.css">
+<style>
+  .choix { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 26px; }
+  .choix article { padding: 28px; display: grid; gap: 12px; align-content: start; }
+  .choix article.conseille { border-color: var(--accent-bord); box-shadow: var(--halo), var(--ombre); }
+  .choix h2 { margin: 0; font-size: 24px; }
+  .choix ul { margin: 0; padding-left: 20px; color: var(--texte-2); line-height: 1.7; }
+  .choix .btn { justify-self: start; margin-top: 6px; }
+</style>
+</head>
+<body>
+<header class="site-entete">
+  <div class="contenu">
+    <a class="logo" href="index.html">Rétro</a>
+    <nav aria-label="Navigation du site">
+      <a href="index.html">Accueil</a>
+      <a href="index.html#fonctionnalites">Fonctionnalités</a>
+      <a href="index.html#consoles">Consoles</a>
+      <a href="guides.html">Guides</a>
+      <a href="aide.html">Aide</a>
+      <a href="changelog.html">Nouveautés</a>
+    </nav>
+    <span class="espace"></span>
+    <a class="btn principal" href="telecharger.html" aria-current="page">Télécharger</a>
+  </div>
+</header>
+<main class="contenu">
+  <section style="padding-top: 56px">
+    <span class="surtitre">Téléchargement</span>
+    <h1 class="titre-page">Télécharger Rétro</h1>
+    <p class="chapeau">Gratuit, sans compte et sans publicité. Les fichiers sont publiés sur la page officielle du projet sur GitHub : télécharge Rétro uniquement depuis là.</p>
+    <div class="choix">
+      <article class="panneau conseille">
+        <span class="badge accent sans-point">Conseillé</span>
+        <h2>Installateur</h2>
+        <ul>
+          <li>Fichier <code>Retro-&lt;version&gt;-installation.exe</code> (environ 145 Mo).</li>
+          <li>Raccourci dans le menu Démarrer, dossier d'installation au choix.</li>
+          <li>Les nouvelles versions s'installent depuis l'appli.</li>
+        </ul>
+        <a class="btn principal grand" href="https://github.com/Triplex78654/ds-retro/releases/latest">Télécharger l'installateur</a>
+      </article>
+      <article class="panneau">
+        <span class="badge sans-point">Sans installation</span>
+        <h2>Version portable</h2>
+        <ul>
+          <li>Fichier <code>Retro-&lt;version&gt;-portable.exe</code> (environ 133 Mo).</li>
+          <li>Se lance directement, sans rien installer (clé USB, PC partagé).</li>
+          <li>Pour changer de version, télécharge la nouvelle à la main.</li>
+        </ul>
+        <a class="btn grand" href="https://github.com/Triplex78654/ds-retro/releases/latest">Télécharger la version portable</a>
+      </article>
+    </div>
+    <div class="encadre important" style="margin-top: 22px"><p>Rétro n'est pas encore signé numériquement : au premier lancement, Windows peut afficher « Windows a protégé votre ordinateur ». Clique sur <strong>Informations complémentaires</strong>, puis <strong>Exécuter quand même</strong>. Ne le fais que pour un fichier venu de la page officielle des versions.</p></div>
+  </section>
+
+  <section class="bloc" id="configuration">
+    <span class="surtitre">Configuration requise</span>
+    <h2>Configuration requise</h2>
+    <table>
+      <thead><tr><th scope="col">Élément</th><th scope="col">Minimum</th></tr></thead>
+      <tbody>
+        <tr><td>Système</td><td>Windows 10 ou Windows 11, 64 bits</td></tr>
+        <tr><td>Espace disque</td><td>Environ 400 Mo pour Rétro une fois installé, plus la place des émulateurs que tu utilises et de tes jeux</td></tr>
+        <tr><td>Connexion Internet</td><td>Pour télécharger un émulateur au premier jeu d'une console et pour les mises à jour. Le jeu lui-même n'en a pas besoin.</td></tr>
+        <tr><td>Manette (facultatif)</td><td>Xbox, PlayStation, Switch Pro ou toute manette reconnue par Windows</td></tr>
+      </tbody>
+    </table>
+    <p class="chapeau" style="font-size: 16px">NES, Super Nintendo, N64, PlayStation et DS fonctionnent sur la plupart des PC. 3DS, Switch, PS2 et PS3 demandent un PC plus puissant : la puissance nécessaire dépend de l'émulateur, consulte sa page officielle (liens dans <a href="aide.html#ressources">Ressources officielles</a>).</p>
+  </section>
+
+  <section class="bloc">
+    <span class="surtitre">Ensuite</span>
+    <h2>Installé ? Voici la suite</h2>
+    <div class="grille">
+      <a class="panneau fonction" href="guides.html#installation" style="text-decoration:none;color:inherit"><i aria-hidden="true">1</i><h3>Installer et lancer</h3><p>Les étapes en détail, avec l'avertissement de Windows.</p></a>
+      <a class="panneau fonction" href="guides.html#jeux" style="text-decoration:none;color:inherit"><i aria-hidden="true">2</i><h3>Ajouter tes jeux</h3><p>Où les mettre pour que Rétro les trouve.</p></a>
+      <a class="panneau fonction" href="guides.html#manettes" style="text-decoration:none;color:inherit"><i aria-hidden="true">3</i><h3>Brancher ta manette</h3><p>Tester et régler ta manette.</p></a>
+    </div>
+  </section>
+</main>
+<footer class="site-pied">
+  <div class="contenu">
+    <div class="colonnes">
+      <div><a class="logo" href="index.html">Rétro</a><p>Appli Windows libre pour lancer les jeux de tes consoles. Projet indépendant, sans lien avec Nintendo ou Sony.</p></div>
+      <div><h3>Rétro</h3><ul><li><a href="telecharger.html">Télécharger</a></li><li><a href="index.html#fonctionnalites">Fonctionnalités</a></li><li><a href="changelog.html">Nouveautés</a></li></ul></div>
+      <div><h3>Aide</h3><ul><li><a href="guides.html">Guides</a></li><li><a href="aide.html#faq">FAQ</a></li><li><a href="aide.html#depannage">Dépannage</a></li></ul></div>
+      <div><h3>Projet</h3><ul><li><a href="https://github.com/Triplex78654/ds-retro">Code source</a></li><li><a href="https://github.com/Triplex78654/ds-retro/issues">Signaler un problème</a></li><li><a href="aide.html#ressources">Ressources officielles</a></li></ul></div>
+    </div>
+    <p class="mentions">Rétro est distribué sous licence GPL-3.0. Aucun jeu, BIOS ni firmware n'est fourni : utilise uniquement des copies de jeux que tu possèdes. Les noms de consoles sont des marques de leurs propriétaires.</p>
+  </div>
+</footer>
+</body>
+</html>

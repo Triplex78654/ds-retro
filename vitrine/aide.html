@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="fr" data-animations="oui">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Aide · Rétro</title>
+<meta name="description" content="FAQ, dépannage et ressources officielles pour Rétro.">
+<link rel="icon" href="../images/icone-180.png">
+<link rel="stylesheet" href="../console/styles/00-polices.css">
+<link rel="stylesheet" href="../app/pages/theme.css">
+<link rel="stylesheet" href="vitrine.css">
+</head>
+<body>
+<header class="site-entete">
+  <div class="contenu">
+    <a class="logo" href="index.html">Rétro</a>
+    <nav aria-label="Navigation du site">
+      <a href="index.html">Accueil</a>
+      <a href="index.html#fonctionnalites">Fonctionnalités</a>
+      <a href="index.html#consoles">Consoles</a>
+      <a href="guides.html">Guides</a>
+      <a href="aide.html" aria-current="page">Aide</a>
+      <a href="changelog.html">Nouveautés</a>
+    </nav>
+    <span class="espace"></span>
+    <a class="btn principal" href="telecharger.html">Télécharger</a>
+  </div>
+</header>
+<main class="contenu page-texte">
+  <nav class="sommaire" aria-label="Sommaire de l'aide">
+    <a href="#faq">FAQ</a>
+    <a href="#depannage">Dépannage</a>
+    <a href="#ressources">Ressources officielles</a>
+    <a href="#contact">Signaler un problème</a>
+  </nav>
+  <article class="article">
+    <span class="surtitre">Assistance</span>
+    <h1 class="titre-page">Aide</h1>
+
+    <h2 id="faq">Questions fréquentes</h2>
+    <details class="question"><summary>Rétro est-il gratuit ?</summary><p>Oui. Rétro est un logiciel libre (licence GPL-3.0), sans compte, sans publicité et sans abonnement. Son code est public sur GitHub.</p></details>
+    <details class="question"><summary>Rétro fournit-il des jeux ?</summary><p>Non. Rétro lance les jeux que tu possèdes déjà. Il ne fournit aucun jeu, BIOS, clé ni firmware. Utilise des copies de tes propres jeux et consoles, ou des jeux libres (homebrew) dont l'auteur autorise la diffusion.</p></details>
+    <details class="question"><summary>Peut-on jouer dans le navigateur, sur ce site ?</summary><p>Non. Ce site présente Rétro et aide à s'en servir. Pour jouer, télécharge l'appli Windows.</p></details>
+    <details class="question"><summary>Mes jeux sont-ils envoyés quelque part ?</summary><p>Non. Tes jeux restent sur ton PC et ne sont jamais copiés : Rétro retient seulement leur emplacement. Rétro se connecte à Internet pour vérifier ses mises à jour et pour télécharger les émulateurs depuis leurs pages officielles.</p></details>
+    <details class="question"><summary>Rétro fonctionne-t-il sur Mac ou Linux ?</summary><p>Pas pour l'instant : Rétro est une appli Windows (10 et 11, 64 bits).</p></details>
+    <details class="question"><summary>Où sont mes favoris et mes réglages ?</summary><p>Sur ton PC, dans les données de Rétro. Ils sont gardés lors des mises à jour. Désinstaller Rétro peut les effacer.</p></details>
+    <details class="question"><summary>Installateur ou version portable ?</summary><p>L'installateur est conseillé : les nouvelles versions s'installent depuis l'appli. La version portable se lance sans installation, mais il faut télécharger chaque nouvelle version à la main.</p></details>
+
+    <h2 id="depannage">Dépannage</h2>
+    <h3>Windows bloque l'ouverture de Rétro</h3>
+    <p>Rétro n'est pas encore signé numériquement. Dans la fenêtre « Windows a protégé votre ordinateur », clique sur <strong>Informations complémentaires</strong> puis <strong>Exécuter quand même</strong>. Vérifie d'abord que le fichier vient de la <a href="https://github.com/Triplex78654/ds-retro/releases">page officielle des versions</a>.</p>
+    <h3>« Rétro est peut-être déjà ouvert (le port 53134 est occupé) »</h3>
+    <p>Une autre fenêtre de Rétro tourne déjà (regarde aussi la barre des tâches). Ferme-la, puis relance. Si le message reste, redémarre le PC : un autre logiciel utilise peut-être ce port.</p>
+    <h3>Un jeu n'apparaît pas</h3>
+    <ol>
+      <li>Vérifie son format dans le <a href="guides.html#jeux">tableau des formats</a>.</li>
+      <li>Ajoute son dossier dans <strong>Paramètres › Dossiers de jeux</strong>, puis clique sur <strong>Chercher maintenant</strong>.</li>
+      <li>Ou pose-le dans <code>Documents\Rétro\&lt;console&gt;</code>.</li>
+    </ol>
+    <h3>« Ce jeu n'est plus à sa place sur ton PC »</h3>
+    <p>Le fichier a été déplacé, renommé ou supprimé, ou il est sur un disque débranché. Rebranche le disque ou relance la recherche.</p>
+    <h3>Un jeu 3DS, Switch, PS2 ou PS3 ne démarre pas</h3>
+    <p>Ouvre la page de la console dans Rétro : la liste « Fichiers de ta console » indique ce qui manque (clés et firmware Switch, BIOS PS2, firmware PS3). Les jeux 3DS doivent être déchiffrés. Voir <a href="guides.html#fichiers">Fichiers de ta console</a>.</p>
+    <h3>L'émulateur ne s'installe pas</h3>
+    <p>Vérifie ta connexion Internet et réessaie avec <strong>Installer</strong> dans Paramètres › Émulateurs. Si le fichier reçu ne correspond pas à l'empreinte publiée, Rétro refuse de l'installer : réessaie plus tard.</p>
+    <h3>Ma manette ne répond pas</h3>
+    <p>Appuie sur un de ses boutons dans Rétro, puis ouvre <strong>Paramètres › Manettes</strong> : elle doit apparaître. Si elle est marquée « disposition non standard », certains boutons peuvent être décalés : essaie-la en USB, ou avec le logiciel de son fabricant.</p>
+    <h3>Le jeu rame</h3>
+    <p>Ferme les autres logiciels lourds et branche ton PC portable sur secteur. Pour 3DS, Switch, PS2 et PS3, la puissance nécessaire dépend de l'émulateur : consulte sa page officielle ci-dessous.</p>
+
+    <h2 id="ressources">Ressources officielles</h2>
+    <table>
+      <thead><tr><th scope="col">Ressource</th><th scope="col">Lien</th></tr></thead>
+      <tbody>
+        <tr><td>Rétro (code et versions)</td><td><a href="https://github.com/Triplex78654/ds-retro">github.com/Triplex78654/ds-retro</a></td></tr>
+        <tr><td>EmulatorJS (NES, SNES, N64, PlayStation, DS dans Rétro)</td><td><a href="https://github.com/EmulatorJS/EmulatorJS">github.com/EmulatorJS/EmulatorJS</a></td></tr>
+        <tr><td>Azahar (3DS)</td><td><a href="https://github.com/azahar-emu/azahar">github.com/azahar-emu/azahar</a></td></tr>
+        <tr><td>Eden (Switch)</td><td><a href="https://eden-emu.dev/">eden-emu.dev</a></td></tr>
+        <tr><td>PPSSPP (PSP)</td><td><a href="https://www.ppsspp.org/">ppsspp.org</a></td></tr>
+        <tr><td>PCSX2 (PlayStation 2)</td><td><a href="https://pcsx2.net/">pcsx2.net</a></td></tr>
+        <tr><td>RPCS3 (PlayStation 3)</td><td><a href="https://rpcs3.net/">rpcs3.net</a></td></tr>
+        <tr><td>Mise à jour système PS3 (PS3UPDAT.PUP)</td><td><a href="https://www.playstation.com/fr-fr/support/hardware/ps3/system-software/">playstation.com</a></td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="contact">Signaler un problème</h2>
+    <p>Ouvre un ticket sur <a href="https://github.com/Triplex78654/ds-retro/issues">GitHub</a> avec ta version de Rétro (en bas de l'accueil ou dans Paramètres › Mises à jour), la console, et ce que tu faisais quand le problème est arrivé. N'envoie jamais de jeux, de BIOS ni de clés.</p>
+  </article>
+</main>
+<footer class="site-pied">
+  <div class="contenu">
+    <div class="colonnes">
+      <div><a class="logo" href="index.html">Rétro</a><p>Appli Windows libre pour lancer les jeux de tes consoles. Projet indépendant, sans lien avec Nintendo ou Sony.</p></div>
+      <div><h3>Rétro</h3><ul><li><a href="telecharger.html">Télécharger</a></li><li><a href="index.html#fonctionnalites">Fonctionnalités</a></li><li><a href="changelog.html">Nouveautés</a></li></ul></div>
+      <div><h3>Aide</h3><ul><li><a href="guides.html">Guides</a></li><li><a href="aide.html#faq">FAQ</a></li><li><a href="aide.html#depannage">Dépannage</a></li></ul></div>
+      <div><h3>Projet</h3><ul><li><a href="https://github.com/Triplex78654/ds-retro">Code source</a></li><li><a href="https://github.com/Triplex78654/ds-retro/issues">Signaler un problème</a></li><li><a href="aide.html#ressources">Ressources officielles</a></li></ul></div>
+    </div>
+    <p class="mentions">Rétro est distribué sous licence GPL-3.0. Aucun jeu, BIOS ni firmware n'est fourni : utilise uniquement des copies de jeux que tu possèdes. Les noms de consoles sont des marques de leurs propriétaires.</p>
+  </div>
+</footer>
+</body>
+</html>

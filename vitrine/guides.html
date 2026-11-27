@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr" data-animations="oui">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Guides · Rétro</title>
+<meta name="description" content="Installer Rétro, ajouter ses jeux, configurer l'appli, brancher une manette et gérer les émulateurs.">
+<link rel="icon" href="../images/icone-180.png">
+<link rel="stylesheet" href="../console/styles/00-polices.css">
+<link rel="stylesheet" href="../app/pages/theme.css">
+<link rel="stylesheet" href="vitrine.css">
+</head>
+<body>
+<header class="site-entete">
+  <div class="contenu">
+    <a class="logo" href="index.html">Rétro</a>
+    <nav aria-label="Navigation du site">
+      <a href="index.html">Accueil</a>
+      <a href="index.html#fonctionnalites">Fonctionnalités</a>
+      <a href="index.html#consoles">Consoles</a>
+      <a href="guides.html" aria-current="page">Guides</a>
+      <a href="aide.html">Aide</a>
+      <a href="changelog.html">Nouveautés</a>
+    </nav>
+    <span class="espace"></span>
+    <a class="btn principal" href="telecharger.html">Télécharger</a>
+  </div>
+</header>
+<main class="contenu page-texte">
+  <nav class="sommaire" aria-label="Sommaire des guides">
+    <a href="#installation">Installation</a>
+    <a href="#jeux">Ajouter tes jeux</a>
+    <a href="#jouer">Lancer un jeu</a>
+    <a href="#configuration">Configuration</a>
+    <a href="#manettes">Manettes</a>
+    <a href="#emulateurs">Émulateurs</a>
+    <a href="#fichiers">Fichiers de ta console</a>
+  </nav>
+  <article class="article">
+    <span class="surtitre">Tutoriels</span>
+    <h1 class="titre-page">Guides</h1>
+    <p class="chapeau">De l'installation à ta première partie, en quelques minutes.</p>
+
+    <h2 id="installation">Installer Rétro</h2>
+    <ol>
+      <li>Ouvre la <a href="telecharger.html">page de téléchargement</a> et prends l'<strong>installateur</strong> (ou la version portable).</li>
+      <li>Lance le fichier téléchargé. Si Windows affiche « Windows a protégé votre ordinateur », clique sur <strong>Informations complémentaires</strong> puis <strong>Exécuter quand même</strong> : Rétro n'est pas encore signé numériquement.</li>
+      <li>Choisis le dossier d'installation, puis termine. Rétro apparaît dans le menu Démarrer.</li>
+      <li>Au premier démarrage, Rétro crée le dossier <code>Documents\Rétro</code> avec un dossier par console, et commence à chercher tes jeux.</li>
+    </ol>
+    <div class="encadre"><p>Rétro utilise un petit serveur local (adresse <code>127.0.0.1</code>, port 53134) pour afficher ses pages. Il n'est accessible que depuis ton PC et refuse les autres sites.</p></div>
+
+    <h2 id="jeux">Ajouter tes jeux</h2>
+    <p>Trois façons, au choix :</p>
+    <h3>1. Laisser Rétro chercher</h3>
+    <p>Au démarrage, puis régulièrement, Rétro fouille Téléchargements, Bureau, Documents (aussi dans OneDrive) et tes autres disques. Chaque jeu trouvé est rangé dans sa console. Rien n'est copié.</p>
+    <h3>2. Indiquer un dossier</h3>
+    <p>Dans <strong>Paramètres › Dossiers de jeux</strong> (ou sur l'accueil), clique sur <strong>Ajouter un dossier</strong>. Il sera fouillé à chaque recherche. <strong>Chercher maintenant</strong> relance la recherche tout de suite.</p>
+    <h3>3. Poser tes jeux dans Documents\Rétro</h3>
+    <p>Mets chaque jeu dans le dossier de sa console : <code>Documents\Rétro\NES</code>, <code>Documents\Rétro\PlayStation 2</code>, etc. Il apparaît tout seul.</p>
+    <table>
+      <thead><tr><th scope="col">Console</th><th scope="col">Formats reconnus</th></tr></thead>
+      <tbody>
+        <tr><td>NES</td><td>.nes, ou un .zip / .7z qui en contient un</td></tr>
+        <tr><td>Super Nintendo</td><td>.sfc, .smc, .zip, .7z</td></tr>
+        <tr><td>Nintendo 64</td><td>.z64, .n64, .v64, .zip, .7z</td></tr>
+        <tr><td>PlayStation</td><td>.chd, .pbp, ou un .zip avec le .cue et les .bin</td></tr>
+        <tr><td>3DS</td><td>.cia, .cci, .cxi, .3dsx (jeux déchiffrés)</td></tr>
+        <tr><td>Switch</td><td>.nsp, .xci</td></tr>
+        <tr><td>PSP</td><td>.iso, .cso, .chd, .pbp</td></tr>
+        <tr><td>PlayStation 2</td><td>.iso, .chd, .cso, .cue</td></tr>
+        <tr><td>PlayStation 3</td><td>dossier de jeu (avec PS3_GAME ou EBOOT.BIN), ou .iso</td></tr>
+      </tbody>
+    </table>
+    <p>Les jeux DS, GBA et Game Boy se chargent depuis la console DS de Rétro (tuile « DS, GBA et Game Boy »).</p>
+
+    <h2 id="jouer">Lancer un jeu</h2>
+    <ol>
+      <li>Sur l'accueil, choisis une <strong>console</strong> (ou ouvre la <strong>Bibliothèque</strong> pour voir tous tes jeux).</li>
+      <li>Clique sur un <strong>jeu</strong> : sa fiche s'ouvre avec ses infos, le bouton favori et ses réglages.</li>
+      <li>Clique sur <strong>Lancer le jeu</strong>.</li>
+    </ol>
+    <p>Pendant une partie dans Rétro, <kbd>Échap</kbd> (ou Select + Start à la manette) ouvre la pause : sauvegarde d'état, chargement, retour au catalogue. Les sauvegardes du jeu sont enregistrées toutes seules.</p>
+
+    <h2 id="configuration">Configurer Rétro</h2>
+    <p>Ouvre <strong>Paramètres</strong> (<kbd>Ctrl</kbd> + <kbd>,</kbd>) :</p>
+    <ul>
+      <li><strong>Apparence</strong> : six thèmes (violet, bleu, rouge, vert, orange, rose) ou ta couleur, mode sombre / clair / comme Windows, intensité des effets lumineux, animations.</li>
+      <li><strong>Affichage</strong> : taille des jaquettes, blocs de l'accueil, plein écran.</li>
+      <li><strong>Dossiers de jeux</strong>, <strong>Émulateurs</strong>, <strong>Mises à jour</strong>, <strong>Aide</strong>.</li>
+    </ul>
+    <p>Raccourcis : <kbd>Ctrl</kbd> + <kbd>1</kbd> Accueil · <kbd>Ctrl</kbd> + <kbd>2</kbd> Bibliothèque · <kbd>Ctrl</kbd> + <kbd>K</kbd> ou <kbd>/</kbd> chercher un jeu · flèches pour se déplacer · <kbd>Entrée</kbd> pour valider.</p>
+
+    <h2 id="manettes">Configurer ta manette</h2>
+    <ol>
+      <li>Branche ta manette (USB ou Bluetooth) et vérifie que Windows la reconnaît.</li>
+      <li>Dans Rétro, <strong>appuie sur un de ses boutons</strong> : Windows ne montre une manette aux applis qu'après un premier appui.</li>
+      <li>Ouvre <strong>Paramètres › Manettes</strong> : elle apparaît avec ses boutons, qui s'allument quand tu appuies.</li>
+    </ol>
+    <p>Dans les menus : croix ou stick pour choisir, <strong>A</strong> pour valider, <strong>B</strong> pour revenir. Les commandes de chaque console sont dans <strong>Paramètres › Commandes</strong>.</p>
+    <div class="encadre"><p><strong>Switch (Eden)</strong> : règle ta manette une fois dans Eden. Rétro retient ce réglage et le remet tout seul quand elle est branchée. <strong>3DS (Azahar)</strong> : si une manette est vue au lancement, tout passe par la manette.</p></div>
+
+    <h2 id="emulateurs">Gérer les émulateurs</h2>
+    <p>NES, Super Nintendo, Nintendo 64, PlayStation et DS tournent dans Rétro. Les autres consoles utilisent un émulateur Windows libre :</p>
+    <table>
+      <thead><tr><th scope="col">Console</th><th scope="col">Émulateur</th></tr></thead>
+      <tbody>
+        <tr><td>3DS</td><td>Azahar</td></tr>
+        <tr><td>Switch</td><td>Eden</td></tr>
+        <tr><td>PSP</td><td>PPSSPP</td></tr>
+        <tr><td>PlayStation 2</td><td>PCSX2</td></tr>
+        <tr><td>PlayStation 3</td><td>RPCS3</td></tr>
+      </tbody>
+    </table>
+    <p>Au premier jeu d'une de ces consoles (ou avec <strong>Installer</strong> dans Paramètres › Émulateurs), Rétro télécharge l'émulateur depuis sa page officielle et vérifie le fichier reçu quand une empreinte est publiée. <strong>Vérifier les mises à jour</strong> installe la nouvelle version en gardant tes réglages, tes fichiers système et tes sauvegardes.</p>
+    <p>Quand tu lances un jeu, Rétro se met de côté et revient quand tu fermes l'émulateur.</p>
+
+    <h2 id="fichiers">Fichiers de ta console (BIOS, clés, firmware)</h2>
+    <p>Certaines consoles ont besoin de fichiers qui viennent <strong>de ta propre console</strong>. Rétro ne les fournit pas. Sur la page de la console, la liste « Fichiers de ta console » montre ce qui manque, et un bouton les range au bon endroit.</p>
+    <ul>
+      <li><strong>Switch</strong> : clés <code>prod.keys</code> (et <code>title.keys</code> si tu l'as), et le firmware (.zip ou dossier de .nca), sortis de ta Switch.</li>
+      <li><strong>PlayStation 2</strong> : le BIOS de ta PS2.</li>
+      <li><strong>PlayStation 3</strong> : le fichier <code>PS3UPDAT.PUP</code>, la mise à jour système proposée par PlayStation sur son site officiel.</li>
+    </ul>
+    <div class="encadre important"><p>Ne télécharge jamais de jeux, BIOS, clés ou firmwares sur des sites non autorisés. Utilise des copies de tes propres jeux et consoles, ou des jeux libres (homebrew) dont l'auteur autorise la diffusion.</p></div>
+  </article>
+</main>
+<footer class="site-pied">
+  <div class="contenu">
+    <div class="colonnes">
+      <div><a class="logo" href="index.html">Rétro</a><p>Appli Windows libre pour lancer les jeux de tes consoles. Projet indépendant, sans lien avec Nintendo ou Sony.</p></div>
+      <div><h3>Rétro</h3><ul><li><a href="telecharger.html">Télécharger</a></li><li><a href="index.html#fonctionnalites">Fonctionnalités</a></li><li><a href="changelog.html">Nouveautés</a></li></ul></div>
+      <div><h3>Aide</h3><ul><li><a href="guides.html">Guides</a></li><li><a href="aide.html#faq">FAQ</a></li><li><a href="aide.html#depannage">Dépannage</a></li></ul></div>
+      <div><h3>Projet</h3><ul><li><a href="https://github.com/Triplex78654/ds-retro">Code source</a></li><li><a href="https://github.com/Triplex78654/ds-retro/issues">Signaler un problème</a></li><li><a href="aide.html#ressources">Ressources officielles</a></li></ul></div>
+    </div>
+    <p class="mentions">Rétro est distribué sous licence GPL-3.0. Aucun jeu, BIOS ni firmware n'est fourni : utilise uniquement des copies de jeux que tu possèdes. Les noms de consoles sont des marques de leurs propriétaires.</p>
+  </div>
+</footer>
+</body>
+</html>
