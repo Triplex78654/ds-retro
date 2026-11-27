@@ -53,4 +53,8 @@
   .joueur button.demande { background: var(--accent); color: var(--sur-accent); border-color: transparent; }
   .salon-vide { color: var(--encre-2); font-size: max(11px, calc(var(--u) * 8)); }
   body.spectateur #game { visibility: hidden; }
+  /* Appli Rétro pour PC : pas de Discord, donc ni salon ni catalogue partagé */
+  body.dans-app .onglet[data-onglet="salon"], body.dans-app .vues-jeux, body.dans-app .au-catalogue,
+  body.dans-app #apres-ajout .choix:not(.principal) { display: none !important; }
+  body.dans-app #apres-ajout { grid-template-columns: 1fr auto; }
   body.menu-ouvert .pastilles-spectateur { display: none; }

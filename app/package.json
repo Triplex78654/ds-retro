@@ -1,7 +1,7 @@
 {
   "name": "retro-app",
   "productName": "Rétro",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "description": "Rétro : toutes tes consoles dans une seule appli, avec ton cloud et tes potes",
   "author": "Triplex78654",
   "license": "GPL-3.0-or-later",
@@ -24,7 +24,9 @@
       "serveur-local.js",
       "preload.js",
       "site/**/*",
-      "package.json"
+      "package.json",
+      "emulateurs.js",
+      "maj.js"
     ],
     "directories": {
       "output": "dist",
@@ -46,6 +48,19 @@
     },
     "portable": {
       "artifactName": "Retro-${version}-portable.exe"
-    }
+    },
+    "asarUnpack": [
+      "node_modules/7zip-bin/**"
+    ],
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://github.com/Triplex78654/ds-retro/releases/latest/download"
+      }
+    ]
+  },
+  "dependencies": {
+    "7zip-bin": "^5.2.0",
+    "electron-updater": "^6.8.11"
   }
 }

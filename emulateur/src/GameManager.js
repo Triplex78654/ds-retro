@@ -151,6 +151,8 @@ class EJS_GameManager {
             (this.EJS.rewindEnabled ? "rewind_granularity = 6\n" : "") +
             "savefile_directory = \"/data/saves\"\n";
 
+        // Ajout ds-retro : lignes RetroArch en plus (ex. pistolet à la souris sur le port 2).
+        if (Array.isArray(window.EJS_retroarchExtra)) cfg += window.EJS_retroarchExtra.join("\n") + "\n";
         if (this.EJS.retroarchOpts && Array.isArray(this.EJS.retroarchOpts)) {
             this.EJS.retroarchOpts.forEach(option => {
                 let selected = this.EJS.preGetSetting(option.name);

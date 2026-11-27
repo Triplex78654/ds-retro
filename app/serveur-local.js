@@ -1,5 +1,5 @@
-// Petit serveur local de l'appli : il sert la console (dossier site/) et relaie /.proxy/api vers le
-// serveur Cloudflare, comme le fait le proxy de Discord pour l'Activité. La console n'a rien à changer.
+// Petit serveur local de l'appli : il sert la console (dossier site/) et les dossiers de jeux du PC.
+// Si une adresse d'API est donnée (tests), /.proxy/api y est relayé ; l'appli n'en donne pas.
 const http = require("node:http");
 const tls = require("node:tls");
 const net = require("node:net");
@@ -15,7 +15,7 @@ const TYPES = {
 // dossiers : { nes: "C:\\Users\\…\\Documents\\Rétro\\NES", … } — les jeux posés là apparaissent dans le catalogue.
 function demarrer({ dossier, port, api, dossiers = {} }) {
   const hoteAttendu = "127.0.0.1:" + port;
-  const cibleApi = new URL(api);                  // ex. https://ds-retro-serveur.….workers.dev/api
+  const cibleApi = new URL(api || "http://0.0.0.0/api");                  // ex. https://ds-retro-serveur.….workers.dev/api
   const securise = cibleApi.protocol === "https:";
   const portApi = Number(cibleApi.port) || (securise ? 443 : 80);
   const cheminApi = cibleApi.pathname.replace(/\/$/, "");
@@ -49,6 +49,7 @@ function demarrer({ dossier, port, api, dossiers = {} }) {
     }
     // API : relayée telle quelle
     if (req.url.startsWith("/.proxy/api")) {
+      if (!api) { res.writeHead(404); return res.end(); }
       const module = securise ? require("node:https") : http;
       const entetes = { ...req.headers, host: cibleApi.host };
       delete entetes.origin; delete entetes.referer;
@@ -74,7 +75,7 @@ function demarrer({ dossier, port, api, dossiers = {} }) {
   serveur.on("upgrade", (req, client, tete) => {
     client.on("error", () => {});
     if (req.headers.host !== hoteAttendu) return client.destroy();
-    if (!req.url.startsWith("/.proxy/api")) return client.destroy();
+    if (!api || !req.url.startsWith("/.proxy/api")) return client.destroy();
     const distant = securise
       ? tls.connect({ host: cibleApi.hostname, port: portApi, servername: cibleApi.hostname })
       : net.connect({ host: cibleApi.hostname, port: portApi });
@@ -102,6 +103,6 @@ module.exports = { demarrer };
 // Lancé seul (tests) : node serveur-local.js <dossier> <port> <api>
 if (require.main === module) {
   const [dossier, port, api, jeux] = process.argv.slice(2);
-  const dossiers = jeux ? Object.fromEntries(["ds", "nes", "snes", "n64", "psx"].map(c => [c, path.join(path.resolve(jeux), c)])) : {};
+  const dossiers = jeux ? Object.fromEntries(["ds", "nes", "snes", "n64", "psx", "3ds"].map(c => [c, path.join(path.resolve(jeux), c)])) : {};
   demarrer({ dossier: path.resolve(dossier), port: Number(port), api, dossiers }).then(() => console.log("Serveur local prêt sur " + port));
 }

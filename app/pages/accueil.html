@@ -42,6 +42,11 @@
   .etat { position: absolute; top: 10px; right: 10px; font: 600 11px/1 system-ui, sans-serif; padding: 5px 8px; border-radius: 99px; background: rgba(0,0,0,.45); }
   .etat.pret { background: var(--pret); color: #08140d; }
   footer { padding: 10px 40px 16px; color: var(--texte-2); font-size: 13px; display: flex; justify-content: space-between; }
+  footer .maj { display: flex; align-items: center; gap: 10px; }
+  #maj { font: 600 13px/1 system-ui, sans-serif; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); color: inherit; cursor: pointer; }
+  #maj:hover, #maj:focus-visible { background: rgba(255,255,255,.14); outline: 2px solid var(--pret); outline-offset: 2px; }
+  #maj.nouvelle { background: var(--pret); color: #08140d; border-color: transparent; }
+  #maj:disabled { opacity: .6; cursor: default; }
   @media (prefers-reduced-motion: reduce) { .console { transition: none; } }
 </style>
 </head>
@@ -56,7 +61,7 @@
   <h2>Bientôt</h2>
   <div class="rangee" id="bientot"></div>
 </main>
-<footer><span>Flèches ou manette pour choisir, Entrée ou A pour lancer.</span><span id="version"></span></footer>
+<footer><span>Flèches ou manette pour choisir, Entrée ou A pour lancer.</span><span class="maj"><span id="version"></span> <button type="button" id="maj" hidden>Chercher une mise à jour</button></span></footer>
 <script>
   // Consoles de l'appli. « page » = console prête ; les autres arrivent dans les prochaines versions.
   const CONSOLES = [
@@ -65,7 +70,7 @@
     { nom: "Super Nintendo", detail: "1990", sigle: "SNES", h: 265, page: "salon.html?console=snes" },
     { nom: "Nintendo 64", detail: "1996", sigle: "N64", h: 140, page: "salon.html?console=n64" },
     { nom: "PlayStation", detail: "1994", sigle: "PS1", h: 210, page: "salon.html?console=psx" },
-    { nom: "3DS", detail: "avec Azahar", sigle: "3DS", h: 350 },
+    { nom: "3DS", detail: "avec Azahar, installé au premier jeu", sigle: "3DS", h: 350, page: "salon.html?console=3ds" },
     { nom: "GameCube et Wii", detail: "avec Dolphin", sigle: "GC", h: 255 },
     { nom: "PSP", detail: "avec PPSSPP", sigle: "PSP", h: 200 },
     { nom: "PlayStation 2", detail: "avec PCSX2", sigle: "PS2", h: 230 },
@@ -123,6 +128,36 @@
     requestAnimationFrame(boucle);
   })();
   if (window.retroApp) retroApp.version().then(v => { document.getElementById("version").textContent = "Rétro " + v; });
+  // Bouton de mise à jour : cherche, télécharge puis redémarre sur la nouvelle version.
+  if (window.retroApp && retroApp.majEtat) {
+    const bouton = document.getElementById("maj");
+    bouton.hidden = false;
+    const TEXTES = {
+      inconnue: ["Chercher une mise à jour"], "a-jour": ["À jour · revérifier"], recherche: ["Recherche…", true],
+      developpement: ["Mises à jour : appli installée seulement", true], portable: ["Télécharger la nouvelle version"],
+      erreur: ["Mise à jour impossible · réessayer"],
+    };
+    let etat = { phase: "inconnue" };
+    const afficher = e => {
+      etat = e;
+      let [texte, inactif] = TEXTES[e.phase] || [];
+      if (e.phase === "disponible") texte = "Mettre à jour vers " + e.nouvelle;
+      if (e.phase === "telechargement") { texte = "Téléchargement " + (e.pourcent || 0) + " %"; inactif = true; }
+      if (e.phase === "prete") texte = "Redémarrer pour passer à " + e.nouvelle;
+      bouton.textContent = texte || "Chercher une mise à jour";
+      bouton.disabled = Boolean(inactif);
+      bouton.classList.toggle("nouvelle", e.phase === "disponible" || e.phase === "prete");
+      bouton.title = e.phase === "erreur" ? e.erreur || "" : "";
+    };
+    retroApp.surMaj(afficher);
+    retroApp.majEtat().then(afficher);
+    bouton.addEventListener("click", () => {
+      if (etat.phase === "disponible") return retroApp.majTelecharger();
+      if (etat.phase === "prete") return retroApp.majInstaller();
+      if (etat.phase === "portable") return retroApp.majPage();
+      retroApp.majVerifier().then(afficher);
+    });
+  }
 </script>
 </body>
 </html>

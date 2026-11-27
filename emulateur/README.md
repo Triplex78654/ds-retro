@@ -8,4 +8,7 @@ hébergée avec la console pour ne rien charger depuis un autre site.
 - `cores/mgba-*.data` et `cores/reports/mgba.json` : paquet npm `@emulatorjs/core-mgba@4.2.3` (GBA, GB, GBC).
 - `cores/fceumm`, `snes9x`, `mupen64plus_next`, `pcsx_rearmed` : paquets npm `@emulatorjs/core-*@4.2.3` (NES, Super Nintendo, N64, PlayStation), utilisés par l'appli Rétro.
 
+Seule modification : `src/GameManager.js` ajoute les lignes de `window.EJS_retroarchExtra` à la configuration
+RetroArch (pistolet à la souris dans l'appli Rétro).
+
 Licence : GPL-3.0 (voir `LICENSE`). Pour changer de version, remplacer tout le dossier par la nouvelle version.

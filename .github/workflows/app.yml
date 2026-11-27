@@ -36,6 +36,7 @@ jobs:
           name: Retro-Windows
           path: |
             app/dist/*.exe
+            app/dist/latest.yml
           if-no-files-found: error
       - name: Publier la version
         if: startsWith(github.ref, 'refs/tags/app-v')
@@ -43,6 +44,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" app/dist/*.exe \
+          gh release create "${GITHUB_REF_NAME}" app/dist/*.exe app/dist/latest.yml app/dist/*.blockmap \
             --title "Rétro ${GITHUB_REF_NAME#app-v}" \
-            --notes "Appli Windows Rétro. Prends l'installateur (Setup) ou la version portable. Windows peut afficher un avertissement car l'appli n'est pas signée : « Informations complémentaires », puis « Exécuter quand même »."
+            --notes "Appli Windows Rétro. Prends l'installateur (Setup) ou la version portable. Avec l'installateur, les versions suivantes s'installent depuis l'appli (bouton en bas de l'accueil). Windows peut afficher un avertissement car l'appli n'est pas signée : « Informations complémentaires », puis « Exécuter quand même »."
