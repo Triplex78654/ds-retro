@@ -89,6 +89,28 @@
       <rect x="30" y="66" width="80" height="3" rx="1.5" fill="#050506"/>
       <rect x="10" y="80" width="140" height="3" fill="#2a2c32"/>
       <circle cx="132" cy="70" r="2" fill="#3fd06a"/>`),
+    // PlayStation 4 : boîtier plat en biais, deux parties (mate et brillante), barre lumineuse bleue
+    ps4: svg(`
+      <path d="M14 70 L28 40 L146 40 L132 70 Z" fill="#16171b"/>
+      <path d="M14 70 L28 40 L74 40 L60 70 Z" fill="#202127"/>
+      <path d="M60 70 L74 40" stroke="#4fa3ff" stroke-width="2.4"/>
+      <path d="M14 70 L132 70 L132 78 L14 78 Z" fill="#0d0e11"/>
+      <rect x="24" y="73" width="40" height="2" rx="1" fill="#2c2e35"/>`),
+    // Xbox : grosse boîte noire, gros rond vert (sans logo) au centre du dessus, tiroir à disque
+    xbox: svg(`
+      <rect x="14" y="30" width="132" height="54" rx="6" fill="#1b1c20"/>
+      <rect x="14" y="30" width="132" height="14" rx="6" fill="#26282e"/>
+      <circle cx="80" cy="44" r="15" fill="#1f2a1c" stroke="#5fbf3a" stroke-width="3"/>
+      <circle cx="80" cy="44" r="6" fill="#2e4a26"/>
+      <rect x="40" y="66" width="80" height="6" rx="2" fill="#0c0d10"/>
+      <circle cx="26" cy="74" r="2.4" fill="#5fbf3a"/>`),
+    // Xbox 360 : boîtier blanc légèrement creusé au milieu, voyant d'allumage en anneau
+    x360: svg(`
+      <path d="M12 34 Q12 28 18 28 L142 28 Q148 28 148 34 L148 80 Q148 86 142 86 L18 86 Q12 86 12 80 Z" fill="#e8e9ec"/>
+      <path d="M40 30 Q80 38 120 30 L120 84 Q80 76 40 84 Z" fill="#d6d7db"/>
+      <rect x="52" y="54" width="56" height="4" rx="2" fill="#a7a9ae"/>
+      <circle cx="132" cy="44" r="5" fill="#c9cace" stroke="#6ad04a" stroke-width="2"/>
+      <g fill="#b7b9be"><rect x="20" y="40" width="10" height="3" rx="1"/><rect x="20" y="46" width="10" height="3" rx="1"/></g>`),
     // GameCube : cube violet vu de dessus, couvercle rond, poignée à l'arrière
     gc: svg(`
       <rect x="54" y="6" width="52" height="12" rx="5" fill="none" stroke="#4b3f8f" stroke-width="5"/>

@@ -133,6 +133,6 @@ module.exports = { demarrer };
 // Lancé seul (tests) : node serveur-local.js <dossier> <port> <api>
 if (require.main === module) {
   const [dossier, port, api, jeux] = process.argv.slice(2);
-  const dossiers = jeux ? Object.fromEntries(["ds", "nes", "snes", "n64", "psx", "3ds", "switch", "psp", "ps2", "ps3"].map(c => [c, path.join(path.resolve(jeux), c)])) : {};
+  const dossiers = jeux ? Object.fromEntries(["ds", "nes", "snes", "n64", "psx", "3ds", "switch", "psp", "ps2", "ps3", "ps4", "xbox", "x360"].map(c => [c, path.join(path.resolve(jeux), c)])) : {};
   demarrer({ dossier: path.resolve(dossier), port: Number(port), api, dossiers }).then(() => console.log("Serveur local prêt sur " + port));
 }

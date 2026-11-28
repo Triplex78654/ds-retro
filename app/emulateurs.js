@@ -3,6 +3,7 @@
 // à côté d'eux), puis lancés avec le jeu choisi dans le catalogue.
 const { app, net } = require("electron");
 const fs = require("node:fs");
+const fsp = require("node:fs/promises");
 const path = require("node:path");
 const { spawn, execFile } = require("node:child_process");
 
@@ -52,7 +53,72 @@ const EMULATEURS = {
       firmware: { titre: "Firmware PS3", obligatoire: true, aide: "Le fichier PS3UPDAT.PUP (mise à jour système PS3, sur le site officiel PlayStation).", filtres: [{ name: "Firmware PS3", extensions: ["pup", "PUP"] }] },
     },
   },
+  // PS4 : shadPS4 (en ligne de commande depuis la 0.12). Un jeu = un dossier (CUSA…) avec eboot.bin dedans.
+  // Mode portable : un dossier « user » à côté de l'exe ; les modules système vont dans user/sys_modules.
+  ps4: {
+    nom: "shadPS4", source: () => depuisGithub("shadps4-emu/shadPS4", /^shadps4-win64-sdl-[\d.]+\.zip$/i), exe: "shadPS4.exe",
+    args: jeu => ["--fullscreen", "true", ebootDe(jeu)],
+    portable: dir => fs.mkdirSync(path.join(dir, "user", "sys_modules"), { recursive: true }),
+    systeme: {
+      modules: { titre: "Modules système PS4", obligatoire: false, aide: "Le dossier sys_modules (fichiers .sprx) sorti de ta PS4. Beaucoup de jeux en ont besoin.", filtres: [{ name: "Modules PS4", extensions: ["sprx"] }], plusieurs: true, dossierPossible: true },
+    },
+  },
+  // Xbox d'origine : xemu. Un xemu.toml à côté de l'exe = mode portable ; Rétro y écrit le chemin des fichiers système.
+  xbox: {
+    nom: "xemu", source: () => depuisGithub("xemu-project/xemu", /^xemu-[\d.]+-windows-x86_64\.zip$/i), exe: "xemu.exe",
+    args: jeu => ["-full-screen", "-dvd_path", jeu],
+    portable: dir => { if (!fs.existsSync(path.join(dir, "xemu.toml"))) fs.writeFileSync(path.join(dir, "xemu.toml"), ""); },
+    systeme: {
+      bootrom: { titre: "Boot ROM (MCPX)", obligatoire: true, aide: "mcpx_1.0.bin (512 octets), sorti de ta Xbox.", filtres: [{ name: "Boot ROM", extensions: ["bin"] }] },
+      flash: { titre: "BIOS Xbox", obligatoire: true, aide: "Le BIOS (flash) de ta Xbox : un fichier .bin de 256 Ko ou 1 Mo.", filtres: [{ name: "BIOS Xbox", extensions: ["bin", "rom"] }] },
+      disque: { titre: "Disque dur", obligatoire: true, aide: "L'image du disque dur (.qcow2 ou .img) : celle de ta Xbox, ou un disque vierge préparé comme l'explique le site de xemu.", filtres: [{ name: "Disque dur", extensions: ["qcow2", "img"] }] },
+    },
+  },
+  // Xbox 360 : Xenia Canary. portable.txt à côté de l'exe = tout reste dans son dossier. Pas de BIOS.
+  x360: {
+    nom: "Xenia Canary", source: () => depuisGithub("xenia-canary/xenia-canary-releases", /^xenia_canary_windows\.zip$/i), exe: "xenia_canary.exe",
+    args: jeu => ["--fullscreen=true", jeu],
+    portable: dir => { if (!fs.existsSync(path.join(dir, "portable.txt"))) fs.writeFileSync(path.join(dir, "portable.txt"), ""); },
+  },
 };
+
+// Jeu PS4 : on accepte le dossier du jeu (avec eboot.bin) ou le fichier eboot.bin lui-même.
+function ebootDe(jeu) {
+  try { if (fs.statSync(jeu).isFile()) return jeu; } catch (e) { return jeu; }
+  const nom = fs.readdirSync(jeu).find(n => n.toLowerCase() === "eboot.bin");
+  return nom ? path.join(jeu, nom) : jeu;
+}
+
+// xemu : réécrit la section [sys.files] de xemu.toml avec les fichiers rangés dans systeme/ (le reste est gardé).
+const XEMU = { bootrom: ["bootrom_path", "mcpx.bin"], flash: ["flashrom_path", "flash.bin"], disque: ["hdd_path", null] };
+function disqueXemu(dir) {
+  for (const n of ["hdd.qcow2", "hdd.img"]) if (fs.existsSync(path.join(dir, "systeme", n))) return n;
+  return null;
+}
+function reglerXemu(dir) {
+  const fichier = path.join(dir, "xemu.toml");
+  let texte = "";
+  try { texte = fs.readFileSync(fichier, "utf8"); } catch (e) {}
+  const lignes = texte.split(/\r?\n/);
+  const sortie = [];
+  let dansFiles = false;
+  for (const l of lignes) {
+    const section = l.match(/^\s*\[([^\]]+)\]\s*$/);
+    if (section) dansFiles = section[1].trim() === "sys.files";
+    if (dansFiles) continue;
+    sortie.push(l);
+  }
+  while (sortie.length && !sortie[sortie.length - 1].trim()) sortie.pop();
+  const valeurs = [];
+  for (const [cle, [option, nom]] of Object.entries(XEMU)) {
+    const n = cle === "disque" ? disqueXemu(dir) : nom;
+    const p = n && path.join(dir, "systeme", n);
+    // Chaîne TOML entre guillemets : \ et " des chemins Windows sont protégés.
+    if (p && fs.existsSync(p)) valeurs.push(`${option} = "${p.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`);
+  }
+  if (valeurs.length) sortie.push((sortie.length ? "\n" : "") + "[sys.files]", ...valeurs);
+  fs.writeFileSync(fichier, sortie.join("\n") + "\n");
+}
 
 async function json(url) {
   const r = await net.fetch(url, { headers: { Accept: "application/json", "User-Agent": "Retro-app" } });
@@ -164,6 +230,7 @@ async function installer(c, progression) {
     fs.mkdirSync(cible, { recursive: true });
     fs.cpSync(path.dirname(exe), cible, { recursive: true, force: true });
     e.portable(cible);
+    if (c === "xbox") reglerXemu(cible);
     fs.writeFileSync(path.join(dossier, "version.txt"), s.version || "inconnue");
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -193,6 +260,10 @@ function etatSysteme(c, exe) {
     if (c === "switch" && cle === "firmware") { const n = compter(["user", "nand", "system", "Contents", "registered"], f => /\.nca$/i.test(f)); present = n > 0; detail = n ? n + " fichiers" : ""; }
     if (c === "ps2" && cle === "bios") { const n = compter(["bios"], f => !f.startsWith(".")); present = n > 0; detail = n ? n + (n > 1 ? " fichiers" : " fichier") : ""; }
     if (c === "ps3" && cle === "firmware") { present = a(["dev_flash", "vsh", "module", "vsh.self"]); detail = present ? "installé" : ""; }
+    if (c === "ps4" && cle === "modules") { const n = compter(["user", "sys_modules"], f => /\.sprx$/i.test(f)); present = n > 0; detail = n ? n + " modules" : ""; }
+    if (c === "xbox" && cle === "bootrom") { present = a(["systeme", "mcpx.bin"]); detail = present ? "mcpx.bin" : ""; }
+    if (c === "xbox" && cle === "flash") { present = a(["systeme", "flash.bin"]); detail = present ? "flash.bin" : ""; }
+    if (c === "xbox" && cle === "disque") { const n = dir && disqueXemu(dir); present = Boolean(n); detail = n || ""; }
     r[cle] = { titre: def.titre, aide: def.aide, obligatoire: def.obligatoire, present, detail, filtres: def.filtres, plusieurs: Boolean(def.plusieurs), dossierPossible: Boolean(def.dossierPossible) };
   }
   return r;
@@ -265,6 +336,45 @@ async function importerSysteme(c, quoi, chemins, progression) {
       const p = spawn(exeDe(c), ["--installfw", chemins[0]], { cwd: dir });
       p.once("error", ko); p.once("exit", ok);
     });
+  }
+
+  if (c === "ps4" && quoi === "modules") {
+    const cible = path.join(dir, "user", "sys_modules");
+    fs.mkdirSync(cible, { recursive: true });
+    // Un dossier (sys_modules) ou des fichiers .sprx choisis un par un.
+    const sprx = [];
+    const fouiller = (d, profondeur) => {
+      if (profondeur > 3) return;
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, e.name);
+        if (e.isDirectory()) fouiller(p, profondeur + 1);
+        else if (e.isFile() && /\.sprx$/i.test(e.name)) sprx.push(p);
+      }
+    };
+    for (const p of chemins) { if (fs.statSync(p).isDirectory()) fouiller(p, 0); else if (/\.sprx$/i.test(p)) sprx.push(p); }
+    if (!sprx.length) throw new Error("Pas de modules PS4 ici : il faut des fichiers .sprx (dossier sys_modules de ta PS4)");
+    for (const p of sprx) fs.copyFileSync(p, path.join(cible, path.basename(p)));
+  }
+
+  if (c === "xbox") {
+    const p = chemins[0], taille = fs.statSync(p).size;
+    const sys = path.join(dir, "systeme");
+    fs.mkdirSync(sys, { recursive: true });
+    if (quoi === "bootrom") {
+      if (taille !== 512) throw new Error("La boot ROM MCPX fait 512 octets : ce fichier n'en est pas une");
+      fs.copyFileSync(p, path.join(sys, "mcpx.bin"));
+    }
+    if (quoi === "flash") {
+      if (![256, 512, 1024].includes(taille / 1024)) throw new Error("Un BIOS Xbox fait 256 Ko ou 1 Mo : ce fichier n'en est pas un");
+      fs.copyFileSync(p, path.join(sys, "flash.bin"));
+    }
+    if (quoi === "disque") {
+      const ext = /\.img$/i.test(p) ? "img" : "qcow2";
+      progression({ etape: "extraction", texte: "Copie du disque dur…" });
+      for (const n of ["hdd.qcow2", "hdd.img"]) fs.rmSync(path.join(sys, n), { force: true });
+      await fsp.copyFile(p, path.join(sys, "hdd." + ext));
+    }
+    reglerXemu(dir);
   }
 
   progression({ etape: "fini", texte: "C'est fait." });
@@ -370,6 +480,7 @@ async function lancer(c, cheminJeu, options = {}) {
     }
   }
   let info = null;
+  if (c === "xbox") { try { reglerXemu(path.dirname(exe)); } catch (x) { /* xemu garde ses réglages */ } }
   if (c === "ps2") {
     try { require("./pcsx2").reglerCommandes(path.dirname(exe), options.disposition); } catch (x) { /* réglages impossibles : PCSX2 garde les siens */ }
   }
@@ -394,4 +505,4 @@ async function lancer(c, cheminJeu, options = {}) {
   return code;
 }
 
-module.exports = { EMULATEURS, etat, installer, derniereVersion, importerSysteme, importerMod, retirerMod, lancer };
+module.exports = { reglerXemu, ebootDe, EMULATEURS, etat, installer, derniereVersion, importerSysteme, importerMod, retirerMod, lancer };

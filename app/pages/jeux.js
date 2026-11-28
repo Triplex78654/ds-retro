@@ -20,7 +20,11 @@
       aide: "Clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> stick · <kbd>Maj</kbd> marcher · souris caméra · clic gauche ZR · clic droit ZL · <kbd>Entrée</kbd> A · <kbd>Espace</kbd> B · <kbd>I</kbd> X · <kbd>J</kbd> Y · <kbd>A</kbd> <kbd>E</kbd> L / R · <kbd>↑↓←→</kbd> croix · <kbd>P</kbd> + · <kbd>O</kbd> − · <kbd>C</kbd> <kbd>V</kbd> clic des sticks. Manette : règle-la une fois dans Eden, l'appli la remet ensuite toute seule quand elle est branchée (appuie sur un de ses boutons ici avant de lancer)." },
     psp: { nom: "PSP", annee: 2004, sigle: "PSP", support: "umd", externe: "PPSSPP", h: 200, extensions: [".iso", ".cso", ".chd", ".pbp"], formats: "Tes jeux PSP : .iso, .cso, .chd ou .pbp." },
     ps2: { nom: "PlayStation 2", annee: 2000, sigle: "PS2", support: "dvd", externe: "PCSX2", h: 230, extensions: [".iso", ".chd", ".cso", ".zso", ".cue"], formats: "Tes jeux PS2 : .iso, .chd, .cso ou .cue (avec le BIOS de ta PS2)." },
+    xbox: { nom: "Xbox", annee: 2001, sigle: "XB", support: "dvd", externe: "xemu", h: 120, extensions: [".iso"], formats: "Tes jeux Xbox : un .iso au format xiso (avec la boot ROM, le BIOS et le disque dur de ta Xbox)." },
+    x360: { nom: "Xbox 360", annee: 2005, sigle: "360", support: "dvd", externe: "Xenia Canary", h: 100, extensions: [".iso"], formats: "Tes jeux Xbox 360 : un .iso. Aucun BIOS à ajouter." },
     ps3: { nom: "PlayStation 3", annee: 2006, sigle: "PS3", support: "bluray", externe: "RPCS3", h: 0, dossiers: true, extensions: [".iso"], formats: "Tes jeux PS3 : un dossier de jeu (avec PS3_GAME ou EBOOT.BIN dedans) ou un .iso." },
+    ps4: { nom: "PlayStation 4", annee: 2013, sigle: "PS4", support: "bluray", externe: "shadPS4", h: 215, dossiers: true, extensions: [], formats: "Tes jeux PS4 : le dossier du jeu (CUSA…, avec eboot.bin et sce_sys dedans), sorti de ta PS4. Les .pkg ne sont pas lus directement.",
+      aide: "Émulation PS4 encore jeune : seule une partie des jeux tourne bien. Regarde la liste de compatibilité de shadPS4 (github.com/shadps4-compatibility/shadps4-game-compatibility) avant de copier un gros jeu." },
   };
   for (const [id, c] of Object.entries(CONSOLES)) { c.id = id; c.page = "salon.html?console=" + encodeURIComponent(id); }
   const BIENTOT = [{ id: "gc", nom: "GameCube et Wii", sigle: "GC", support: "minidisque", h: 255, detail: "avec Dolphin" }];

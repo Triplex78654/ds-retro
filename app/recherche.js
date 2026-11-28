@@ -53,6 +53,8 @@ function consoleIso(chemin) {
     const debut = await lire(fd, 0, 0x40);
     if (debut.length >= 0x20 && debut.readUInt32BE(0x1c) === 0xc2339f3d) return "gc"; // GameCube
     if (debut.length >= 0x20 && debut.readUInt32BE(0x18) === 0x5d1c9ea3) return "gc"; // Wii
+    const xbox = await consoleXdvdfs(fd);
+    if (xbox) return xbox;
     const noms = (await racineIso(fd)) || [];
     if (noms.includes("PS3_GAME") || noms.includes("PS3_DISC.SFB")) return "ps3";
     if (noms.includes("UMD_DATA.BIN") || noms.includes("PSP_GAME")) return "psp";
@@ -77,6 +79,30 @@ async function lireFichierIso(fd, nom) {
     if (dir.toString("latin1", i + 33, i + 33 + n).replace(/;1$/, "").toUpperCase() === nom)
       return (await lire(fd, dir.readUInt32LE(i + 2) * 2048, Math.min(dir.readUInt32LE(i + 10), 4096))).toString("latin1");
     i += l;
+  }
+  return null;
+}
+
+// Disque Xbox (XDVDFS) : image « xiso » (système de fichiers au début) ou copie complète du disque
+// (système de fichiers plus loin, selon le type de disque). default.xbe = Xbox, default.xex = Xbox 360.
+const DEBUTS_XDVDFS = [0, 0x18300000, 0xfd90000, 0x2080000];
+async function consoleXdvdfs(fd) {
+  for (const base of DEBUTS_XDVDFS) {
+    const entete = await lire(fd, base + 0x10000, 28);
+    if (entete.length < 28 || entete.toString("latin1", 0, 20) !== "MICROSOFT*XBOX*MEDIA") continue;
+    const secteur = entete.readUInt32LE(20), taille = entete.readUInt32LE(24);
+    const dir = await lire(fd, base + secteur * 2048, Math.min(taille, 64 * 1024));
+    // Entrées : gauche (2) droite (2) secteur (4) taille (4) attributs (1) longueur du nom (1) nom ; alignées sur 4 octets.
+    for (let i = 0; i + 14 <= dir.length;) {
+      if (dir[i] === 0xff && dir[i + 1] === 0xff) { i = (Math.floor(i / 2048) + 1) * 2048; continue; }
+      const n = dir[i + 13];
+      if (!n) break;
+      const nom = dir.toString("latin1", i + 14, i + 14 + n).toLowerCase();
+      if (nom === "default.xex") return "x360";
+      if (nom === "default.xbe") return "xbox";
+      i += (14 + n + 3) & ~3;
+    }
+    return "x360"; // Disque Xbox sans default.xbe à la racine : en pratique un jeu 360 (Xenia dira s'il ne le lit pas).
   }
   return null;
 }
@@ -141,6 +167,13 @@ async function estJeuPs3(d, noms) {
   return noms.has("USRDIR") && noms.has("PARAM.SFO") && existe(path.join(d, "USRDIR", "EBOOT.BIN"));
 }
 
+// Un dossier de jeu PS4 (CUSA… : eboot.bin et sce_sys/param.sfo).
+async function estJeuPs4(d, noms) {
+  const bas = new Map([...noms].map(n => [n.toLowerCase(), n]));
+  if (!bas.has("eboot.bin") || !bas.has("sce_sys")) return false;
+  return existe(path.join(d, bas.get("sce_sys"), "param.sfo"));
+}
+
 // limites : au plus `dureeMax` ms et `dossiersMax` dossiers par recherche (gros disques, lecteurs lents).
 async function chercher(racines, { sept, progression = () => {}, exclure = [], dureeMax = 4 * 60 * 1000, dossiersMax = 200000 } = {}) {
   const trouves = [];
@@ -155,9 +188,13 @@ async function chercher(racines, { sept, progression = () => {}, exclure = [], d
     try { liste = await fsp.readdir(dossier, { withFileTypes: true }); } catch (e) { return; }
     // Projet de code (dépôt git) : ses fichiers de test ou copies de jeux ne sont pas ta ludothèque.
     if (profondeur > 0 && liste.some(e => e.name === ".git")) return;
-    // Ce dossier est lui-même un jeu PS3 : on le range tel quel, sans fouiller dedans.
+    // Ce dossier est lui-même un jeu PS3 ou PS4 : on le range tel quel, sans fouiller dedans.
     if (profondeur > 0 && await estJeuPs3(dossier, new Set(liste.map(e => e.name)))) {
       trouves.push({ console: "ps3", chemin: dossier, nom: path.basename(dossier), dossier: true });
+      return;
+    }
+    if (profondeur > 0 && await estJeuPs4(dossier, new Set(liste.map(e => e.name)))) {
+      trouves.push({ console: "ps4", chemin: dossier, nom: path.basename(dossier), dossier: true });
       return;
     }
     for (const e of liste) {

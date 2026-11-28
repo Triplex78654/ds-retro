@@ -39,6 +39,19 @@ function iso(fichiers) {
   });
   return b;
 }
+// Image xiso minimale (Xbox / Xbox 360) : en-tête XDVDFS au secteur 32, dossier racine au secteur 33.
+function xiso(nomExe) {
+  const b = Buffer.alloc(34 * 2048, 0xff);
+  b.fill(0, 0, 33 * 2048);
+  b.write("MICROSOFT*XBOX*MEDIA", 0x10000, "latin1"); b.writeUInt32LE(33, 0x10014); b.writeUInt32LE(2048, 0x10018);
+  let i = 33 * 2048;
+  for (const nom of ["media", nomExe]) {
+    b.writeUInt16LE(0, i); b.writeUInt16LE(0, i + 2); b.writeUInt32LE(0, i + 4); b.writeUInt32LE(0, i + 8); b[i + 12] = 0x20; b[i + 13] = nom.length;
+    b.write(nom, i + 14, "latin1");
+    i += (14 + nom.length + 3) & ~3;
+  }
+  return b;
+}
 function preparerJeux() {
   const d = path.join(tmp, "jeux"); fs.mkdirSync(path.join(d, "sous", "Mon Jeu PS3", "PS3_GAME", "USRDIR"), { recursive: true });
   fs.writeFileSync(path.join(d, "Okami.iso"), iso({ "SYSTEM.CNF": "BOOT2 = cdrom0:\\SLES_123.45;1\n" }));
@@ -51,6 +64,11 @@ function preparerJeux() {
   fs.writeFileSync(path.join(d, "Mario.nes"), "NES\x1a");
   fs.writeFileSync(path.join(d, "Zelda.nsp"), "PFS0");
   fs.writeFileSync(path.join(d, "sous", "Mon Jeu PS3", "PS3_GAME", "USRDIR", "EBOOT.BIN"), "e");
+  fs.writeFileSync(path.join(d, "Halo.iso"), xiso("default.xbe"));
+  fs.writeFileSync(path.join(d, "Gears.iso"), xiso("default.xex"));
+  fs.mkdirSync(path.join(d, "sous", "CUSA00001", "sce_sys"), { recursive: true });
+  fs.writeFileSync(path.join(d, "sous", "CUSA00001", "eboot.bin"), "e");
+  fs.writeFileSync(path.join(d, "sous", "CUSA00001", "sce_sys", "param.sfo"), "p");
   fs.writeFileSync(path.join(d, "notes.txt"), "pas un jeu");
   return d;
 }
@@ -62,6 +80,7 @@ test("la recherche range chaque jeu dans la bonne console", async () => {
   assert.deepEqual(par, {
     "Okami.iso": "ps2", "Crash.iso": "psx", "Monster Hunter.iso": "psp", "Zelda WW.iso": "gc", "Kingdom.chd": "ps2",
     "FF7.pbp": "psx", "Mario.nes": "nes", "Zelda.nsp": "switch", "Mon Jeu PS3": "ps3",
+    "Halo.iso": "xbox", "Gears.iso": "x360", "CUSA00001": "ps4",
   });
 });
 
@@ -191,4 +210,26 @@ test("PCSX2 : clavier par position (AZERTY) et toute manette, sans toucher au re
   // Sans fichier : fichier minimal avec SettingsVersion ; sans disposition : lettres QWERTY.
   fs.rmSync(f); pcsx2.reglerCommandes(dir);
   assert.match(fs.readFileSync(f, "utf8"), /SettingsVersion = 1[\s\S]*\[Pad1\][\s\S]*LUp = Keyboard\/W/);
+});
+
+test("xemu : chemins des fichiers système écrits dans xemu.toml, sans toucher au reste", () => {
+  const Module = require("node:module");
+  const charger = Module._load;
+  Module._load = function (r, ...a) { return r === "electron" ? { app: {}, net: {} } : charger.call(this, r, ...a); };
+  let emulateurs;
+  try { emulateurs = require(path.join(racine, "emulateurs.js")); } finally { Module._load = charger; }
+  const d = path.join(tmp, "xemu"); fs.mkdirSync(path.join(d, "systeme"), { recursive: true });
+  fs.writeFileSync(path.join(d, "xemu.toml"), "[general]\nshow_welcome = false\n\n[sys.files]\nbootrom_path = 'ancien'\n\n[display]\nfullscreen = true\n");
+  fs.writeFileSync(path.join(d, "systeme", "mcpx.bin"), Buffer.alloc(512));
+  fs.writeFileSync(path.join(d, "systeme", "hdd.qcow2"), "q");
+  emulateurs.reglerXemu(d);
+  const toml = fs.readFileSync(path.join(d, "xemu.toml"), "utf8");
+  assert.match(toml, /show_welcome = false/);
+  assert.match(toml, /\[display\]\nfullscreen = true/);
+  assert.doesNotMatch(toml, /ancien/);
+  assert.ok(toml.includes("bootrom_path = " + JSON.stringify(path.join(d, "systeme", "mcpx.bin"))));
+  assert.ok(toml.includes("hdd_path = " + JSON.stringify(path.join(d, "systeme", "hdd.qcow2"))));
+  assert.doesNotMatch(toml, /flashrom_path/);
+  // PS4 : le dossier du jeu donne son eboot.bin à shadPS4.
+  assert.equal(emulateurs.ebootDe(path.join(tmp, "jeux", "sous", "CUSA00001")), path.join(tmp, "jeux", "sous", "CUSA00001", "eboot.bin"));
 });

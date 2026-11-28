@@ -17,7 +17,7 @@ if (!app.requestSingleInstanceLock()) app.quit();
 let fenetre = null;
 // Un dossier de jeux par console, dans Documents\\Rétro : ce qui est posé là apparaît dans le catalogue.
 const NOMS_DOSSIERS = { ds: "DS", nes: "NES", snes: "Super Nintendo", n64: "Nintendo 64", psx: "PlayStation", "3ds": "3DS",
-  switch: "Switch", psp: "PSP", ps2: "PlayStation 2", ps3: "PlayStation 3" };
+  switch: "Switch", psp: "PSP", ps2: "PlayStation 2", ps3: "PlayStation 3", ps4: "PlayStation 4", xbox: "Xbox", x360: "Xbox 360" };
 function dossiersDeJeux() {
   const fs = require("node:fs");
   const racine = path.join(app.getPath("documents"), "Rétro");
